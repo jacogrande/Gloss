@@ -6,6 +6,7 @@ import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../src/li
 import { createLogger } from "../src/lib/logger";
 import { applyMigrations, resetDatabase } from "../src/lib/migrations";
 import { createProfileService } from "../src/services/profile-service";
+import { createSeedService } from "../src/services/seed-service";
 
 const defaultDatabaseUrl = "postgresql://gloss:gloss@127.0.0.1:54329/gloss";
 
@@ -49,6 +50,7 @@ export const createTestContext = async (): Promise<TestContext> => {
   await applyMigrations({ pool: database.pool });
 
   const profileService = createProfileService(database.db);
+  const seedService = createSeedService(database.db);
   const auth = createAuth({
     env,
     logger,
@@ -60,6 +62,7 @@ export const createTestContext = async (): Promise<TestContext> => {
     env,
     logger,
     profileService,
+    seedService,
   });
 
   return {
@@ -84,4 +87,34 @@ export const extractCookies = (response: Response): string => {
     .map((cookie) => cookie.split(";")[0]?.trim())
     .filter((cookie): cookie is string => Boolean(cookie))
     .join("; ");
+};
+
+export const signUpTestUser = async (input: {
+  app: TestContext["app"];
+  email: string;
+  env: TestContext["env"];
+  name: string;
+  password?: string;
+}): Promise<string> => {
+  const response = await input.app.request(
+    "http://127.0.0.1:8787/api/auth/sign-up/email",
+    {
+      body: JSON.stringify({
+        email: input.email,
+        name: input.name,
+        password: input.password ?? "password1234",
+      }),
+      headers: {
+        "content-type": "application/json",
+        origin: input.env.WEB_ORIGIN,
+      },
+      method: "POST",
+    },
+  );
+
+  if (response.status !== 200) {
+    throw new Error(`Failed to sign up test user ${input.email}.`);
+  }
+
+  return extractCookies(response);
 };

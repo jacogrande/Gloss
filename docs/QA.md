@@ -1,17 +1,20 @@
 # Manual QA
 
-This document describes how to run and validate the current Sprint 1 foundation locally.
+This document describes how to run and validate the current Sprint 2 MVP locally.
 
 ## Scope
 
-Sprint 1 covers:
+Sprint 2 covers:
 
 - Bun workspace setup
 - native local PostgreSQL bootstrap
 - Hono API
 - Better Auth email/password sessions
 - React SPA login and authenticated shell
-- the first smoke and test scripts
+- manual seed capture
+- personal library browsing
+- seed detail pages
+- smoke and test scripts for the capture flow
 
 This is a local-development guide. Railway deploys are covered in [docs/DEPLOYMENT.md](/Users/jackson/Code/projects/gloss/docs/DEPLOYMENT.md).
 
@@ -87,7 +90,7 @@ bun run db:stop
 
 ## Fast Validation
 
-Run the full Sprint 1 validation set:
+Run the full Sprint 2 validation set:
 
 ```bash
 bun run lint
@@ -133,19 +136,19 @@ Expected result:
 
 Expected result:
 
-- you are redirected to `/app`
+- you are redirected to `/library`
 - the authenticated shell loads
 - the shell shows the signed-in user email
-- the shell confirms the backend profile/session bootstrap worked
+- the library empty state renders
 
 ### 3. Sign Out
 
-1. From `/app`, click sign out.
+1. From `/library`, click sign out.
 
 Expected result:
 
 - you return to `/login`
-- revisiting `/app` redirects back to `/login`
+- revisiting `/library` redirects back to `/login`
 
 ### 4. Sign In With The Seeded Demo Account
 
@@ -156,18 +159,65 @@ Expected result:
 Expected result:
 
 - login succeeds
-- you land on `/app`
-- the shell renders without errors
+- you land on `/library`
+- seeded demo entries render in the library
+- at least one card shows the word `lapidary`
 
 ### 5. Reload Stability
 
-1. While signed in on `/app`, refresh the page.
+1. While signed in on `/library`, refresh the page.
 
 Expected result:
 
 - session recovery succeeds
 - the page remains authenticated
 - the `/api/me` data reloads and the page does not bounce to `/login`
+
+### 6. Manual Capture Flow
+
+1. While signed in, open `/capture`.
+2. Enter:
+   - word: `pellucid`
+   - sentence: `Her explanation was pellucid even under pressure.`
+   - source kind: `book`
+   - source title: `On Style`
+   - source author: `A. Reader`
+3. Submit the form.
+
+Expected result:
+
+- the request succeeds without a full-page reload
+- the app navigates to `/seeds/<id>`
+- the detail page shows:
+  - word `pellucid`
+  - the sentence you entered
+  - source title `On Style`
+  - source author `A. Reader`
+  - stage `new`
+
+### 7. Library Flow
+
+1. From the detail page, click back to the library.
+2. Confirm the newly created seed appears first.
+3. Change the stage filter to `new`.
+
+Expected result:
+
+- the new seed appears in the list
+- the library count remains user-scoped
+- the seed card shows the source title and sentence preview
+- filtering by `new` still includes the new seed
+
+### 8. Seed Detail Reload Stability
+
+1. Open a seed detail page at `/seeds/<id>`.
+2. Refresh the browser.
+
+Expected result:
+
+- the detail page reloads in place
+- the session remains valid
+- the captured source metadata still renders
 
 ## Manual API QA
 
@@ -197,6 +247,35 @@ Expected result:
 - HTTP `401`
 - JSON error response
 - error code `AUTH_UNAUTHORIZED`
+
+### Seed Endpoints
+
+Use a cookie jar to sign in and exercise capture, list, and detail:
+
+```bash
+curl -i -c /tmp/gloss.cookies \
+  -H 'content-type: application/json' \
+  -H 'origin: http://127.0.0.1:5173' \
+  -X POST http://127.0.0.1:8787/api/auth/sign-in/email \
+  --data '{"email":"demo@gloss.local","password":"password1234"}'
+
+curl -i -b /tmp/gloss.cookies \
+  -H 'content-type: application/json' \
+  -H 'origin: http://127.0.0.1:5173' \
+  -X POST http://127.0.0.1:8787/capture/seeds \
+  --data '{"word":"pellucid","sentence":"Her explanation was pellucid even under pressure.","source":{"kind":"book","title":"On Style"}}'
+
+curl -i -b /tmp/gloss.cookies \
+  -H 'origin: http://127.0.0.1:5173' \
+  http://127.0.0.1:8787/seeds
+```
+
+Expected result:
+
+- capture returns HTTP `201`
+- list returns HTTP `200`
+- the list payload includes the new seed
+- the list payload includes the source title when one was provided
 
 ### Authorized Session Endpoint
 

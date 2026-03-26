@@ -6,15 +6,19 @@ import type { ServerEnv } from "@gloss/shared/env";
 import type { GlossAuth } from "./lib/auth";
 import { toErrorResponse } from "./lib/http";
 import type { Logger } from "./lib/logger";
+import { registerCaptureRoutes } from "./routes/capture";
 import { registerHealthRoute } from "./routes/health";
 import { registerMeRoute } from "./routes/me";
+import { registerSeedRoutes } from "./routes/seeds";
 import type { ProfileService } from "./services/profile-service";
+import type { SeedService } from "./services/seed-service";
 
 type AppDependencies = {
   auth: GlossAuth;
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  seedService: SeedService;
 };
 
 type AppVariables = {
@@ -26,6 +30,7 @@ export const createApp = ({
   env,
   logger,
   profileService,
+  seedService,
 }: AppDependencies): Hono<{ Variables: AppVariables }> => {
   const app = new Hono<{ Variables: AppVariables }>();
 
@@ -62,6 +67,8 @@ export const createApp = ({
 
   registerHealthRoute(app, env);
   registerMeRoute(app, { auth, profileService });
+  registerCaptureRoutes(app, { auth, seedService });
+  registerSeedRoutes(app, { auth, seedService });
 
   app.notFound((context) =>
     context.json(

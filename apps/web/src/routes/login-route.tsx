@@ -23,7 +23,7 @@ export const LoginRoute = (): JSX.Element => {
   }
 
   if (session.data) {
-    return <Navigate replace to="/app" />;
+    return <Navigate replace to="/library" />;
   }
 
   return (
@@ -48,7 +48,7 @@ export const LoginRoute = (): JSX.Element => {
                   await signUpWithPassword(fields);
                 }
 
-                await navigate("/app", { replace: true });
+                await navigate("/library", { replace: true });
               } catch (error) {
                 setErrorMessage(getAuthErrorMessage(error));
               }

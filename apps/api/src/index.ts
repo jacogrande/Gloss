@@ -6,11 +6,13 @@ import { createDatabaseClient } from "./lib/db";
 import { loadServerEnvFromDotenv } from "./lib/env";
 import { createLogger } from "./lib/logger";
 import { createProfileService } from "./services/profile-service";
+import { createSeedService } from "./services/seed-service";
 
 const env = loadServerEnvFromDotenv();
 const logger = createLogger(env.LOG_LEVEL);
 const database = createDatabaseClient(env.DATABASE_URL);
 const profileService = createProfileService(database.db);
+const seedService = createSeedService(database.db);
 const auth = createAuth({
   env,
   logger,
@@ -22,6 +24,7 @@ const app = createApp({
   env,
   logger,
   profileService,
+  seedService,
 });
 
 const server = serve({

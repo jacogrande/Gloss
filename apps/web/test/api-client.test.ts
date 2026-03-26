@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchSessionSnapshot } from "../src/lib/api-client";
+import {
+  createSeed,
+  fetchSeedDetail,
+  fetchSeedList,
+  fetchSessionSnapshot,
+} from "../src/lib/api-client";
 
 describe("fetchSessionSnapshot", () => {
   it("parses the typed session payload", async () => {
@@ -71,6 +76,123 @@ describe("fetchSessionSnapshot", () => {
     ).rejects.toMatchObject({
       code: "AUTH_UNAUTHORIZED",
     });
+
+    fetchMock.mockRestore();
+  });
+
+  it("creates a seed through the typed contract", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            contexts: [],
+            createdAt: "2026-03-26T12:34:56.000Z",
+            id: "seed_123",
+            primarySentence: null,
+            source: null,
+            stage: "new",
+            updatedAt: "2026-03-26T12:34:56.000Z",
+            word: "lapidary",
+          },
+          ok: true,
+        }),
+        { status: 201 },
+      ),
+    );
+
+    const data = await createSeed("http://127.0.0.1:8787", {
+      word: "lapidary",
+    });
+
+    expect(data.id).toBe("seed_123");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/capture/seeds",
+      expect.objectContaining({
+        body: JSON.stringify({ word: "lapidary" }),
+        method: "POST",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("loads a typed seed list", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            items: [
+              {
+                createdAt: "2026-03-26T12:34:56.000Z",
+                id: "seed_123",
+                primarySentence: null,
+                source: null,
+                stage: "new",
+                updatedAt: "2026-03-26T12:34:56.000Z",
+                word: "lapidary",
+              },
+            ],
+            total: 1,
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const data = await fetchSeedList("http://127.0.0.1:8787", {
+      stage: "new",
+    });
+
+    expect(data.total).toBe(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/seeds?stage=new",
+      expect.objectContaining({
+        credentials: "include",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("loads a typed seed detail payload", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            contexts: [
+              {
+                createdAt: "2026-03-26T12:34:56.000Z",
+                id: "context_123",
+                isPrimary: true,
+                kind: "sentence",
+                text: "The prose became unexpectedly lapidary by the final chapter.",
+              },
+            ],
+            createdAt: "2026-03-26T12:34:56.000Z",
+            id: "seed_123",
+            primarySentence:
+              "The prose became unexpectedly lapidary by the final chapter.",
+            source: null,
+            stage: "new",
+            updatedAt: "2026-03-26T12:34:56.000Z",
+            word: "lapidary",
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const data = await fetchSeedDetail("http://127.0.0.1:8787", "seed_123");
+
+    expect(data.word).toBe("lapidary");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/seeds/seed_123",
+      expect.objectContaining({
+        credentials: "include",
+      }),
+    );
 
     fetchMock.mockRestore();
   });

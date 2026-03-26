@@ -1,4 +1,14 @@
-import { sessionResponseSchema } from "@gloss/shared/contracts";
+import {
+  createSeedResponseSchema,
+  listSeedsQuerySchema,
+  seedDetailResponseSchema,
+  seedListResponseSchema,
+  sessionResponseSchema,
+} from "@gloss/shared/contracts";
+import type {
+  CreateSeedInput,
+  ListSeedsQuery,
+} from "@gloss/shared/types";
 import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 
 export class ApiClientError extends Error {
@@ -11,15 +21,59 @@ export class ApiClientError extends Error {
   }
 }
 
-export const fetchSessionSnapshot = async (
+const buildUrl = (
   apiBaseUrl: string,
-): Promise<(typeof sessionResponseSchema)["_output"]["data"]> => {
-  const response = await fetch(`${apiBaseUrl}/api/me`, {
+  pathname: string,
+  query?: Record<string, string | undefined>,
+): string => {
+  const url = new URL(pathname, `${apiBaseUrl}/`);
+
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value) {
+        url.searchParams.set(key, value);
+      }
+    }
+  }
+
+  return url.toString();
+};
+
+const requestJson = async <TData>(input: {
+  apiBaseUrl: string;
+  body?: unknown;
+  method?: "GET" | "POST";
+  pathname: string;
+  query?: Record<string, string | undefined>;
+  responseSchema: {
+    parse: (value: unknown) => { data: TData };
+  };
+  signal?: AbortSignal;
+}): Promise<TData> => {
+  const requestInit: RequestInit = {
     credentials: "include",
     headers: {
       accept: "application/json",
     },
-  });
+    method: input.method ?? "GET",
+  };
+
+  if (input.body) {
+    requestInit.body = JSON.stringify(input.body);
+    requestInit.headers = {
+      ...requestInit.headers,
+      "content-type": "application/json",
+    };
+  }
+
+  if (input.signal) {
+    requestInit.signal = input.signal;
+  }
+
+  const response = await fetch(
+    buildUrl(input.apiBaseUrl, input.pathname, input.query),
+    requestInit,
+  );
   const body: unknown = await response.json();
 
   if (!response.ok) {
@@ -28,5 +82,85 @@ export const fetchSessionSnapshot = async (
     throw new ApiClientError(error.error.code, error.error.message);
   }
 
-  return sessionResponseSchema.parse(body).data;
+  return input.responseSchema.parse(body).data;
 };
+
+export const fetchSessionSnapshot = async (
+  apiBaseUrl: string,
+  signal?: AbortSignal,
+): Promise<(typeof sessionResponseSchema)["_output"]["data"]> =>
+  requestJson(
+    signal
+      ? {
+          apiBaseUrl,
+          pathname: "/api/me",
+          responseSchema: sessionResponseSchema,
+          signal,
+        }
+      : {
+          apiBaseUrl,
+          pathname: "/api/me",
+          responseSchema: sessionResponseSchema,
+        },
+  );
+
+export const createSeed = async (
+  apiBaseUrl: string,
+  input: CreateSeedInput,
+): Promise<(typeof createSeedResponseSchema)["_output"]["data"]> =>
+  requestJson({
+    apiBaseUrl,
+    body: input,
+    method: "POST",
+    pathname: "/capture/seeds",
+    responseSchema: createSeedResponseSchema,
+  });
+
+export const fetchSeedList = async (
+  apiBaseUrl: string,
+  query: ListSeedsQuery,
+  signal?: AbortSignal,
+): Promise<(typeof seedListResponseSchema)["_output"]["data"]> => {
+  const parsedQuery = listSeedsQuerySchema.parse(query);
+
+  return requestJson(
+    signal
+      ? {
+          apiBaseUrl,
+          pathname: "/seeds",
+          query: {
+            stage: parsedQuery.stage,
+          },
+          responseSchema: seedListResponseSchema,
+          signal,
+        }
+      : {
+          apiBaseUrl,
+          pathname: "/seeds",
+          query: {
+            stage: parsedQuery.stage,
+          },
+          responseSchema: seedListResponseSchema,
+        },
+  );
+};
+
+export const fetchSeedDetail = async (
+  apiBaseUrl: string,
+  seedId: string,
+  signal?: AbortSignal,
+): Promise<(typeof seedDetailResponseSchema)["_output"]["data"]> =>
+  requestJson(
+    signal
+      ? {
+          apiBaseUrl,
+          pathname: `/seeds/${seedId}`,
+          responseSchema: seedDetailResponseSchema,
+          signal,
+        }
+      : {
+          apiBaseUrl,
+          pathname: `/seeds/${seedId}`,
+          responseSchema: seedDetailResponseSchema,
+        },
+  );

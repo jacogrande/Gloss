@@ -1,10 +1,10 @@
 import type { Hono } from "hono";
 
 import { sessionDataSchema } from "@gloss/shared/contracts";
-import { unauthorizedError } from "@gloss/shared/errors";
 
 import { jsonSuccess } from "../lib/http";
 import type { GlossAuth } from "../lib/auth";
+import { requireSession } from "../lib/session";
 import type { ProfileService } from "../services/profile-service";
 
 type MeRouteDependencies = {
@@ -17,13 +17,11 @@ export const registerMeRoute = (
   dependencies: MeRouteDependencies,
 ): void => {
   app.get("/api/me", async (context) => {
-    const sessionData = await dependencies.auth.api.getSession({
+    const sessionData = await requireSession({
+      auth: dependencies.auth,
       headers: context.req.raw.headers,
+      requestId: context.get("requestId"),
     });
-
-    if (!sessionData?.session || !sessionData.user) {
-      throw unauthorizedError(context.get("requestId"));
-    }
 
     const profile = await dependencies.profileService.getProfileByUserId(
       String(sessionData.user.id),

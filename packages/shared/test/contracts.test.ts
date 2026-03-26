@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { healthResponseSchema, sessionResponseSchema } from "../src/contracts/index";
+import {
+  createSeedInputSchema,
+  healthResponseSchema,
+  seedDetailResponseSchema,
+  seedListResponseSchema,
+  sessionResponseSchema,
+} from "../src/contracts/index";
 import { apiErrorResponseSchema } from "../src/schemas/index";
 
 describe("shared contracts", () => {
@@ -54,5 +60,75 @@ describe("shared contracts", () => {
     });
 
     expect(parsed.error.code).toBe("AUTH_UNAUTHORIZED");
+  });
+
+  it("parses the create seed input contract", () => {
+    const parsed = createSeedInputSchema.parse({
+      sentence: "The prose became unexpectedly lapidary by the final chapter.",
+      source: {
+        kind: "book",
+        title: "Collected Essays",
+      },
+      word: "lapidary",
+    });
+
+    expect(parsed.source?.kind).toBe("book");
+    expect(parsed.word).toBe("lapidary");
+  });
+
+  it("parses the seed list response contract", () => {
+    const parsed = seedListResponseSchema.parse({
+      data: {
+        items: [
+          {
+            createdAt: "2026-03-26T12:34:56.000Z",
+            id: "seed_123",
+            primarySentence:
+              "The prose became unexpectedly lapidary by the final chapter.",
+            source: {
+              author: "A. Reader",
+              id: "source_123",
+              kind: "book",
+              title: "Collected Essays",
+              url: null,
+            },
+            stage: "new",
+            updatedAt: "2026-03-26T12:34:56.000Z",
+            word: "lapidary",
+          },
+        ],
+        total: 1,
+      },
+      ok: true,
+    });
+
+    expect(parsed.data.items[0]?.stage).toBe("new");
+  });
+
+  it("parses the seed detail response contract", () => {
+    const parsed = seedDetailResponseSchema.parse({
+      data: {
+        contexts: [
+          {
+            createdAt: "2026-03-26T12:34:56.000Z",
+            id: "context_123",
+            isPrimary: true,
+            kind: "sentence",
+            text: "The prose became unexpectedly lapidary by the final chapter.",
+          },
+        ],
+        createdAt: "2026-03-26T12:34:56.000Z",
+        id: "seed_123",
+        primarySentence:
+          "The prose became unexpectedly lapidary by the final chapter.",
+        source: null,
+        stage: "new",
+        updatedAt: "2026-03-26T12:34:56.000Z",
+        word: "lapidary",
+      },
+      ok: true,
+    });
+
+    expect(parsed.data.contexts[0]?.kind).toBe("sentence");
   });
 });

@@ -48,6 +48,17 @@ export const unauthorizedError = (requestId?: string): AppError =>
     ...(requestId ? { requestId } : {}),
   });
 
+export const notFoundError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "NOT_FOUND",
+    message,
+    status: 404,
+    ...(requestId ? { requestId } : {}),
+  });
+
 export const validationError = (
   message: string,
   requestId?: string,

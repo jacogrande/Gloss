@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { ZodError } from "zod";
 
 import { isAppError } from "@gloss/shared/errors";
 
@@ -52,6 +53,19 @@ export const toErrorResponse = (
         appError.requestId ?? requestId,
       ),
       status: appError.status,
+    };
+  }
+
+  if (error instanceof ZodError) {
+    return {
+      body: buildErrorBody(
+        "VALIDATION_ERROR",
+        error.issues
+          .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
+          .join("; "),
+        requestId,
+      ),
+      status: 400,
     };
   }
 
