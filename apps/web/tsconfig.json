@@ -14,11 +14,6 @@
     "src/**/*.tsx",
     "test/**/*.ts",
     "test/**/*.tsx",
-    "vite.config.ts"
-  ],
-  "references": [
-    {
-      "path": "../../packages/shared"
-    }
+    "vitest.config.ts"
   ]
 }

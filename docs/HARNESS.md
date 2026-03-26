@@ -29,7 +29,7 @@ Current working stack:
 - `Railway`: default host for the SPA, API, workers, and Postgres
 - `Better Auth`: session and user auth mounted inside the Hono API
 - `TypeScript`: required across web, API, shared types, tests, and scripts
-- `pnpm`: workspace package manager
+- `bun`: workspace package manager
 
 ## Repo Layout
 
@@ -101,52 +101,52 @@ These scripts are part of the harness and should be implemented as the repo is s
 
 ### Core Dev
 
-- `pnpm dev`
+- `bun run dev`
   Starts web and API together.
-- `pnpm dev:web`
+- `bun run dev:web`
   Starts the Vite SPA.
-- `pnpm dev:api`
+- `bun run dev:api`
   Starts the Hono API in watch mode.
-- `pnpm build`
+- `bun run build`
   Builds shared packages, web, and API.
 
 ### Quality
 
-- `pnpm lint`
+- `bun run lint`
   Lint all TS, SQL, and config files.
-- `pnpm typecheck`
+- `bun run typecheck`
   Run TS project references or workspace typechecks.
-- `pnpm test`
+- `bun run test`
   Run unit and integration tests.
-- `pnpm test:unit`
+- `bun run test:unit`
   Fast pure-logic tests.
-- `pnpm test:integration`
+- `bun run test:integration`
   API, DB, schema, and provider boundary tests.
-- `pnpm test:e2e`
+- `bun run test:e2e`
   Full Playwright suite against local services.
-- `pnpm smoke`
+- `bun run smoke`
   Short Playwright happy-path journey set.
 
 ### Data and Infra
 
-- `pnpm db:start`
-  Start local Postgres and any required local data services.
-- `pnpm db:reset`
+- `bun run db:start`
+  Start the native local Postgres cluster used for development and tests.
+- `bun run db:reset`
   Rebuild local DB and apply migrations and seeds.
-- `pnpm db:migrate`
+- `bun run db:migrate`
   Apply pending migrations.
-- `pnpm db:seed`
+- `bun run db:seed`
   Load deterministic local fixture data.
 
 ### Agent and Eval
 
-- `pnpm eval`
+- `bun run eval`
   Run the MVP eval set and summarize failures by category.
-- `pnpm eval:journeys`
+- `bun run eval:journeys`
   Run output-level evals for capture, enrichment, and review generation.
-- `pnpm eval:traces`
+- `bun run eval:traces`
   Run trace graders on stored API execution traces.
-- `pnpm fixtures:seed`
+- `bun run fixtures:seed`
   Load seed data for local smoke tests and evals.
 
 ## Task Flow
@@ -216,6 +216,7 @@ No feature is considered complete unless it satisfies all of:
 - `docs/PRODUCT.md`: build-level product brief
 - `docs/ROADMAP.md`: sprint-level build sequencing and integration choices
 - `docs/ARCHITECTURE.md`: service boundaries and data ownership
+- `docs/DEPLOYMENT.md`: Railway service layout and native local Postgres rules
 - `docs/FRONTEND.md`: UI, routing, and SPA rules
 - `docs/RELIABILITY.md`: test strategy, trace policy, and failure loop
 - `docs/SECURITY.md`: data handling and tool safety rules

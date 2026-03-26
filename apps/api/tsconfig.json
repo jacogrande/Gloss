@@ -6,12 +6,10 @@
     "rootDir": "."
   },
   "include": [
+    "auth.ts",
+    "drizzle.config.ts",
     "src/**/*.ts",
-    "test/**/*.ts"
-  ],
-  "references": [
-    {
-      "path": "../../packages/shared"
-    }
+    "test/**/*.ts",
+    "vitest.config.ts"
   ]
 }

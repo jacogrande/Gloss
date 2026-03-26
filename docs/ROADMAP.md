@@ -13,7 +13,7 @@ The order is intentional:
 ## Working Assumptions
 
 - Default stack: `Vite + React SPA + React Router 7 + Hono + Railway + Railway Postgres + Better Auth`
-- Package manager: `pnpm`
+- Package manager: `bun`
 - ORM/data layer bias: `Drizzle + node-postgres`
 - Model/API bias: `OpenAI Responses API` with `Structured Outputs`
 - Browser extension and OCR are explicitly deferred until after core MVP proof
@@ -181,7 +181,7 @@ Prove that saved seeds can become useful, structured learning objects rather tha
 - enrichment jobs complete end to end for manual captures
 - unsupported fields are omitted instead of fabricated
 - the seed detail page shows the constrained enrichment block
-- `pnpm eval:journeys` exists for the first enrichment cases
+- `bun run eval:journeys` exists for the first enrichment cases
 
 ### Explicit deferrals
 
@@ -275,8 +275,8 @@ Make the MVP trustworthy enough to hand to real users without flying blind.
 
 ### Exit criteria
 
-- `pnpm smoke` passes on the core user journeys
-- `pnpm eval` exists and gates obvious enrichment or review regressions
+- `bun run smoke` passes on the core user journeys
+- `bun run eval` exists and gates obvious enrichment or review regressions
 - logs and error codes are actionable
 - at least a few invited users can sign in, capture, review, and report issues
 

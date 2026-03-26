@@ -8,9 +8,10 @@ Start here, then go deeper only as needed.
 2. `docs/PRODUCT.md`
 3. `docs/ROADMAP.md` for sequencing and milestone context
 4. `docs/ARCHITECTURE.md`
-5. `docs/FRONTEND.md` when touching the SPA
-6. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
-7. `docs/plans/active/*.md` for any task that is already in flight
+5. `docs/DEPLOYMENT.md` when touching local DB setup, Railway, or environment wiring
+6. `docs/FRONTEND.md` when touching the SPA
+7. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
+8. `docs/plans/active/*.md` for any task that is already in flight
 
 `docs/core.md` remains the long-form source of truth for product vision and learning philosophy. The supporting docs translate that vision into build and operating rules.
 
@@ -28,19 +29,19 @@ Start here, then go deeper only as needed.
 
 Before closing work, run the smallest relevant subset of:
 
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test`
-- `pnpm test:integration`
-- `pnpm test:e2e`
-- `pnpm smoke`
-- `pnpm eval`
+- `bun run lint`
+- `bun run typecheck`
+- `bun run test`
+- `bun run test:integration`
+- `bun run smoke`
+- `bun run test:e2e` once Playwright specs exist
+- `bun run eval` once eval scripts exist
 
 If the codebase does not yet implement a script, update the relevant harness doc or plan rather than pretending the check exists.
 
 ## Decision Defaults
 
 - Stack: `Hono + React SPA + React Router 7 + Railway Postgres + Better Auth + TypeScript`
-- Package manager: `pnpm`
+- Package manager: `bun`
 - Deployment bias: Railway-hosted SPA plus API/worker deploys, not SSR by default
 - Product bias: structured capture and constrained enrichment, not open-ended tutor chat

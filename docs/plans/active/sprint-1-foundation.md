@@ -22,7 +22,7 @@ The stack for this sprint is fixed unless a concrete blocker appears:
 - `database`: Railway Postgres
 - `data layer`: Drizzle + `node-postgres`
 - `shared contracts`: `packages/shared`
-- `package manager`: `pnpm`
+- `package manager`: `bun`
 
 This sprint is about infrastructure and developer ergonomics, not feature depth. The primary product outcome is that a user can authenticate and reach an authenticated application shell backed by the real API and database.
 
@@ -55,7 +55,7 @@ Do not spend Sprint 1 on:
 
 By the end of this sprint, the repo should include:
 
-- a `pnpm` workspace with `apps/web`, `apps/api`, `packages/shared`, and `db`
+- a `bun` workspace with `apps/web`, `apps/api`, `packages/shared`, and `db`
 - TypeScript configuration for the workspace
 - lint and formatting configuration
 - initial Drizzle setup and first migrations
@@ -63,15 +63,15 @@ By the end of this sprint, the repo should include:
 - an authenticated API route and an authenticated web route
 - a basic logged-in app shell
 - local development scripts matching the harness names:
-  - `pnpm dev`
-  - `pnpm dev:web`
-  - `pnpm dev:api`
-  - `pnpm build`
-  - `pnpm lint`
-  - `pnpm typecheck`
-  - `pnpm test`
-  - `pnpm db:migrate`
-  - `pnpm db:seed`
+  - `bun run dev`
+  - `bun run dev:web`
+  - `bun run dev:api`
+  - `bun run build`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run test`
+  - `bun run db:migrate`
+  - `bun run db:seed`
 - a minimal smoke path or scripted check proving login and authenticated API access
 - deployment notes and environment variable documentation for Railway
 
@@ -83,7 +83,6 @@ Set up the repo so later work lands cleanly.
 
 Expected outputs:
 
-- `pnpm-workspace.yaml`
 - root `package.json`
 - root `tsconfig` strategy
 - shared lint and formatter configuration
@@ -238,7 +237,7 @@ This order matters because Better Auth and the API layer depend on the DB being 
 
 1. Create the monorepo skeleton and root config.
    Deliverables:
-   root `package.json`, `pnpm-workspace.yaml`, base `tsconfig`, ignore files, and initial script wiring.
+   root `package.json`, Bun workspace config, base `tsconfig`, ignore files, and initial script wiring.
 
 2. Scaffold `packages/shared` with runtime-safe contract helpers.
    Deliverables:
@@ -316,13 +315,13 @@ Sprint 1 is complete when all of the following are true:
 
 ## Validation
 
-- `pnpm install` completes successfully
-- `pnpm build` succeeds across the workspace
-- `pnpm lint` passes
-- `pnpm typecheck` passes
-- `pnpm test` passes for the initial API and auth checks
-- `pnpm db:migrate` applies the initial migration set cleanly
-- `pnpm db:seed` loads deterministic local data cleanly
+- `bun install` completes successfully
+- `bun run build` succeeds across the workspace
+- `bun run lint` passes
+- `bun run typecheck` passes
+- `bun run test` passes for the initial API and auth checks
+- `bun run db:migrate` applies the initial migration set cleanly
+- `bun run db:seed` loads deterministic local data cleanly
 - local sign-in works end to end
 - authenticated API access works end to end
 - smoke or equivalent scripted auth check passes
@@ -346,7 +345,7 @@ Sprint 1 is complete when all of the following are true:
 ## Open Questions
 
 - Should the SPA be served as a separate Railway static service in Sprint 1, or should the API serve the built assets initially to reduce deployment complexity?
-- Should the first local DB flow use Docker/Postgres directly or a small helper path that mirrors Railway Postgres assumptions more closely?
+- The local DB flow uses a native local Postgres helper that shells out to `initdb`, `pg_ctl`, `psql`, and `createdb`. The required binaries can come from `PATH` or `POSTGRES_BIN_DIR`.
 - Do we want Playwright in Sprint 1, or is a temporary auth smoke script sufficient until Sprint 2?
 
 These questions should be resolved during execution, but none of them should block the sprint from starting.
