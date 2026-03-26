@@ -1,6 +1,12 @@
 import { config } from "dotenv";
+import { fileURLToPath } from "node:url";
 
 import { parseServerEnv, type ServerEnv } from "@gloss/shared/env";
+
+const repoEnvPath = fileURLToPath(new URL("../../../../.env", import.meta.url));
+const repoEnvLocalPath = fileURLToPath(
+  new URL("../../../../.env.local", import.meta.url),
+);
 
 const toEnvInput = (
   input: NodeJS.ProcessEnv | Record<string, string | undefined>,
@@ -14,7 +20,10 @@ export const loadServerEnv = (
 ): ServerEnv => parseServerEnv(toEnvInput(input));
 
 export const loadServerEnvFromDotenv = (): ServerEnv => {
-  config();
+  config({
+    path: [repoEnvLocalPath, repoEnvPath],
+    quiet: true,
+  });
 
   return loadServerEnv(process.env);
 };

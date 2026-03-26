@@ -217,6 +217,7 @@ No feature is considered complete unless it satisfies all of:
 - `docs/ROADMAP.md`: sprint-level build sequencing and integration choices
 - `docs/ARCHITECTURE.md`: service boundaries and data ownership
 - `docs/DEPLOYMENT.md`: Railway service layout and native local Postgres rules
+- `docs/QA.md`: local runbook and manual QA steps
 - `docs/FRONTEND.md`: UI, routing, and SPA rules
 - `docs/RELIABILITY.md`: test strategy, trace policy, and failure loop
 - `docs/SECURITY.md`: data handling and tool safety rules
