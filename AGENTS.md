@@ -6,10 +6,11 @@ Start here, then go deeper only as needed.
 
 1. `docs/HARNESS.md`
 2. `docs/PRODUCT.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/FRONTEND.md` when touching the SPA
-5. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
-6. `docs/plans/active/*.md` for any task that is already in flight
+3. `docs/ROADMAP.md` for sequencing and milestone context
+4. `docs/ARCHITECTURE.md`
+5. `docs/FRONTEND.md` when touching the SPA
+6. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
+7. `docs/plans/active/*.md` for any task that is already in flight
 
 `docs/core.md` remains the long-form source of truth for product vision and learning philosophy. The supporting docs translate that vision into build and operating rules.
 

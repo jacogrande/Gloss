@@ -214,6 +214,7 @@ No feature is considered complete unless it satisfies all of:
 ## Documents In This Harness
 
 - `docs/PRODUCT.md`: build-level product brief
+- `docs/ROADMAP.md`: sprint-level build sequencing and integration choices
 - `docs/ARCHITECTURE.md`: service boundaries and data ownership
 - `docs/FRONTEND.md`: UI, routing, and SPA rules
 - `docs/RELIABILITY.md`: test strategy, trace policy, and failure loop
