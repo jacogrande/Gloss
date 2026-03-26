@@ -96,13 +96,15 @@ Run the full Sprint 2 validation set:
 bun run lint
 bun run typecheck
 bun run test
+bun run eval
 bun run smoke
 ```
 
 Expected result:
 
 - all commands exit `0`
-- `bun run smoke` prints JSON with `"status":"passed"`
+- `bun run eval` prints JSON summaries for journey and boundary checks
+- `bun run smoke` passes in Playwright against the split local web and API servers
 
 Useful narrower checks:
 
@@ -302,7 +304,7 @@ Expected result:
   - `session`
   - `profile`
 
-## Expected Sprint 1 Behaviors
+## Expected Sprint 2 Behaviors
 
 These are the behaviors that should hold every time:
 
@@ -311,8 +313,9 @@ These are the behaviors that should hold every time:
 - auth is cookie-based
 - sign-up creates a real session immediately
 - sign-out clears access to the protected shell
-- the authenticated shell reads profile data from the API, not from hardcoded client state
+- the capture, library, and seed detail flows work across split local web and API origins
 - `bun run db:reset` is deterministic
+- `bun run eval` passes after a reset
 - `bun run smoke` passes after a reset
 
 ## Troubleshooting

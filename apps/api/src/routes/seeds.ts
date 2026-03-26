@@ -1,11 +1,10 @@
-import type { Hono } from "hono";
-
 import {
   listSeedsQuerySchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
 } from "@gloss/shared/contracts";
 
+import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
 import { jsonSuccess } from "../lib/http";
 import { requireSession } from "../lib/session";
@@ -17,15 +16,18 @@ type SeedsRouteDependencies = {
 };
 
 export const registerSeedRoutes = (
-  app: Hono<{ Variables: { requestId: string } }>,
+  app: GlossApp,
   dependencies: SeedsRouteDependencies,
 ): void => {
   app.get("/seeds", async (context) => {
+    context.set("journey", "seeds.list");
     const session = await requireSession({
       auth: dependencies.auth,
       headers: context.req.raw.headers,
       requestId: context.get("requestId"),
     });
+    context.set("actorTag", String(session.user.id));
+    context.set("sessionId", String(session.session.id));
     const query = listSeedsQuerySchema.parse({
       stage: context.req.query("stage") ?? undefined,
     });
@@ -44,11 +46,14 @@ export const registerSeedRoutes = (
   });
 
   app.get("/seeds/:seedId", async (context) => {
+    context.set("journey", "seeds.detail");
     const session = await requireSession({
       auth: dependencies.auth,
       headers: context.req.raw.headers,
       requestId: context.get("requestId"),
     });
+    context.set("actorTag", String(session.user.id));
+    context.set("sessionId", String(session.session.id));
     const seedDetail = await dependencies.seedService.getSeedDetail({
       requestId: context.get("requestId"),
       seedId: context.req.param("seedId"),

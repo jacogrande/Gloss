@@ -1,10 +1,9 @@
-import type { Hono } from "hono";
-
 import {
   createSeedInputSchema,
   createSeedResponseSchema,
 } from "@gloss/shared/contracts";
 
+import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
 import { jsonSuccess } from "../lib/http";
 import { requireSession } from "../lib/session";
@@ -16,15 +15,18 @@ type CaptureRouteDependencies = {
 };
 
 export const registerCaptureRoutes = (
-  app: Hono<{ Variables: { requestId: string } }>,
+  app: GlossApp,
   dependencies: CaptureRouteDependencies,
 ): void => {
   app.post("/capture/seeds", async (context) => {
+    context.set("journey", "capture.create");
     const session = await requireSession({
       auth: dependencies.auth,
       headers: context.req.raw.headers,
       requestId: context.get("requestId"),
     });
+    context.set("actorTag", String(session.user.id));
+    context.set("sessionId", String(session.session.id));
     const body = createSeedInputSchema.parse(await context.req.json());
     const createdSeed = await dependencies.seedService.createSeed({
       capture: body,

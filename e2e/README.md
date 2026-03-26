@@ -8,9 +8,15 @@ Implement these first:
 
 1. sign in
 2. manual capture
-3. seed enrichment visible in UI
-4. one short review session
-5. library filter by source or stage
+3. library browse
+4. seed detail readback
+
+Current `bun run smoke` is the Playwright entrypoint for these flows. It should always exercise:
+
+- the real browser
+- split local web and API origins
+- cookie-based auth
+- the actual Vite + Hono boundary
 
 ## Test Data Principles
 

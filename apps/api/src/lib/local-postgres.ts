@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process";
-import { access, mkdir } from "node:fs/promises";
+import {
+  access,
+  mkdir,
+  unlink,
+} from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const localPostgresDirectory = path.join(repoRoot, ".local", "postgres");
 const localPostgresLogPath = path.join(localPostgresDirectory, "postgres.log");
+const postmasterPidFileName = "postmaster.pid";
 
 type LocalPostgresConfig = {
   dataDirectory?: string;
@@ -137,6 +142,16 @@ const initClusterIfNeeded = async (config: {
   ]);
 };
 
+const clearStalePostmasterPid = async (dataDirectory: string): Promise<void> => {
+  const postmasterPidPath = path.join(dataDirectory, postmasterPidFileName);
+
+  if (!(await pathExists(postmasterPidPath))) {
+    return;
+  }
+
+  await unlink(postmasterPidPath);
+};
+
 const isServerRunning = async (dataDirectory: string): Promise<boolean> => {
   const pgCtl = await resolveBinary("pg_ctl");
   const result = await runCommand(pgCtl, ["-D", dataDirectory, "status"], {
@@ -183,7 +198,7 @@ const waitForServer = async (config: {
   port: number;
   username: string;
 }): Promise<void> => {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     if (await canConnectToServer(config)) {
       return;
     }
@@ -213,24 +228,60 @@ export const ensureLocalPostgresStarted = async (
   }
 
   const pgCtl = await resolveBinary("pg_ctl");
+  const startServer = async (): Promise<CommandResult> =>
+    runCommand(
+      pgCtl,
+      [
+        "-D",
+        dataDirectory,
+        "-l",
+        localPostgresLogPath,
+        "-o",
+        `-h ${connection.host} -p ${connection.port} -c shared_memory_type=mmap -c dynamic_shared_memory_type=posix`,
+        "start",
+      ],
+      { allowFailure: true },
+    );
 
-  const startResult = await runCommand(
-    pgCtl,
-    [
-      "-D",
-      dataDirectory,
-      "-l",
-      localPostgresLogPath,
-      "-o",
-      `-h ${connection.host} -p ${connection.port}`,
-      "start",
-    ],
-    { allowFailure: true },
-  );
+  let startResult = await startServer();
 
   try {
     await waitForServer(connection);
   } catch (error) {
+    const alreadyRunningMessage = `${startResult.stderr}\n${startResult.stdout}`.includes(
+      "another server might be running",
+    );
+
+    if (
+      alreadyRunningMessage &&
+      !(await isServerRunning(dataDirectory)) &&
+      !(await canConnectToServer(connection))
+    ) {
+      await clearStalePostmasterPid(dataDirectory);
+      startResult = await startServer();
+
+      try {
+        await waitForServer(connection);
+        return;
+      } catch (retryError) {
+        if (startResult.code !== 0) {
+          throw new Error(startResult.stderr || startResult.stdout, {
+            cause: retryError,
+          });
+        }
+
+        throw retryError;
+      }
+    }
+
+    if (
+      alreadyRunningMessage &&
+      ((await isServerRunning(dataDirectory)) ||
+        (await canConnectToServer(connection)))
+    ) {
+      return;
+    }
+
     if (startResult.code !== 0) {
       throw new Error(startResult.stderr || startResult.stdout, { cause: error });
     }

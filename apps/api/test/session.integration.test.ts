@@ -64,4 +64,25 @@ describe("session integration", () => {
     expect(parsed.ok).toBe(false);
     expect(parsed.error.code).toBe("AUTH_UNAUTHORIZED");
   });
+
+  it("exposes split-origin CORS headers for Better Auth routes", async () => {
+    const response = await context.app.request(
+      "http://127.0.0.1:8787/api/auth/sign-in/email",
+      {
+        headers: {
+          "access-control-request-headers": "content-type",
+          "access-control-request-method": "POST",
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "OPTIONS",
+      },
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBe(
+      context.env.WEB_ORIGIN,
+    );
+    expect(response.headers.get("access-control-allow-credentials")).toBe(
+      "true",
+    );
+  });
 });

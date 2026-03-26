@@ -1,8 +1,5 @@
-import { createAuth } from "../../apps/api/src/lib/auth";
+import { createAppRuntime } from "../../apps/api/src/lib/app-runtime";
 import type { DatabaseClient } from "../../apps/api/src/lib/db";
-import { createLogger } from "../../apps/api/src/lib/logger";
-import { createProfileService } from "../../apps/api/src/services/profile-service";
-import { createSeedService } from "../../apps/api/src/services/seed-service";
 import type { ServerEnv } from "@gloss/shared/env";
 
 type SeedResult = {
@@ -16,14 +13,10 @@ export const seedDatabase = async (options: {
   env: ServerEnv;
 }): Promise<SeedResult> => {
   const demoEmail = "demo@gloss.local";
-  const profileService = createProfileService(options.database.db);
-  const auth = createAuth({
+  const runtime = createAppRuntime({
+    database: options.database,
     env: options.env,
-    logger: createLogger("error"),
-    pool: options.database.pool,
-    profileService,
   });
-  const seedService = createSeedService(options.database.db);
   const userQuery = await options.database.pool.query<{ id: string }>(
     'SELECT id FROM "user" WHERE email = $1 LIMIT 1',
     [demoEmail],
@@ -32,7 +25,7 @@ export const seedDatabase = async (options: {
   const userId =
     userQuery.rows[0]?.id ??
     (
-      await auth.api.signUpEmail({
+      await runtime.auth.api.signUpEmail({
         body: {
           email: demoEmail,
           name: "Gloss Demo",
@@ -47,7 +40,7 @@ export const seedDatabase = async (options: {
   let createdSeedCount = 0;
 
   if (existingSeedQuery.rows.length === 0) {
-    await seedService.createSeed({
+    await runtime.seedService.createSeed({
       capture: {
         sentence:
           "The prose became unexpectedly lapidary by the final chapter.",
@@ -59,7 +52,7 @@ export const seedDatabase = async (options: {
       },
       userId,
     });
-    await seedService.createSeed({
+    await runtime.seedService.createSeed({
       capture: {
         source: {
           kind: "article",

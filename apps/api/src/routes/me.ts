@@ -1,7 +1,6 @@
-import type { Hono } from "hono";
-
 import { sessionDataSchema } from "@gloss/shared/contracts";
 
+import type { GlossApp } from "../app";
 import { jsonSuccess } from "../lib/http";
 import type { GlossAuth } from "../lib/auth";
 import { requireSession } from "../lib/session";
@@ -13,15 +12,18 @@ type MeRouteDependencies = {
 };
 
 export const registerMeRoute = (
-  app: Hono<{ Variables: { requestId: string } }>,
+  app: GlossApp,
   dependencies: MeRouteDependencies,
 ): void => {
   app.get("/api/me", async (context) => {
+    context.set("journey", "session.read");
     const sessionData = await requireSession({
       auth: dependencies.auth,
       headers: context.req.raw.headers,
       requestId: context.get("requestId"),
     });
+    context.set("actorTag", String(sessionData.user.id));
+    context.set("sessionId", String(sessionData.session.id));
 
     const profile = await dependencies.profileService.getProfileByUserId(
       String(sessionData.user.id),

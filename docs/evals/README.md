@@ -28,6 +28,7 @@ Use for:
 
 ## Dataset Files
 
+- `docs/evals/datasets/capture_journeys.jsonl`
 - `docs/evals/datasets/mvp_seed_journeys.jsonl`
 
 Add a new dataset row whenever:
@@ -39,14 +40,14 @@ Add a new dataset row whenever:
 
 ## MVP Eval Set
 
-The initial eval set focuses on six risks:
+The current implemented eval set focuses on capture and boundary risks:
 
 1. capture preserves context
-2. enrichment stays constrained
-3. review generation targets nuance
-4. scheduler chooses the weak dimension
-5. source metadata survives ingestion
-6. unsupported claims are omitted
+2. source metadata survives ingestion
+3. product routes expose split-origin CORS correctly
+4. request ids and stable error codes survive unhappy paths
+
+The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for Sprint 3+ AI and review workflows. Until those systems exist, `bun run eval:journeys` should target `capture_journeys.jsonl`, and `bun run eval:traces` should grade HTTP boundary invariants instead of pretending real AI traces already exist.
 
 ## Pass Rules
 

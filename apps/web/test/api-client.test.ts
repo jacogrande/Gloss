@@ -80,6 +80,25 @@ describe("fetchSessionSnapshot", () => {
     fetchMock.mockRestore();
   });
 
+  it("throws a stable client error for unreadable non-JSON failures", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("<html>proxy error</html>", {
+        headers: {
+          "content-type": "text/html",
+        },
+        status: 502,
+      }),
+    );
+
+    await expect(() =>
+      fetchSessionSnapshot("http://127.0.0.1:8787"),
+    ).rejects.toMatchObject({
+      code: "INVALID_ERROR_RESPONSE",
+    });
+
+    fetchMock.mockRestore();
+  });
+
   it("creates a seed through the typed contract", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(

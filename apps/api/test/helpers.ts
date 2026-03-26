@@ -1,12 +1,8 @@
-import { createApp } from "../src/app";
-import { createAuth } from "../src/lib/auth";
+import { createAppRuntime } from "../src/lib/app-runtime";
 import { createDatabaseClient } from "../src/lib/db";
 import { loadServerEnv } from "../src/lib/env";
 import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../src/lib/local-postgres";
-import { createLogger } from "../src/lib/logger";
 import { applyMigrations, resetDatabase } from "../src/lib/migrations";
-import { createProfileService } from "../src/services/profile-service";
-import { createSeedService } from "../src/services/seed-service";
 
 const defaultDatabaseUrl = "postgresql://gloss:gloss@127.0.0.1:54329/gloss";
 
@@ -20,9 +16,10 @@ const deriveTestDatabaseUrl = (databaseUrl: string): string => {
 };
 
 export type TestContext = {
-  app: ReturnType<typeof createApp>;
+  app: ReturnType<typeof createAppRuntime>["app"];
   database: ReturnType<typeof createDatabaseClient>;
   env: ReturnType<typeof loadServerEnv>;
+  runtime: ReturnType<typeof createAppRuntime>;
 };
 
 export const createTestContext = async (): Promise<TestContext> => {
@@ -43,32 +40,21 @@ export const createTestContext = async (): Promise<TestContext> => {
     PORT: "8787",
     WEB_ORIGIN: "http://127.0.0.1:5173",
   });
-  const logger = createLogger("error");
   const database = createDatabaseClient(env.DATABASE_URL);
 
   await resetDatabase(database.pool);
   await applyMigrations({ pool: database.pool });
 
-  const profileService = createProfileService(database.db);
-  const seedService = createSeedService(database.db);
-  const auth = createAuth({
+  const runtime = createAppRuntime({
+    database,
     env,
-    logger,
-    pool: database.pool,
-    profileService,
-  });
-  const app = createApp({
-    auth,
-    env,
-    logger,
-    profileService,
-    seedService,
   });
 
   return {
-    app,
+    app: runtime.app,
     database,
     env,
+    runtime,
   };
 };
 

@@ -39,6 +39,28 @@ const buildUrl = (
   return url.toString();
 };
 
+const unreadableResponseError = (response: Response): ApiClientError =>
+  new ApiClientError(
+    response.ok ? "INVALID_RESPONSE" : "INVALID_ERROR_RESPONSE",
+    response.ok
+      ? "The server returned an unreadable response."
+      : "The server returned an unreadable error response.",
+  );
+
+const parseResponseBody = async (response: Response): Promise<unknown> => {
+  const text = await response.text();
+
+  if (text.length === 0) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw unreadableResponseError(response);
+  }
+};
+
 const requestJson = async <TData>(input: {
   apiBaseUrl: string;
   body?: unknown;
@@ -74,15 +96,27 @@ const requestJson = async <TData>(input: {
     buildUrl(input.apiBaseUrl, input.pathname, input.query),
     requestInit,
   );
-  const body: unknown = await response.json();
+  const body = await parseResponseBody(response);
 
   if (!response.ok) {
-    const error = apiErrorResponseSchema.parse(body);
+    try {
+      const error = apiErrorResponseSchema.parse(body);
 
-    throw new ApiClientError(error.error.code, error.error.message);
+      throw new ApiClientError(error.error.code, error.error.message);
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        throw error;
+      }
+
+      throw unreadableResponseError(response);
+    }
   }
 
-  return input.responseSchema.parse(body).data;
+  try {
+    return input.responseSchema.parse(body).data;
+  } catch {
+    throw unreadableResponseError(response);
+  }
 };
 
 export const fetchSessionSnapshot = async (

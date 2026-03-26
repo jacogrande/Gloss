@@ -5,9 +5,9 @@ This folder should hold executable helpers once the repo is scaffolded.
 Suggested entries:
 
 - `dev.ts` or workspace task wiring
-- `smoke.ts`
-- `eval.ts`
-- `fixtures-seed.ts`
+- `eval-journeys.ts`
+- `eval-traces.ts`
+- `db-seed.ts`
 - `trace-export.ts`
 
 ## Rules
@@ -19,4 +19,4 @@ Suggested entries:
 
 ## Near-Term Goal
 
-When the actual app scaffold is added, wire the package scripts in `package.json` to these responsibilities rather than letting script names drift.
+The current harness uses Playwright for `bun run smoke` and keeps deterministic API-level checks in the eval scripts. Do not collapse those two layers back together.

@@ -181,6 +181,43 @@ describe("seed integration", () => {
     expect(detailBody.error.code).toBe("NOT_FOUND");
   });
 
+  it("exposes split-origin CORS headers on product routes", async () => {
+    const preflightResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        headers: {
+          "access-control-request-headers": "content-type",
+          "access-control-request-method": "POST",
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "OPTIONS",
+      },
+    );
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "cors-reader@example.com",
+      env: context.env,
+      name: "CORS Reader",
+    });
+    const listResponse = await context.app.request("http://127.0.0.1:8787/seeds", {
+      headers: {
+        cookie,
+        origin: context.env.WEB_ORIGIN,
+      },
+    });
+
+    expect(preflightResponse.headers.get("access-control-allow-origin")).toBe(
+      context.env.WEB_ORIGIN,
+    );
+    expect(
+      preflightResponse.headers.get("access-control-allow-credentials"),
+    ).toBe("true");
+    expect(listResponse.headers.get("access-control-allow-origin")).toBe(
+      context.env.WEB_ORIGIN,
+    );
+    expect(listResponse.headers.get("x-request-id")).toBeTruthy();
+  });
+
   it("rejects unauthenticated seed creation", async () => {
     const response = await context.app.request(
       "http://127.0.0.1:8787/capture/seeds",
@@ -199,5 +236,7 @@ describe("seed integration", () => {
 
     expect(response.status).toBe(401);
     expect(body.error.code).toBe("AUTH_UNAUTHORIZED");
+    expect(body.error.requestId).toBeTruthy();
+    expect(response.headers.get("x-request-id")).toBeTruthy();
   });
 });

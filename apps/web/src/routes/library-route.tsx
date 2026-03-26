@@ -1,4 +1,4 @@
-import { useEffect, useState, type JSX } from "react";
+import { useState, type JSX } from "react";
 
 import type {
   SeedStage,
@@ -8,6 +8,7 @@ import type {
 import { SeedCard } from "../features/seeds/SeedCard";
 import { fetchSeedList } from "../lib/api-client";
 import { webEnv } from "../lib/env";
+import { useAsyncResource } from "../lib/use-async-resource";
 
 type StageFilter = SeedStage | "all";
 
@@ -20,48 +21,29 @@ const stageOptions: StageFilter[] = [
 ];
 
 export const LibraryRoute = (): JSX.Element => {
-  const [items, setItems] = useState<SeedSummary[]>([]);
-  const [total, setTotal] = useState(0);
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    setIsLoading(true);
-    setErrorMessage(null);
-
-    void fetchSeedList(
-      webEnv.VITE_API_BASE_URL,
-      {
-        stage: stageFilter === "all" ? undefined : stageFilter,
-      },
-      abortController.signal,
-    )
-      .then((data) => {
-        setItems(data.items);
-        setTotal(data.total);
-      })
-      .catch((error: unknown) => {
-        if (abortController.signal.aborted) {
-          return;
-        }
-
-        setErrorMessage(
-          error instanceof Error ? error.message : "Unable to load the library.",
-        );
-      })
-      .finally(() => {
-        if (!abortController.signal.aborted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      abortController.abort();
-    };
-  }, [stageFilter]);
+  const {
+    data,
+    errorMessage,
+    isLoading,
+  } = useAsyncResource<{
+    items: SeedSummary[];
+    total: number;
+  }>({
+    dependencies: [stageFilter],
+    getErrorMessage: (error) =>
+      error instanceof Error ? error.message : "Unable to load the library.",
+    load: (signal) =>
+      fetchSeedList(
+        webEnv.VITE_API_BASE_URL,
+        {
+          stage: stageFilter === "all" ? undefined : stageFilter,
+        },
+        signal,
+      ),
+  });
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
 
   return (
     <section className="library">

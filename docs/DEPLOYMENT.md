@@ -43,19 +43,19 @@ Recommended Railway project layout:
 1. `postgres`
    Use Railway Postgres.
 2. `api`
-   Root directory: `apps/api`
+   Root directory: repository root
 3. `web`
-   Root directory: `apps/web`
+   Root directory: repository root
 
 The API and web services should each deploy from GitHub auto-deploys on the main branch. Preview environments can use Railway preview deploys with environment-specific public URLs.
 
 ## API Service
 
-Recommended Railway settings for `apps/api`:
+Recommended Railway settings for the API service:
 
 - Install command: `bun install --frozen-lockfile`
-- Build command: `bun run build`
-- Start command: `bun run start`
+- Build command: `bun run build:api`
+- Start command: `bun run --cwd apps/api start`
 - Pre-deploy command: `bun run db:migrate`
 
 Runtime notes:
@@ -68,11 +68,11 @@ Runtime notes:
 
 ## Web Service
 
-Recommended Railway settings for `apps/web`:
+Recommended Railway settings for the web service:
 
 - Install command: `bun install --frozen-lockfile`
-- Build command: `bun run build`
-- Output directory: `dist`
+- Build command: `bun run build:web`
+- Output directory: `apps/web/dist`
 
 Runtime notes:
 

@@ -1,4 +1,6 @@
-import { Hono } from "hono";
+import {
+  Hono,
+} from "hono";
 import { cors } from "hono/cors";
 
 import type { ServerEnv } from "@gloss/shared/env";
@@ -22,8 +24,14 @@ type AppDependencies = {
 };
 
 type AppVariables = {
+  actorTag?: string;
+  errorCode?: string;
+  journey?: string;
   requestId: string;
+  sessionId?: string;
 };
+
+export type GlossApp = Hono<{ Variables: AppVariables }>;
 
 export const createApp = ({
   auth,
@@ -31,7 +39,7 @@ export const createApp = ({
   logger,
   profileService,
   seedService,
-}: AppDependencies): Hono<{ Variables: AppVariables }> => {
+}: AppDependencies): GlossApp => {
   const app = new Hono<{ Variables: AppVariables }>();
 
   app.use("*", async (context, next) => {
@@ -44,24 +52,28 @@ export const createApp = ({
     await next();
 
     logger.info("request.complete", {
+      actorTag: context.var.actorTag ?? "anonymous",
+      errorCode: context.var.errorCode ?? null,
+      journey: context.var.journey ?? null,
       latencyMs: Math.round(performance.now() - startedAt),
       method: context.req.method,
       requestId,
       route: context.req.path,
+      sessionId: context.var.sessionId ?? null,
       status: context.res.status,
     });
   });
 
-  app.use(
-    "/api/*",
-    cors({
-      allowHeaders: ["Content-Type"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
-      credentials: true,
-      exposeHeaders: ["x-request-id"],
-      origin: env.WEB_ORIGIN,
-    }),
-  );
+  const corsOptions = {
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    credentials: true,
+    exposeHeaders: ["x-request-id"],
+    origin: env.WEB_ORIGIN,
+  };
+
+  app.use("/api/*", cors(corsOptions));
+  app.use("/capture/*", cors(corsOptions));
+  app.use("/seeds/*", cors(corsOptions));
 
   app.on(["GET", "POST"], "/api/auth/*", (context) => auth.handler(context.req.raw));
 
@@ -71,31 +83,41 @@ export const createApp = ({
   registerSeedRoutes(app, { auth, seedService });
 
   app.notFound((context) =>
-    context.json(
-      {
-        error: {
-          code: "NOT_FOUND",
-          message: "The requested resource was not found.",
-          ...(context.var.requestId ? { requestId: context.var.requestId } : {}),
+    {
+      context.set("errorCode", "NOT_FOUND");
+
+      return context.json(
+        {
+          error: {
+            code: "NOT_FOUND",
+            message: "The requested resource was not found.",
+            ...(context.var.requestId ? { requestId: context.var.requestId } : {}),
+          },
+          ok: false,
         },
-        ok: false,
-      },
-      404 as const,
-    ),
+        404 as const,
+      );
+    },
   );
 
   app.onError((error, context) => {
     const requestId = context.var.requestId;
     const response = toErrorResponse(error, requestId);
 
+    context.set("errorCode", response.body.error.code);
+
     if (response.status >= 500) {
       logger.error("request.failed", {
+        actorTag: context.var.actorTag ?? "anonymous",
+        errorCode: response.body.error.code,
         error:
           error instanceof Error
             ? error.message
             : "Unexpected non-error thrown by route handler.",
+        journey: context.var.journey ?? null,
         requestId,
         route: context.req.path,
+        sessionId: context.var.sessionId ?? null,
       });
     }
 
