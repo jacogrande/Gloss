@@ -1,0 +1,22 @@
+{
+  "name": "@gloss/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./contracts": "./src/contracts/index.ts",
+    "./env": "./src/env/index.ts",
+    "./errors": "./src/errors/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./types": "./src/types/index.ts"
+  },
+  "scripts": {
+    "build": "bunx tsc -p tsconfig.build.json && bun build src/index.ts --outdir dist --target bun --format esm",
+    "lint": "bunx eslint src test",
+    "typecheck": "bunx tsc -p tsconfig.json --noEmit",
+    "test": "bunx vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.3.6"
+  }
+}

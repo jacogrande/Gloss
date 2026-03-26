@@ -1,0 +1,22 @@
+{
+  "name": "@gloss/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bunx tsc -p tsconfig.build.json && bun build src/index.ts --outdir dist --target bun --format esm",
+    "lint": "bunx eslint src test",
+    "typecheck": "bunx tsc -p tsconfig.json --noEmit",
+    "test": "bunx vitest run",
+    "db:migrate": "bun run src/lib/migrate.ts"
+  },
+  "dependencies": {
+    "@gloss/shared": "workspace:*",
+    "@hono/node-server": "^1.19.11",
+    "better-auth": "^1.5.6",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.45.1",
+    "hono": "^4.12.9",
+    "pg": "^8.20.0"
+  }
+}

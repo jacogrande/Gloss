@@ -1,0 +1,53 @@
+{
+  "name": "gloss",
+  "private": true,
+  "packageManager": "bun@1.1.42",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"cd apps/api && bun run dev\" \"cd apps/web && bun run dev\"",
+    "dev:api": "cd apps/api && bun run dev",
+    "dev:web": "cd apps/web && bun run dev",
+    "build": "bun run build:shared && bun run build:api && bun run build:web",
+    "build:shared": "cd packages/shared && bun run build",
+    "build:api": "cd apps/api && bun run build",
+    "build:web": "cd apps/web && bun run build",
+    "lint": "bun run lint:shared && bun run lint:api && bun run lint:web",
+    "lint:shared": "cd packages/shared && bun run lint",
+    "lint:api": "cd apps/api && bun run lint",
+    "lint:web": "cd apps/web && bun run lint",
+    "typecheck": "bun run typecheck:shared && bun run typecheck:api && bun run typecheck:web",
+    "typecheck:shared": "cd packages/shared && bun run typecheck",
+    "typecheck:api": "cd apps/api && bun run typecheck",
+    "typecheck:web": "cd apps/web && bun run typecheck",
+    "test": "bun run test:shared && bun run test:api && bun run test:web",
+    "test:shared": "cd packages/shared && bun run test",
+    "test:api": "cd apps/api && bun run test",
+    "test:web": "cd apps/web && bun run test",
+    "test:e2e": "bunx playwright test",
+    "smoke": "bun run scripts/smoke.ts",
+    "db:start": "docker compose up -d postgres",
+    "db:stop": "docker compose down",
+    "db:migrate": "cd apps/api && bun run db:migrate",
+    "db:seed": "bun run scripts/db-seed.ts",
+    "db:reset": "bun run scripts/db-reset.ts",
+    "fixtures:seed": "bun run scripts/db-seed.ts"
+  },
+  "devDependencies": {
+    "@better-auth/cli": "^1.4.21",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.5.0",
+    "@vitest/coverage-v8": "^4.1.2",
+    "concurrently": "^9.2.1",
+    "eslint": "^10.1.0",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-packagejson": "^3.0.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.2"
+  }
+}
