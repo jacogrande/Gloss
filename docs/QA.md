@@ -64,9 +64,13 @@ bun run dev
 
 Local URLs:
 
-- web: `http://127.0.0.1:5173`
-- api: `http://127.0.0.1:8787`
-- health: `http://127.0.0.1:8787/health`
+- `bun run dev` prints the chosen `webOrigin` and `apiOrigin`
+- if `5173` or `8787` is already occupied, the runner picks the next free local port
+- use the printed origins for browser and curl checks
+- default targets remain:
+  - web: `http://127.0.0.1:5173`
+  - api: `http://127.0.0.1:8787`
+  - health: `http://127.0.0.1:8787/health`
 
 If you only want one service:
 

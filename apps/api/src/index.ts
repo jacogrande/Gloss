@@ -35,9 +35,19 @@ logger.info("server.started", {
   port: env.PORT,
 });
 
+let shutdownPromise: Promise<void> | null = null;
+
 const shutdown = async (): Promise<void> => {
-  server.close();
-  await database.pool.end();
+  if (shutdownPromise) {
+    return shutdownPromise;
+  }
+
+  shutdownPromise = (async () => {
+    server.close();
+    await database.pool.end();
+  })();
+
+  await shutdownPromise;
 };
 
 process.on("SIGINT", () => {
