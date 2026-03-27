@@ -1,4 +1,5 @@
-import { authClient } from "./auth-client";
+import { requestDocument } from "../../lib/http";
+import { webEnv } from "../../lib/env";
 
 type AuthFormFields = {
   email: string;
@@ -17,36 +18,38 @@ const toErrorMessage = (value: unknown): string => {
 export const signInWithPassword = async (
   fields: AuthFormFields,
 ): Promise<void> => {
-  const result = await authClient.signIn.email({
-    email: fields.email,
-    password: fields.password,
+  await requestDocument({
+    apiBaseUrl: webEnv.VITE_API_BASE_URL,
+    body: {
+      email: fields.email,
+      password: fields.password,
+    },
+    method: "POST",
+    pathname: "/api/auth/sign-in/email",
   });
-
-  if (result.error) {
-    throw new Error(result.error.message ?? "Unable to sign in.");
-  }
 };
 
 export const signUpWithPassword = async (
   fields: AuthFormFields,
 ): Promise<void> => {
-  const result = await authClient.signUp.email({
-    email: fields.email,
-    name: fields.name,
-    password: fields.password,
+  await requestDocument({
+    apiBaseUrl: webEnv.VITE_API_BASE_URL,
+    body: {
+      email: fields.email,
+      name: fields.name,
+      password: fields.password,
+    },
+    method: "POST",
+    pathname: "/api/auth/sign-up/email",
   });
-
-  if (result.error) {
-    throw new Error(result.error.message ?? "Unable to create account.");
-  }
 };
 
 export const signOutCurrentSession = async (): Promise<void> => {
-  const result = await authClient.signOut();
-
-  if (result.error) {
-    throw new Error(result.error.message ?? "Unable to sign out.");
-  }
+  await requestDocument({
+    apiBaseUrl: webEnv.VITE_API_BASE_URL,
+    method: "POST",
+    pathname: "/api/auth/sign-out",
+  });
 };
 
 export const getAuthErrorMessage = (value: unknown): string =>

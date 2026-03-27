@@ -18,19 +18,20 @@ import {
 import { ProtectedLayout } from "../src/routes/protected-layout";
 
 const signOutCurrentSession = vi.fn<() => Promise<void>>();
+const setSession = vi.fn<(value: null) => void>();
 
-vi.mock("../src/features/auth/auth-client", () => ({
-  authClient: {
-    useSession: () => ({
-      data: {
-        user: {
-          email: "reader@example.com",
-          name: "Reader",
-        },
+vi.mock("../src/features/auth/session-provider", () => ({
+  useSessionState: () => ({
+    refreshSession: vi.fn(),
+    session: {
+      user: {
+        email: "reader@example.com",
+        name: "Reader",
       },
-      isPending: false,
-    }),
-  },
+    },
+    setSession,
+    status: "authenticated",
+  }),
 }));
 
 vi.mock("../src/features/auth/auth-service", () => ({

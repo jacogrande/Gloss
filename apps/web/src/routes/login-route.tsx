@@ -7,22 +7,22 @@ import {
   signInWithPassword,
   signUpWithPassword,
 } from "../features/auth/auth-service";
-import { authClient } from "../features/auth/auth-client";
+import { useSessionState } from "../features/auth/session-provider";
 
 type AuthMode = "sign-in" | "sign-up";
 
 export const LoginRoute = (): JSX.Element => {
   const navigate = useNavigate();
-  const session = authClient.useSession();
+  const session = useSessionState();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  if (session.isPending) {
+  if (session.status === "loading") {
     return <main className="screen screen--centered">Checking session...</main>;
   }
 
-  if (session.data) {
+  if (session.session) {
     return <Navigate replace to="/library" />;
   }
 
@@ -48,6 +48,7 @@ export const LoginRoute = (): JSX.Element => {
                   await signUpWithPassword(fields);
                 }
 
+                await session.refreshSession();
                 await navigate("/library", { replace: true });
               } catch (error) {
                 setErrorMessage(getAuthErrorMessage(error));
