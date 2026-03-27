@@ -20,6 +20,8 @@ Current `bun run smoke` is the Playwright entrypoint for these flows. It should 
 - the actual Vite + Hono boundary
 - the detail-page enrichment trigger
 
+`bun run smoke:live` is the opt-in browser validation path for the same flow shape with live enrichment providers. It should only be used when `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are configured.
+
 ## Test Data Principles
 
 - use stable fixtures

@@ -127,6 +127,11 @@ These commands run in deterministic fixture mode by default:
 - `bun run smoke`
 - `bun run dev`
 
+Dedicated live browser validation entrypoints:
+
+- `bun run smoke:live`
+- `bun run test:e2e:live`
+
 You only need provider credentials when you want to verify the live enrichment path against real vendors.
 
 Required env vars for live enrichment verification:
@@ -147,7 +152,7 @@ ENRICHMENT_PROVIDER_MODE=live \
 OPENAI_API_KEY=... \
 MERRIAM_WEBSTER_DICTIONARY_API_KEY=... \
 MERRIAM_WEBSTER_THESAURUS_API_KEY=... \
-bun run eval
+bun run smoke:live
 ```
 
 Use that mode for targeted provider validation, not for everyday smoke or regression checks.

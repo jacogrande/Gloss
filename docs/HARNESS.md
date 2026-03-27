@@ -124,8 +124,12 @@ These scripts are part of the harness and should be implemented as the repo is s
   API, DB, schema, and provider boundary tests.
 - `bun run test:e2e`
   Full Playwright suite against local services.
+- `bun run test:e2e:live`
+  Full Playwright suite against local services with live enrichment providers.
 - `bun run smoke`
   Short Playwright happy-path journey set.
+- `bun run smoke:live`
+  Short Playwright smoke set against local services with live enrichment providers.
 
 ### Data and Infra
 

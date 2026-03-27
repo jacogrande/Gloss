@@ -67,6 +67,7 @@ Runtime notes:
 - `API_ORIGIN` should match `BETTER_AUTH_URL`.
 - `ENRICHMENT_PROVIDER_MODE` should be `fixture` for local smoke/eval and explicit `live` only when provider keys are configured.
 - `OPENAI_API_KEY`, `OPENAI_MODEL`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are only required when `ENRICHMENT_PROVIDER_MODE=live`.
+- `bun run smoke:live` and `bun run test:e2e:live` are the dedicated local browser entrypoints for that live-provider path.
 
 ## Web Service
 
