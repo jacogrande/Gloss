@@ -223,6 +223,8 @@ No feature is considered complete unless it satisfies all of:
 - `docs/DEPLOYMENT.md`: Railway service layout and native local Postgres rules
 - `docs/QA.md`: local runbook and manual QA steps
 - `docs/FRONTEND.md`: UI, routing, and SPA rules
+- `docs/GLOSS_ART_DIRECTION.md`: concrete visual direction for the main product UI
+- `docs/STAGEHAND_AESTHETIC_REPORT.md`: external design-reference analysis used for Gloss art direction
 - `docs/RELIABILITY.md`: test strategy, trace policy, and failure loop
 - `docs/SECURITY.md`: data handling and tool safety rules
 - `docs/QUALITY_SCORE.md`: living release rubric

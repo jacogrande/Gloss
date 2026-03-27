@@ -54,97 +54,101 @@ export const CaptureForm = ({
   return (
     <section className="panel panel--capture">
       <div className="panel__header">
-        <p className="panel__eyebrow">Manual Capture</p>
-        <h2>Save the lexical moment now. Elaborate later.</h2>
-        <p className="panel__copy">
-          The word is required. Sentence and source metadata stay optional, but
-          they meaningfully improve future enrichment.
-        </p>
+        <h2>Save a word</h2>
+        <p className="panel__copy">Add context only if you need it.</p>
       </div>
 
       <form className="capture-form" onSubmit={handleSubmit}>
-        <label className="capture-form__field">
-          <span>Word or phrase</span>
-          <input
-            autoComplete="off"
-            name="word"
-            onChange={(event) => {
-              updateField("word", event.target.value);
-            }}
-            placeholder="lapidary"
-            required
-            value={values.word}
-          />
-        </label>
-
-        <label className="capture-form__field">
-          <span>Sentence</span>
-          <textarea
-            name="sentence"
-            onChange={(event) => {
-              updateField("sentence", event.target.value);
-            }}
-            placeholder="The prose became unexpectedly lapidary by the final chapter."
-            rows={4}
-            value={values.sentence}
-          />
-        </label>
-
-        <div className="capture-form__source-grid">
+        <div className="capture-form__primary">
           <label className="capture-form__field">
-            <span>Source type</span>
-            <select
-              name="sourceKind"
-              onChange={(event) => {
-                updateField("sourceKind", event.target.value as SourceKind);
-              }}
-              value={values.sourceKind}
-            >
-              {sourceKindOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="capture-form__field">
-            <span>Source title</span>
+            <span>Word or phrase</span>
             <input
-              name="sourceTitle"
+              autoComplete="off"
+              name="word"
               onChange={(event) => {
-                updateField("sourceTitle", event.target.value);
+                updateField("word", event.target.value);
               }}
-              placeholder="Collected Essays"
-              value={values.sourceTitle}
+              placeholder="lapidary"
+              required
+              value={values.word}
             />
           </label>
 
           <label className="capture-form__field">
-            <span>Author</span>
-            <input
-              name="sourceAuthor"
+            <span>Sentence</span>
+            <textarea
+              name="sentence"
               onChange={(event) => {
-                updateField("sourceAuthor", event.target.value);
+                updateField("sentence", event.target.value);
               }}
-              placeholder="A. Reader"
-              value={values.sourceAuthor}
-            />
-          </label>
-
-          <label className="capture-form__field">
-            <span>URL</span>
-            <input
-              name="sourceUrl"
-              onChange={(event) => {
-                updateField("sourceUrl", event.target.value);
-              }}
-              placeholder="https://example.com/essay"
-              type="url"
-              value={values.sourceUrl}
+              placeholder="The prose became unexpectedly lapidary by the final chapter."
+              rows={4}
+              value={values.sentence}
             />
           </label>
         </div>
+
+        <section className="capture-form__source-section">
+          <div className="capture-form__section-intro">
+            <p className="capture-form__section-label">Source</p>
+          </div>
+
+          <div className="capture-form__source-grid">
+            <label className="capture-form__field">
+              <span>Source type</span>
+              <select
+                name="sourceKind"
+                onChange={(event) => {
+                  updateField("sourceKind", event.target.value as SourceKind);
+                }}
+                value={values.sourceKind}
+              >
+                {sourceKindOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="capture-form__field">
+              <span>Source title</span>
+              <input
+                name="sourceTitle"
+                onChange={(event) => {
+                  updateField("sourceTitle", event.target.value);
+                }}
+                placeholder="Collected Essays"
+                value={values.sourceTitle}
+              />
+            </label>
+
+            <label className="capture-form__field">
+              <span>Author</span>
+              <input
+                name="sourceAuthor"
+                onChange={(event) => {
+                  updateField("sourceAuthor", event.target.value);
+                }}
+                placeholder="A. Reader"
+                value={values.sourceAuthor}
+              />
+            </label>
+
+            <label className="capture-form__field">
+              <span>URL</span>
+              <input
+                name="sourceUrl"
+                onChange={(event) => {
+                  updateField("sourceUrl", event.target.value);
+                }}
+                placeholder="https://example.com/essay"
+                type="url"
+                value={values.sourceUrl}
+              />
+            </label>
+          </div>
+        </section>
 
         {errorMessage ? (
           <p className="capture-form__error" role="alert">
@@ -152,9 +156,11 @@ export const CaptureForm = ({
           </p>
         ) : null}
 
-        <button className="capture-form__submit" disabled={isPending} type="submit">
-          {isPending ? "Saving..." : "Save seed"}
-        </button>
+        <div className="capture-form__actions">
+          <button className="capture-form__submit" disabled={isPending} type="submit">
+            {isPending ? "Saving..." : "Save seed"}
+          </button>
+        </div>
       </form>
     </section>
   );

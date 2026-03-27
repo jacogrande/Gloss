@@ -21,6 +21,7 @@ The UI must feel:
 - literary or academic
 - precise
 - high-density without being cluttered
+- content-first and visually quiet
 
 The UI must not feel:
 
@@ -28,6 +29,18 @@ The UI must not feel:
 - game-like
 - novelty-driven
 - visually noisy
+
+Current UI direction:
+
+- minimal shell chrome
+- near-blank route surfaces
+- typography-first hierarchy
+- the word detail page should center the word and its definition before supporting metadata
+
+See:
+
+- [docs/GLOSS_ART_DIRECTION.md](/Users/jackson/Code/projects/gloss/docs/GLOSS_ART_DIRECTION.md) for the concrete visual system
+- [docs/STAGEHAND_AESTHETIC_REPORT.md](/Users/jackson/Code/projects/gloss/docs/STAGEHAND_AESTHETIC_REPORT.md) for the external reference analysis that informed it
 
 ## Route Map
 

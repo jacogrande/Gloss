@@ -55,7 +55,11 @@ describe("SeedEnrichmentPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Lexical scaffolding" })).toBeVisible();
+    expect(
+      screen.getByText(
+        "In this sentence, it means the explanation was strikingly clear and easy to follow.",
+      ),
+    ).toBeVisible();
     expect(screen.getByText("lucid")).toBeVisible();
     expect(screen.getByText("opaque")).toBeVisible();
     expect(screen.getByText(/formal and literary/i)).toBeVisible();
@@ -89,10 +93,10 @@ describe("SeedEnrichmentPanel", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Retry enrichment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(
-      screen.getByText(/lexical evidence was too thin/i),
+      screen.getByText(/not enough context yet/i),
     ).toBeVisible();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
@@ -125,11 +129,9 @@ describe("SeedEnrichmentPanel", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh enrichment" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
-    expect(
-      screen.getByText(/assembling evidence and generating a compact learning block/i),
-    ).toBeVisible();
+    expect(screen.getByText(/loading definition/i)).toBeVisible();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });

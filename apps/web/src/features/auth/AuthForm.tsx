@@ -26,17 +26,15 @@ export const AuthForm = ({
   const [password, setPassword] = useState("");
 
   return (
-    <section className="auth-card">
+    <section className="auth-card" data-mode={mode}>
       <header className="auth-card__header">
-        <p className="auth-card__eyebrow">Gloss MVP</p>
+        <p className="auth-card__eyebrow">Gloss</p>
         <h1>{mode === "sign-in" ? "Sign in" : "Create your account"}</h1>
-        <p className="auth-card__copy">
-          Structured capture, constrained enrichment, and a lightweight review
-          shell.
-        </p>
+        <p className="auth-card__copy">Save words from real reading and return to them later.</p>
       </header>
 
       <div className="auth-card__mode-switch" role="tablist" aria-label="Auth mode">
+        <span aria-hidden="true" className="auth-card__mode-indicator" />
         <button
           aria-selected={mode === "sign-in"}
           className={mode === "sign-in" ? "auth-card__tab auth-card__tab--active" : "auth-card__tab"}
@@ -63,19 +61,27 @@ export const AuthForm = ({
           onSubmit({ email, name, password });
         }}
       >
-        {mode === "sign-up" ? (
-          <label className="auth-card__field">
-            <span>Name</span>
-            <input
-              autoComplete="name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Gloss Reader"
-              required
-              type="text"
-              value={name}
-            />
-          </label>
-        ) : null}
+        <div
+          aria-hidden={mode !== "sign-up"}
+          className="auth-card__optional-field"
+          data-visible={mode === "sign-up"}
+        >
+          <div className="auth-card__optional-field-inner">
+            <label className="auth-card__field">
+              <span>Name</span>
+              <input
+                autoComplete="name"
+                disabled={mode !== "sign-up"}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Gloss Reader"
+                required={mode === "sign-up"}
+                tabIndex={mode === "sign-up" ? undefined : -1}
+                type="text"
+                value={name}
+              />
+            </label>
+          </div>
+        </div>
 
         <label className="auth-card__field">
           <span>Email</span>

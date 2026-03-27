@@ -16,37 +16,44 @@ export const AppShell = ({
   <div className="shell">
     <header className="shell__header">
       <div className="shell__brand">
-        <p className="shell__eyebrow">Gloss</p>
-        <h1 className="shell__title">Depth-first vocabulary for serious readers.</h1>
+        <p className="shell__brand-name">Gloss</p>
       </div>
 
-      <div className="shell__account">
-        <p className="shell__account-name">{userName}</p>
-        <p className="shell__account-email">{userEmail}</p>
-        <button className="shell__signout" onClick={onSignOut} type="button">
-          Sign out
-        </button>
+      <div className="shell__rail">
+        <nav className="shell__nav" aria-label="Primary">
+          <NavLink
+            className={({ isActive }) =>
+              isActive
+                ? "shell__nav-link shell__nav-link--active"
+                : "shell__nav-link"
+            }
+            to="/capture"
+          >
+            Capture
+          </NavLink>
+          <NavLink
+            className={({ isActive }) =>
+              isActive
+                ? "shell__nav-link shell__nav-link--active"
+                : "shell__nav-link"
+            }
+            to="/library"
+          >
+            Library
+          </NavLink>
+        </nav>
+
+        <div className="shell__account">
+          <div className="shell__account-copy">
+            <p className="shell__account-name">{userName}</p>
+            <p className="shell__account-email">{userEmail}</p>
+          </div>
+          <button className="shell__signout" onClick={onSignOut} type="button">
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
-
-    <nav className="shell__nav" aria-label="Primary">
-      <NavLink
-        className={({ isActive }) =>
-          isActive ? "shell__nav-link shell__nav-link--active" : "shell__nav-link"
-        }
-        to="/capture"
-      >
-        Capture
-      </NavLink>
-      <NavLink
-        className={({ isActive }) =>
-          isActive ? "shell__nav-link shell__nav-link--active" : "shell__nav-link"
-        }
-        to="/library"
-      >
-        Library
-      </NavLink>
-    </nav>
 
     <main className="shell__content">{children}</main>
   </div>

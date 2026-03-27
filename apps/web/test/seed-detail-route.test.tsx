@@ -144,7 +144,9 @@ describe("SeedDetailRoute", () => {
     expect(requestSeedEnrichment).toHaveBeenCalledTimes(1);
     expect(fetchSeedDetail).toHaveBeenCalledTimes(2);
     expect(
-      screen.getByRole("heading", { name: "Lexical scaffolding" }),
+      screen.getByText(
+        "In this sentence, it means the explanation was especially clear and easy to follow.",
+      ),
     ).toBeVisible();
   });
 });

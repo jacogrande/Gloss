@@ -22,15 +22,12 @@ const SeedDetailRoute = lazy(async () => ({
 }));
 
 const RouteFallback = (): JSX.Element => (
-  <div className="auth-page">
+  <main className="screen screen--auth">
     <div className="auth-card">
-      <p className="auth-card__eyebrow">Loading</p>
-      <h1>Preparing your workspace</h1>
-      <p className="auth-card__message">
-        The route bundle is loading.
-      </p>
+      <p className="auth-card__eyebrow">Gloss</p>
+      <h1>Loading</h1>
     </div>
-  </div>
+  </main>
 );
 
 export const App = (): JSX.Element => (

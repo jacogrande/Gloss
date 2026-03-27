@@ -1,23 +1,36 @@
 # Manual QA
 
-This document describes how to run and validate the current Sprint 3 MVP locally.
+This document explains how to validate the current Gloss MVP across Sprint 1, Sprint 2, and Sprint 3.
+
+Use it for three different goals:
+
+- quick local confidence after a change
+- a full manual pass before calling the current MVP healthy
+- optional live-vendor validation against real OpenAI and Merriam-Webster keys
+
+This is a local-development guide. Railway deployment setup lives in [docs/DEPLOYMENT.md](/Users/jackson/Code/projects/gloss/docs/DEPLOYMENT.md).
 
 ## Scope
 
-Sprint 3 covers:
+The current QA surface spans:
 
-- Bun workspace setup
-- native local PostgreSQL bootstrap
-- Hono API
-- Better Auth email/password sessions
-- React SPA login and authenticated shell
-- manual seed capture
-- personal library browsing
-- seed detail pages
-- constrained seed enrichment
-- smoke and eval scripts for the capture and enrichment flow
-
-This is a local-development guide. Railway deploys are covered in [docs/DEPLOYMENT.md](/Users/jackson/Code/projects/gloss/docs/DEPLOYMENT.md).
+- Sprint 1 foundation
+  - Bun workspace
+  - native local PostgreSQL bootstrap
+  - Hono API
+  - Better Auth email/password sessions
+  - React SPA login and protected shell
+- Sprint 2 capture and library
+  - manual seed capture
+  - personal library browsing
+  - seed detail pages
+  - ownership isolation
+- Sprint 3 constrained enrichment
+  - lexical-evidence gathering
+  - constrained enrichment output
+  - pending, ready, and failed enrichment states
+  - retry behavior
+  - smoke and eval coverage for capture and enrichment
 
 ## Prerequisites
 
@@ -25,7 +38,7 @@ Install these first:
 
 - Bun `1.1.42+`
 - Node `20.19+` or `22.12+`
-- PostgreSQL binaries available on `PATH`
+- PostgreSQL binaries on `PATH`
 
 Required PostgreSQL binaries:
 
@@ -34,7 +47,7 @@ Required PostgreSQL binaries:
 - `psql`
 - `createdb`
 
-If PostgreSQL binaries are installed but not on `PATH`, set `POSTGRES_BIN_DIR` to their directory.
+If PostgreSQL is installed but not on `PATH`, set `POSTGRES_BIN_DIR` to its binary directory.
 
 ## Local Setup
 
@@ -49,9 +62,9 @@ bun run db:reset
 What `bun run db:reset` does:
 
 - starts the repo-local PostgreSQL cluster under `.local/postgres`
-- creates the `gloss` database if needed
+- creates the local `gloss` database if needed
 - applies migrations from `db/migrations`
-- seeds the demo account
+- seeds the demo account and demo seed data
 
 Seeded demo credentials:
 
@@ -66,15 +79,17 @@ Start both services:
 bun run dev
 ```
 
-Local URLs:
+Important notes:
 
 - `bun run dev` prints the chosen `webOrigin` and `apiOrigin`
-- if `5173` or `8787` is already occupied, the runner picks the next free local port
-- use the printed origins for browser and curl checks
-- default targets remain:
-  - web: `http://127.0.0.1:5173`
-  - api: `http://127.0.0.1:8787`
-  - health: `http://127.0.0.1:8787/health`
+- if `5173` or `8787` is already occupied, the dev runner chooses the next free local port
+- use the printed origins for browser and `curl` checks
+
+Default targets remain:
+
+- web: `http://127.0.0.1:5173`
+- api: `http://127.0.0.1:8787`
+- health: `http://127.0.0.1:8787/health`
 
 If you only want one service:
 
@@ -83,15 +98,19 @@ bun run dev:web
 bun run dev:api
 ```
 
-To stop the local PostgreSQL cluster when finished:
+To stop the repo-local PostgreSQL cluster when finished:
 
 ```bash
 bun run db:stop
 ```
 
-## Fast Validation
+## Validation Profiles
 
-Run the full Sprint 3 validation set:
+Choose the smallest profile that answers your question.
+
+### 1. Fixture Regression
+
+Use this for normal development and pre-merge confidence.
 
 ```bash
 bun run lint
@@ -103,185 +122,149 @@ bun run smoke
 
 Expected result:
 
-- all commands exit `0`
-- `bun run eval` prints JSON summaries for journey and boundary checks
-- `bun run smoke` passes in Playwright against the split local web and API servers
-- `bun run eval` prints separate summaries for capture journeys, enrichment journeys, HTTP boundaries, and enrichment traces
+- every command exits `0`
+- fixture-mode smoke passes in a real browser
+- fixture-mode eval prints passing summaries for:
+  - capture journeys
+  - enrichment journeys
+  - HTTP boundary checks
+  - enrichment trace checks
 
-Useful narrower checks:
+### 2. Full Manual Pass
 
-```bash
-bun run test:integration
-bun run test:web
-bun run build
-```
+Use this when you want to manually verify the current MVP from the browser and API surface.
 
-## Provider Keys
+Recommended order:
 
-You do not need external provider keys for the normal local Sprint 3 harness.
+1. `bun run db:reset`
+2. `bun run dev`
+3. complete the browser checklist in this document
+4. complete the API checklist in this document
+5. finish with `bun run smoke` and `bun run eval`
 
-These commands run in deterministic fixture mode by default:
+### 3. Live Vendor Validation
 
-- `bun run test`
-- `bun run eval`
-- `bun run smoke`
-- `bun run dev`
+Use this only when you want to verify the real provider path, not everyday regressions.
 
-Dedicated live browser validation entrypoints:
+Required env vars in your shell or repo-root `.env`:
 
-- `bun run smoke:live`
-- `bun run test:e2e:live`
-
-You only need provider credentials when you want to verify the live enrichment path against real vendors.
-
-Required env vars for live enrichment verification:
-
-- `ENRICHMENT_PROVIDER_MODE=live`
 - `OPENAI_API_KEY`
 - `MERRIAM_WEBSTER_DICTIONARY_API_KEY`
 - `MERRIAM_WEBSTER_THESAURUS_API_KEY`
 
-Optional but recommended:
+Optional:
 
 - `OPENAI_MODEL`
 
-Example:
+Run:
 
 ```bash
-ENRICHMENT_PROVIDER_MODE=live \
-OPENAI_API_KEY=... \
-MERRIAM_WEBSTER_DICTIONARY_API_KEY=... \
-MERRIAM_WEBSTER_THESAURUS_API_KEY=... \
 bun run smoke:live
+set -a; source .env; set +a; ENRICHMENT_PROVIDER_MODE=live bun run eval
 ```
 
-Use that mode for targeted provider validation, not for everyday smoke or regression checks.
+Expected result:
 
-Live validation expectations are intentionally looser than fixture mode:
+- live smoke passes without assuming fixture-specific words
+- live eval passes the live enrichment dataset
+- live trace eval passes evidence-driven guardrail checks
 
-- `bun run smoke:live` checks that enrichment reaches a usable ready state in the browser, not that it returns fixture-specific words like `lucid`
-- `ENRICHMENT_PROVIDER_MODE=live bun run eval` swaps to live enrichment journey expectations that focus on status, gloss quality, and stable failure codes
-- live trace evals still require trace persistence and guardrail behavior, but they derive omission expectations from the lexical evidence snapshot instead of fixture-only assumptions
-
-## Sprint 3 Test Matrix
+## Test Matrix
 
 Use each layer for a different kind of confidence.
 
 ### `bun run test:unit`
 
-What it is for:
+Use for:
 
-- fast validation of pure shared and web logic
-- normalization, filtering, formatting, and contract helper behavior
-- safe refactors that should not depend on the DB or browser boundary
-
-Run this when:
-
-- changing pure transforms
-- changing shared schemas or helpers
-- refactoring library filtering or display helpers
+- shared pure transforms
+- schema helpers
+- normalization logic
+- display or mapping helpers
 
 ### `bun run test:integration`
 
-What it is for:
+Use for:
 
-- validating the Hono API, DB access, Better Auth session flow, and ownership rules
-- proving seed create, list, and detail work correctly
-- proving cross-user denial still holds
-
-Run this when:
-
-- changing routes
-- changing Drizzle schema or DB queries
-- changing auth or session behavior
-- changing request or response contracts
+- Hono routes
+- Postgres access
+- Better Auth flows
+- ownership rules
+- enrichment orchestration and persistence
 
 ### `bun run test:web`
 
-What it is for:
+Use for:
 
-- validating route-level React behavior without a full browser run
-- catching client-side loading, redirect, and error-handling regressions early
-
-Run this when:
-
-- changing route components
-- changing the API client
-- changing protected-shell behavior
+- route-level React behavior
+- redirect behavior
+- loading, pending, and retry states
+- API client error handling
 
 ### `bun run smoke`
 
-What it is for:
+Use for:
 
-- validating the real browser against split local web and API origins
-- proving cookie auth, CORS, routing, capture, library, and seed detail work together
+- real browser validation across split local web and API origins
+- cookies, CORS, routing, capture, library, and enrichment working together
 
-Current Sprint 3 smoke scope:
+Current smoke scope:
 
 - sign in
-- manual capture
-- detail-page enrichment
+- capture
+- seed detail
+- enrichment
 - library browse
-- seed detail readback
-
-Run this when:
-
-- touching auth/session behavior
-- touching capture, library, or detail flows
-- touching origin, cookie, or deployment-relevant boundary behavior
 
 ### `bun run eval`
 
-What it is for:
+Use for:
 
-- validating harness-level product invariants that ordinary tests can miss
-- checking current capture journeys and HTTP boundary assumptions
+- harness-level invariants that ordinary tests can miss
+- product expectations around capture, enrichment, boundaries, and trace quality
 
-Current Sprint 3 eval scope:
+Current eval scope:
 
-- capture preserves context
-- source metadata survives ingestion
-- enrichment returns the expected compact payload
-- weak evidence causes omission instead of fabrication
+- capture preserves context and source metadata
+- enrichment returns constrained valid payloads
+- weak evidence omits fields instead of inventing them
 - failed enrichment persists a stable failed state
-- split-origin CORS headers are exposed on product routes
-- request ids, schema versions, and stable error codes survive unhappy paths
+- split-origin HTTP boundaries expose the right headers and error codes
+- traces persist versions, validation state, and guardrail decisions
 
-Run this when:
+## Recommended Closeout Order
 
-- changing route wiring
-- changing response shape or error contracts
-- changing logging or boundary rules
-
-## Recommended Sprint 3 Validation Order
-
-For most Sprint 3 changes:
+For most user-facing changes:
 
 1. run `bun run test:unit` or `bun run test:web` while iterating
-2. run `bun run test:integration` once the API or DB boundary changes
-3. run `bun run smoke` for any user-visible flow change
-4. run `bun run eval` when changing boundary assumptions or harness behavior
+2. run `bun run test:integration` after API, DB, or auth changes
+3. run `bun run smoke` after any product-flow or deployment-boundary change
+4. run `bun run eval` after any boundary, schema, or provider behavior change
 5. run the full closeout set before merging:
    `bun run lint && bun run typecheck && bun run test && bun run smoke && bun run eval`
 
 ## Manual Browser QA
 
-### 1. Boot Smoke Check
+Run this section in order for the cleanest full-product pass.
+
+### Sprint 1 Foundation
+
+#### 1. Unauthenticated Redirect
 
 1. Run `bun run db:reset`.
 2. Run `bun run dev`.
-3. Open `http://127.0.0.1:5173`.
+3. Open the printed `webOrigin`.
 
 Expected result:
 
 - the app redirects unauthenticated users to `/login`
 
-### 2. Sign Up A New User
+#### 2. Sign Up A New User
 
-1. Open `http://127.0.0.1:5173/login`.
-2. Switch the form to sign-up mode.
+1. Open `/login`.
+2. Switch to sign-up mode.
 3. Enter:
-   - a fresh email like `reader+1@example.com`
+   - a fresh email such as `reader+qa@example.com`
    - a name
    - a password of at least 8 characters
 4. Submit the form.
@@ -293,31 +276,16 @@ Expected result:
 - the shell shows the signed-in user email
 - the library empty state renders
 
-### 3. Word-Only Capture
+#### 3. Sign Out
 
-1. While signed in as the fresh user, open `/capture`.
-2. Enter:
-   - word: `sesquipedalian`
-3. Submit the form.
-
-Expected result:
-
-- the request succeeds
-- the app navigates to `/seeds/<id>`
-- the detail page shows the word `sesquipedalian`
-- the enrichment block appears and settles without breaking the page
-- stage renders as `new`
-
-### 4. Sign Out
-
-1. From `/library`, click sign out.
+1. Click `Sign out`.
 
 Expected result:
 
 - you return to `/login`
 - revisiting `/library` redirects back to `/login`
 
-### 5. Sign In With The Seeded Demo Account
+#### 4. Sign In With The Seeded Demo Account
 
 1. Sign in with:
    - email: `demo@gloss.local`
@@ -327,22 +295,39 @@ Expected result:
 
 - login succeeds
 - you land on `/library`
-- seeded demo entries render in the library
+- the library loads demo entries
 - at least one card shows the word `lapidary`
 
-### 6. Reload Stability
+#### 5. Reload Stability
 
 1. While signed in on `/library`, refresh the page.
 
 Expected result:
 
 - session recovery succeeds
-- the page remains authenticated
-- the `/api/me` data reloads and the page does not bounce to `/login`
+- the app remains authenticated
+- the page does not bounce back to `/login`
 
-### 7. Manual Capture Flow With Context
+### Sprint 2 Capture And Library
 
-1. While signed in, open `/capture`.
+#### 6. Word-Only Capture
+
+1. Open `/capture`.
+2. Enter:
+   - word: `sesquipedalian`
+3. Submit the form.
+
+Expected result:
+
+- the request succeeds without a full page reload
+- the app navigates to `/seeds/<id>`
+- the detail page shows the word `sesquipedalian`
+- stage renders as `new`
+- the captured-context block remains stable even without sentence or source metadata
+
+#### 7. Rich Capture With Source Metadata
+
+1. Open `/capture`.
 2. Enter:
    - word: `pellucid`
    - sentence: `Her explanation was pellucid even under pressure.`
@@ -353,57 +338,112 @@ Expected result:
 
 Expected result:
 
-- the request succeeds without a full-page reload
-- the app navigates to `/seeds/<id>`
+- the request succeeds
 - the detail page shows:
   - word `pellucid`
-  - the sentence you entered
+  - sentence `Her explanation was pellucid even under pressure.`
   - source title `On Style`
   - source author `A. Reader`
   - stage `new`
-  - an enrichment block with a gloss
-  - a related word entry showing `lucid`
-  - a contrastive word entry showing `opaque`
 
-### 8. Library Flow
+#### 8. Library Browse
 
-1. From the detail page, click back to the library.
-2. Confirm the newly created seed appears first.
+1. Navigate back to `/library`.
+2. Confirm the newly created seed appears near the top.
 3. Change the stage filter to `new`.
 
 Expected result:
 
 - the new seed appears in the list
-- the library count remains user-scoped
 - the seed card shows the source title and sentence preview
-- filtering by `new` still includes the new seed
+- filtering by `new` still includes the seed
+- the library remains user-scoped
 
-### 9. Seed Detail Reload Stability
+#### 9. Seed Detail Reload Stability
 
-1. Open a seed detail page at `/seeds/<id>`.
+1. Open the new seed detail page directly.
 2. Refresh the browser.
 
 Expected result:
 
 - the detail page reloads in place
 - the session remains valid
-- the captured source metadata still renders
+- the captured sentence and source metadata still render
 
-### 10. User Scope Check
+#### 10. User Scope Check
 
 1. Sign out from the demo account.
-2. Sign back in as the fresh user created earlier.
+2. Sign back in as the fresh user you created earlier.
 3. Open `/library`.
 
 Expected result:
 
 - the fresh user does not see the demo user’s seeds
-- the fresh user still sees the earlier word-only seed
-- direct navigation to a demo seed detail URL should not reveal demo seed content
+- the fresh user only sees their own seeds
+- direct navigation to a demo seed detail URL does not reveal demo seed content
+
+### Sprint 3 Constrained Enrichment
+
+#### 11. Ready Enrichment State
+
+1. While signed in, capture or open a `pellucid` seed with:
+   - sentence: `Her explanation was pellucid even under pressure.`
+2. Wait on the seed detail page for the enrichment panel to settle.
+
+Expected result in fixture mode:
+
+- the panel first shows `Lexical scaffolding`
+- the panel then renders accepted enrichment
+- the enrichment block shows:
+  - a non-empty gloss
+  - related word `lucid`
+  - contrastive word `opaque`
+
+Expected result in live mode:
+
+- the panel reaches a usable ready state
+- the gloss is non-empty
+- optional fields may vary based on vendor evidence
+
+#### 12. Failed Enrichment State
+
+1. Capture a seed with:
+   - word: `obscurium`
+2. Wait for the enrichment panel to settle.
+
+Expected result:
+
+- the panel does not remain stuck on `Lexical scaffolding`
+- the panel renders `Enrichment paused`
+- the UI exposes a `Retry enrichment` button
+- the page remains usable
+
+#### 13. Retry Path
+
+1. From the failed `obscurium` seed, click `Retry enrichment`.
+
+Expected result:
+
+- the request completes cleanly
+- the page remains stable
+- the failed state persists with a stable message when lexical evidence is still unavailable
+- no duplicate seed or corrupted detail state appears
+
+#### 14. Enrichment Readback
+
+1. Refresh the ready `pellucid` seed detail page.
+
+Expected result:
+
+- the accepted enrichment still renders after reload
+- the page does not require recapture
+- the saved enrichment matches the last accepted state rather than rebuilding from scratch on every load
 
 ## Manual API QA
 
-### Health Endpoint
+Use the printed `apiOrigin` and `webOrigin` if your dev ports were auto-bumped.
+
+### 1. Health Endpoint
 
 Run:
 
@@ -414,9 +454,9 @@ curl http://127.0.0.1:8787/health
 Expected result:
 
 - HTTP `200`
-- JSON response with `ok: true`
+- JSON success payload
 
-### Unauthorized Session Endpoint
+### 2. Unauthorized Session Endpoint
 
 Run:
 
@@ -427,41 +467,12 @@ curl -i http://127.0.0.1:8787/api/me
 Expected result:
 
 - HTTP `401`
-- JSON error response
+- JSON error payload
 - error code `AUTH_UNAUTHORIZED`
 
-### Seed Endpoints
+### 3. Sign In And Read Session
 
-Use a cookie jar to sign in and exercise capture, list, and detail:
-
-```bash
-curl -i -c /tmp/gloss.cookies \
-  -H 'content-type: application/json' \
-  -H 'origin: http://127.0.0.1:5173' \
-  -X POST http://127.0.0.1:8787/api/auth/sign-in/email \
-  --data '{"email":"demo@gloss.local","password":"password1234"}'
-
-curl -i -b /tmp/gloss.cookies \
-  -H 'content-type: application/json' \
-  -H 'origin: http://127.0.0.1:5173' \
-  -X POST http://127.0.0.1:8787/capture/seeds \
-  --data '{"word":"pellucid","sentence":"Her explanation was pellucid even under pressure.","source":{"kind":"book","title":"On Style"}}'
-
-curl -i -b /tmp/gloss.cookies \
-  -H 'origin: http://127.0.0.1:5173' \
-  http://127.0.0.1:8787/seeds
-```
-
-Expected result:
-
-- capture returns HTTP `201`
-- list returns HTTP `200`
-- the list payload includes the new seed
-- the list payload includes the source title when one was provided
-
-### Authorized Session Endpoint
-
-Use a cookie jar to sign in and then call `/api/me`:
+Run:
 
 ```bash
 curl -i -c /tmp/gloss.cookies \
@@ -478,26 +489,80 @@ curl -i -b /tmp/gloss.cookies \
 Expected result:
 
 - sign-in returns HTTP `200`
-- the second request returns HTTP `200`
-- the `/api/me` payload includes:
+- `/api/me` returns HTTP `200`
+- the payload includes:
   - `user`
   - `session`
   - `profile`
 
-## Expected Sprint 2 Behaviors
+### 4. Capture, List, And Detail
 
-These are the behaviors that should hold every time:
+Run:
+
+```bash
+curl -i -b /tmp/gloss.cookies \
+  -H 'content-type: application/json' \
+  -H 'origin: http://127.0.0.1:5173' \
+  -X POST http://127.0.0.1:8787/capture/seeds \
+  --data '{"word":"pellucid","sentence":"Her explanation was pellucid even under pressure.","source":{"kind":"book","title":"On Style"}}'
+
+curl -i -b /tmp/gloss.cookies \
+  -H 'origin: http://127.0.0.1:5173' \
+  http://127.0.0.1:8787/seeds
+```
+
+Expected result:
+
+- capture returns HTTP `201`
+- list returns HTTP `200`
+- the list payload includes the new seed
+- source metadata survives round-trip when provided
+
+### 5. Enrichment Endpoint
+
+Use the seed id returned from capture or from `GET /seeds`.
+
+Run:
+
+```bash
+curl -i -b /tmp/gloss.cookies \
+  -H 'origin: http://127.0.0.1:5173' \
+  -X POST http://127.0.0.1:8787/seeds/<seed-id>/enrich
+
+curl -i -b /tmp/gloss.cookies \
+  -H 'origin: http://127.0.0.1:5173' \
+  http://127.0.0.1:8787/seeds/<seed-id>
+```
+
+Expected result in fixture mode:
+
+- enrich returns HTTP `200`
+- the seed detail payload contains a `ready` enrichment for `pellucid`
+- the payload includes a non-empty gloss
+
+Expected result for a known weak-evidence word like `obscurium`:
+
+- enrich still returns a stable JSON payload
+- the detail payload shows `failed`
+- `errorCode` is `ENRICHMENT_EVIDENCE_UNAVAILABLE`
+
+## Expected Product Behaviors
+
+These should hold every time:
 
 - unauthenticated users cannot read `/api/me`
-- the browser never stores bearer tokens in `localStorage`
 - auth is cookie-based
+- the browser never stores bearer tokens in `localStorage`
 - sign-up creates a real session immediately
-- sign-out clears access to the protected shell
-- the capture, library, and seed detail flows work across split local web and API origins
-- the seed detail page can trigger and render enrichment
-- `bun run db:reset` is deterministic
-- `bun run eval` passes after a reset
+- sign-out removes access to protected routes
+- capture, library, and seed detail work across split local web and API origins
+- seed ownership is enforced in the API
+- enrichment never blocks initial capture
+- accepted enrichment is schema-validated before persistence
+- weak evidence causes omission or stable failure, not fabrication
+- `bun run db:reset` returns the repo to a deterministic state
 - `bun run smoke` passes after a reset
+- `bun run eval` passes after a reset
 
 ## Troubleshooting
 
@@ -517,7 +582,7 @@ Example:
 export POSTGRES_BIN_DIR=/opt/homebrew/opt/postgresql@15/bin
 ```
 
-### Database ports already in use
+### Local ports already in use
 
 Default local ports:
 
@@ -525,14 +590,17 @@ Default local ports:
 - API: `8787`
 - Web: `5173`
 
-If the repo-local cluster is stuck or already running:
+Fix:
+
+- `bun run dev` auto-selects free web and API ports
+- if the repo-local Postgres cluster is stuck, run:
 
 ```bash
 bun run db:stop
 bun run db:start
 ```
 
-### Node toolchain warning from Vite
+### Vite Node warning
 
 Symptom:
 
@@ -542,7 +610,7 @@ Fix:
 
 - use Node `20.19+` or `22.12+`
 
-### Reset the environment
+### Reset to a known-good state
 
 If local state gets confusing:
 
@@ -550,4 +618,4 @@ If local state gets confusing:
 bun run db:reset
 ```
 
-That is the fastest way to return to a known-good Sprint 3 state.
+That is the fastest way to return to a known-good Sprint 1 through Sprint 3 state.

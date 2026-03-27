@@ -50,32 +50,29 @@ export const LibraryRoute = (): JSX.Element => {
       <div className="panel panel--compact">
         <div className="library__header">
           <div>
-            <p className="panel__eyebrow">Library</p>
-            <h2>Your Word Seeds</h2>
-            <p className="panel__copy">
-              Browse captured words by stage. Sprint 2 keeps the library narrow and
-              personal.
-            </p>
+            <h2>Your words</h2>
           </div>
 
-          <label className="library__filter">
-            <span>Stage</span>
-            <select
-              onChange={(event) => {
-                setStageFilter(event.target.value as StageFilter);
-              }}
-              value={stageFilter}
-            >
-              {stageOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+          <div className="library__controls">
+            <label className="library__filter">
+              <span>Stage</span>
+              <select
+                onChange={(event) => {
+                  setStageFilter(event.target.value as StageFilter);
+                }}
+                value={stageFilter}
+              >
+                {stageOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
 
-        <p className="library__summary">{total} seed(s) in view</p>
+            <p className="library__summary">{total} word(s)</p>
+          </div>
+        </div>
       </div>
 
       {isLoading ? (
@@ -88,11 +85,8 @@ export const LibraryRoute = (): JSX.Element => {
         </section>
       ) : items.length === 0 ? (
         <section className="panel">
-          <p className="panel__eyebrow">Empty State</p>
-          <h3>No seeds yet.</h3>
-          <p className="panel__copy">
-            Capture a word from your reading life and it will appear here.
-          </p>
+          <h3>No words yet.</h3>
+          <p className="panel__copy">Save a word to see it here.</p>
         </section>
       ) : (
         <section className="library__grid">

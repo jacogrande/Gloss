@@ -11,18 +11,18 @@ type SeedEnrichmentPanelProps = {
 
 const getFailedMessage = (enrichment: SeedEnrichment | null | undefined): string => {
   if (!enrichment || enrichment.status !== "failed") {
-    return "Gloss could not enrich this seed yet.";
+    return "Not available yet.";
   }
 
   switch (enrichment.errorCode) {
     case "ENRICHMENT_EVIDENCE_UNAVAILABLE":
-      return "The lexical evidence was too thin to generate a safe enrichment.";
+      return "Not enough context yet.";
     case "ENRICHMENT_SCHEMA_INVALID":
-      return "The enrichment output did not pass validation.";
+      return "The response was invalid.";
     case "ENRICHMENT_PROVIDER_ERROR":
-      return "The enrichment provider did not return a usable result.";
+      return "The provider did not return a usable result.";
     default:
-      return "Gloss could not enrich this seed yet.";
+      return "Not available yet.";
   }
 };
 
@@ -34,16 +34,15 @@ export const SeedEnrichmentPanel = ({
 }: SeedEnrichmentPanelProps): JSX.Element => {
   if (errorMessage && !isEnriching && !enrichment) {
     return (
-      <section className="panel seed-enrichment">
-        <p className="panel__eyebrow">Constrained Enrichment</p>
-        <h3>Enrichment paused</h3>
-        <p className="panel__copy">{errorMessage}</p>
+      <section className="seed-enrichment seed-enrichment--failed">
+        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__state-copy">{errorMessage}</p>
         <button
           className="seed-enrichment__retry"
           onClick={onRetry}
           type="button"
         >
-          Retry enrichment
+          Try again
         </button>
       </section>
     );
@@ -51,20 +50,16 @@ export const SeedEnrichmentPanel = ({
 
   if (isEnriching || enrichment?.status === "pending" || !enrichment) {
     return (
-      <section className="panel seed-enrichment">
-        <p className="panel__eyebrow">Constrained Enrichment</p>
-        <h3>Building lexical scaffolding</h3>
-        <p className="panel__copy">
-          Gloss is assembling evidence and generating a compact learning block for
-          this seed.
-        </p>
+      <section className="seed-enrichment seed-enrichment--pending">
+        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__state-copy">Loading definition...</p>
         {enrichment?.status === "pending" ? (
           <button
             className="seed-enrichment__retry"
             onClick={onRetry}
             type="button"
           >
-            Refresh enrichment
+            Refresh
           </button>
         ) : null}
       </section>
@@ -73,16 +68,17 @@ export const SeedEnrichmentPanel = ({
 
   if (enrichment.status === "failed") {
     return (
-      <section className="panel seed-enrichment">
-        <p className="panel__eyebrow">Constrained Enrichment</p>
-        <h3>Enrichment paused</h3>
-        <p className="panel__copy">{errorMessage ?? getFailedMessage(enrichment)}</p>
+      <section className="seed-enrichment seed-enrichment--failed">
+        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__state-copy">
+          {errorMessage ?? getFailedMessage(enrichment)}
+        </p>
         <button
           className="seed-enrichment__retry"
           onClick={onRetry}
           type="button"
         >
-          Retry enrichment
+          Try again
         </button>
       </section>
     );
@@ -90,11 +86,10 @@ export const SeedEnrichmentPanel = ({
 
   if (!enrichment.payload) {
     return (
-      <section className="panel seed-enrichment">
-        <p className="panel__eyebrow">Constrained Enrichment</p>
-        <h3>Enrichment unavailable</h3>
-        <p className="panel__copy">
-          Gloss did not receive a usable enrichment payload for this seed.
+      <section className="seed-enrichment seed-enrichment--failed">
+        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__state-copy">
+          No definition available.
         </p>
       </section>
     );
@@ -103,15 +98,13 @@ export const SeedEnrichmentPanel = ({
   const payload = enrichment.payload;
 
   return (
-    <section className="panel seed-enrichment">
-      <p className="panel__eyebrow">Constrained Enrichment</p>
-      <h3>Lexical scaffolding</h3>
+    <section className="seed-enrichment seed-enrichment--ready">
+      <div className="seed-enrichment__header">
+        <p className="seed-enrichment__label">Definition</p>
+      </div>
+      <p className="seed-enrichment__gloss">{payload.gloss}</p>
       <div className="seed-enrichment__grid">
-        <article className="seed-enrichment__item">
-          <h4>Gloss</h4>
-          <p>{payload.gloss}</p>
-        </article>
-
+        
         {payload.registerNote ? (
           <article className="seed-enrichment__item">
             <h4>Register</h4>
@@ -122,9 +115,7 @@ export const SeedEnrichmentPanel = ({
         {payload.relatedWord ? (
           <article className="seed-enrichment__item">
             <h4>Related Word</h4>
-            <p>
-              <strong>{payload.relatedWord.word}</strong>
-            </p>
+            <p className="seed-enrichment__relation-word">{payload.relatedWord.word}</p>
             <p>{payload.relatedWord.note}</p>
           </article>
         ) : null}
@@ -132,8 +123,8 @@ export const SeedEnrichmentPanel = ({
         {payload.contrastiveWord ? (
           <article className="seed-enrichment__item">
             <h4>Contrastive Word</h4>
-            <p>
-              <strong>{payload.contrastiveWord.word}</strong>
+            <p className="seed-enrichment__relation-word">
+              {payload.contrastiveWord.word}
             </p>
             <p>{payload.contrastiveWord.note}</p>
           </article>

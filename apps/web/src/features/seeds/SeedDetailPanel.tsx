@@ -3,6 +3,11 @@ import type { JSX } from "react";
 import type { SeedDetail } from "@gloss/shared/types";
 
 import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
+import {
+  formatAnnotationDate,
+  formatSeedStageLabel,
+  formatSourceKindLabel,
+} from "./seed-presenters";
 
 type SeedDetailPanelProps = {
   enrichmentErrorMessage: string | null;
@@ -18,64 +23,12 @@ export const SeedDetailPanel = ({
   seed,
 }: SeedDetailPanelProps): JSX.Element => (
   <section className="seed-detail">
-    <div className="seed-detail__hero">
-      <p className="seed-detail__eyebrow">{seed.stage}</p>
-      <h2>{seed.word}</h2>
-      <p className="seed-detail__copy">
-        This is the captured reading moment. Gloss keeps that original context in
-        view while layering constrained enrichment on top of it.
+    <header className="seed-detail__hero">
+      <p className="seed-detail__eyebrow" data-stage={seed.stage}>
+        {formatSeedStageLabel(seed.stage)}
       </p>
-    </div>
-
-    <div className="seed-detail__grid">
-      <section className="panel">
-        <p className="panel__eyebrow">Primary Context</p>
-        <h3>Sentence</h3>
-        <p className="seed-detail__sentence">
-          {seed.primarySentence ?? "No sentence was captured for this seed."}
-        </p>
-      </section>
-
-      <section className="panel">
-        <p className="panel__eyebrow">Source</p>
-        <h3>Metadata</h3>
-        <dl className="seed-detail__meta">
-          <div>
-            <dt>Kind</dt>
-            <dd>{seed.source?.kind ?? "None"}</dd>
-          </div>
-          <div>
-            <dt>Title</dt>
-            <dd>{seed.source?.title ?? "None"}</dd>
-          </div>
-          <div>
-            <dt>Author</dt>
-            <dd>{seed.source?.author ?? "None"}</dd>
-          </div>
-          <div>
-            <dt>URL</dt>
-            <dd>{seed.source?.url ?? "None"}</dd>
-          </div>
-        </dl>
-      </section>
-    </div>
-
-    <section className="panel">
-      <p className="panel__eyebrow">Captured Contexts</p>
-      <h3>Stored Evidence</h3>
-      <ul className="seed-detail__contexts">
-        {seed.contexts.length === 0 ? (
-          <li>No contextual text was stored for this seed.</li>
-        ) : (
-          seed.contexts.map((context) => (
-            <li key={context.id}>
-              <strong>{context.kind}</strong>
-              <p>{context.text}</p>
-            </li>
-          ))
-        )}
-      </ul>
-    </section>
+      <h2>{seed.word}</h2>
+    </header>
 
     <SeedEnrichmentPanel
       enrichment={seed.enrichment}
@@ -83,5 +36,75 @@ export const SeedDetailPanel = ({
       isEnriching={isEnriching}
       onRetry={onRetryEnrichment}
     />
+
+    <div className="seed-detail__grid">
+      <section className="seed-detail__section">
+        <p className="seed-detail__section-label">Sentence</p>
+        <p className="seed-detail__sentence">
+          {seed.primarySentence ?? "No sentence saved."}
+        </p>
+      </section>
+
+      {seed.source ? (
+        <section className="seed-detail__section">
+          <p className="seed-detail__section-label">Source</p>
+          <dl className="seed-detail__meta">
+            <div>
+              <dt>Type</dt>
+              <dd>{formatSourceKindLabel(seed.source.kind)}</dd>
+            </div>
+            {seed.source.title ? (
+              <div>
+                <dt>Title</dt>
+                <dd>{seed.source.title}</dd>
+              </div>
+            ) : null}
+            {seed.source.author ? (
+              <div>
+                <dt>Author</dt>
+                <dd>{seed.source.author}</dd>
+              </div>
+            ) : null}
+            {seed.source.url ? (
+              <div>
+                <dt>URL</dt>
+                <dd>
+                  <a href={seed.source.url} rel="noreferrer" target="_blank">
+                    {seed.source.url}
+                  </a>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+        </section>
+      ) : null}
+    </div>
+
+    <section className="seed-detail__section">
+      <div className="seed-detail__meta-inline">
+        <div>
+          <p className="seed-detail__section-label">Captured</p>
+          <p>{formatAnnotationDate(seed.createdAt)}</p>
+        </div>
+        <div>
+          <p className="seed-detail__section-label">Updated</p>
+          <p>{formatAnnotationDate(seed.updatedAt)}</p>
+        </div>
+      </div>
+    </section>
+
+    {seed.contexts.length > 0 ? (
+      <section className="seed-detail__section">
+        <p className="seed-detail__section-label">Context</p>
+        <ul className="seed-detail__contexts">
+          {seed.contexts.map((context) => (
+            <li key={context.id}>
+              <strong>{context.kind}</strong>
+              <p>{context.text}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+    ) : null}
   </section>
 );

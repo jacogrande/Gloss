@@ -27,7 +27,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
 
   await expect(page).toHaveURL(/\/library$/);
   await expect(
-    page.getByRole("heading", { name: "Your Word Seeds" }),
+    page.getByRole("heading", { name: "Your words" }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "lapidary" })).toBeVisible();
 
@@ -49,10 +49,8 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   );
   await expect(page.getByText("On Style")).toBeVisible();
   await expect(page.getByText("A. Reader")).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Lexical scaffolding" }),
-  ).toBeVisible();
   const enrichmentPanel = page.locator(".seed-enrichment");
+  const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
   const relatedWordCard = enrichmentPanel
     .locator(".seed-enrichment__item")
     .filter({ has: page.getByRole("heading", { level: 4, name: "Related Word" }) });
@@ -66,32 +64,45 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     });
 
   if (isLiveEnrichment) {
-    const enrichmentHeading = enrichmentPanel.getByRole("heading", { level: 3 });
-    const glossCard = enrichmentPanel
-      .locator(".seed-enrichment__item")
-      .filter({ has: page.getByRole("heading", { level: 4, name: "Gloss" }) });
-
     await expect
-      .poll(async () => enrichmentHeading.textContent(), {
+      .poll(async () => {
+        if (await gloss.isVisible().catch(() => false)) {
+          return "ready";
+        }
+
+        if (
+          await page
+            .getByRole("button", { name: "Try again" })
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return "failed";
+        }
+
+        return "pending";
+      }, {
         timeout: 30_000,
       })
-      .toMatch(/Lexical scaffolding|Enrichment paused/);
+      .toBe("ready");
 
-    const settledHeading = await enrichmentHeading.textContent();
-
-    if (settledHeading?.includes("Enrichment paused")) {
+    if (await page.getByRole("button", { name: "Try again" }).isVisible().catch(() => false)) {
       throw new Error(
-        `Live enrichment failed in the browser: ${await enrichmentPanel.locator(".panel__copy").textContent()}`,
+        `Live enrichment failed in the browser: ${await enrichmentPanel.locator(".seed-enrichment__state-copy").textContent()}`,
       );
     }
 
-    await expect(glossCard.locator("p")).not.toHaveText("");
+    await expect(gloss).not.toHaveText("");
     await expect
       .poll(async () => enrichmentPanel.locator(".seed-enrichment__item").count())
       .toBeGreaterThan(1);
   } else {
-    await expect(relatedWordCard.locator("strong")).toHaveText("lucid");
-    await expect(contrastiveWordCard.locator("strong")).toHaveText("opaque");
+    await expect(gloss).not.toHaveText("");
+    await expect(relatedWordCard.locator(".seed-enrichment__relation-word")).toHaveText(
+      "lucid",
+    );
+    await expect(
+      contrastiveWordCard.locator(".seed-enrichment__relation-word"),
+    ).toHaveText("opaque");
   }
 
   await page.getByRole("link", { name: "Library" }).click();

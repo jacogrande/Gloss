@@ -3,6 +3,12 @@ import { Link } from "react-router-dom";
 
 import type { SeedSummary } from "@gloss/shared/types";
 
+import {
+  formatAnnotationDate,
+  formatSeedStageLabel,
+  formatSourceKindLabel,
+} from "./seed-presenters";
+
 type SeedCardProps = {
   seed: SeedSummary;
 };
@@ -10,25 +16,32 @@ type SeedCardProps = {
 export const SeedCard = ({ seed }: SeedCardProps): JSX.Element => (
   <article className="seed-card">
     <div className="seed-card__header">
-      <p className="seed-card__stage">{seed.stage}</p>
+      <div className="seed-card__annotations">
+        <p className="seed-card__stage" data-stage={seed.stage}>
+          {formatSeedStageLabel(seed.stage)}
+        </p>
+        <p className="seed-card__date">{formatAnnotationDate(seed.createdAt)}</p>
+      </div>
       <h3>
         <Link to={`/seeds/${seed.id}`}>{seed.word}</Link>
       </h3>
     </div>
 
-    <p className="seed-card__sentence">
-      {seed.primarySentence ?? "Saved without a sentence. Ready for later context."}
-    </p>
+    {seed.primarySentence ? <p className="seed-card__sentence">{seed.primarySentence}</p> : null}
 
-    <dl className="seed-card__meta">
-      <div>
-        <dt>Source</dt>
-        <dd>{seed.source?.title ?? "No source metadata"}</dd>
-      </div>
-      <div>
-        <dt>Captured</dt>
-        <dd>{new Date(seed.createdAt).toLocaleDateString()}</dd>
-      </div>
-    </dl>
+    {seed.source ? (
+      <dl className="seed-card__meta">
+        {seed.source.title ? (
+          <div>
+            <dt>Source</dt>
+            <dd>{seed.source.title}</dd>
+          </div>
+        ) : null}
+        <div>
+          <dt>Type</dt>
+          <dd>{formatSourceKindLabel(seed.source.kind)}</dd>
+        </div>
+      </dl>
+    ) : null}
   </article>
 );
