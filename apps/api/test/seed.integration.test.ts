@@ -13,8 +13,28 @@ import {
   signUpTestUser,
   type TestContext,
 } from "./helpers";
+import type { EnrichmentProviders } from "../src/lib/enrichment-providers";
 
 let context: TestContext;
+
+const createDeferred = <TValue>(): {
+  promise: Promise<TValue>;
+  reject: (reason?: unknown) => void;
+  resolve: (value: TValue | PromiseLike<TValue>) => void;
+} => {
+  let resolve!: (value: TValue | PromiseLike<TValue>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<TValue>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+
+  return {
+    promise,
+    reject,
+    resolve,
+  };
+};
 
 describe("seed integration", () => {
   beforeAll(async () => {
@@ -397,5 +417,225 @@ describe("seed integration", () => {
 
     expect(enrichResponse.status).toBe(404);
     expect(enrichBody.error.code).toBe("NOT_FOUND");
+  });
+
+  it("persists a failed enrichment state when a provider throws after pending is acquired", async () => {
+    const failingProviders: EnrichmentProviders = {
+      lexicalEvidenceProvider: {
+        getDictionaryEntry: () =>
+          Promise.reject(new Error("Dictionary unavailable.")),
+        getRelationCandidates: () =>
+          Promise.resolve({
+            contrastCandidates: [],
+            relatedCandidates: [],
+          }),
+      },
+      modelProvider: {
+        generate: () =>
+          Promise.reject(new Error("Model should not be called.")),
+        model: "fixture-model",
+        provider: "fixture",
+      },
+    };
+    const failingContext = await createTestContext({
+      enrichmentProviders: failingProviders,
+    });
+
+    try {
+      const cookie = await signUpTestUser({
+        app: failingContext.app,
+        email: "provider-failure@example.com",
+        env: failingContext.env,
+        name: "Provider Failure",
+      });
+      const createResponse = await failingContext.app.request(
+        "http://127.0.0.1:8787/capture/seeds",
+        {
+          body: JSON.stringify({
+            word: "pellucid",
+          }),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+            origin: failingContext.env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+      const createBody = createSeedResponseSchema.parse(
+        (await createResponse.json()) as unknown,
+      );
+      const enrichResponse = await failingContext.app.request(
+        `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+        {
+          headers: {
+            cookie,
+            origin: failingContext.env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+      const enrichBody = requestSeedEnrichmentResponseSchema.parse(
+        (await enrichResponse.json()) as unknown,
+      );
+      const detailResponse = await failingContext.app.request(
+        `http://127.0.0.1:8787/seeds/${createBody.data.id}`,
+        {
+          headers: {
+            cookie,
+            origin: failingContext.env.WEB_ORIGIN,
+          },
+        },
+      );
+      const detailBody = seedDetailResponseSchema.parse(
+        (await detailResponse.json()) as unknown,
+      );
+
+      expect(enrichResponse.status).toBe(200);
+      expect(enrichBody.data.status).toBe("failed");
+      expect(enrichBody.data.errorCode).toBe("ENRICHMENT_PROVIDER_ERROR");
+      expect(detailBody.data.enrichment?.status).toBe("failed");
+      expect(detailBody.data.enrichment?.payload).toBeNull();
+    } finally {
+      await failingContext.database.pool.end();
+    }
+  });
+
+  it("avoids duplicate provider work when two enrichment requests race", async () => {
+    const dictionaryStarted = createDeferred<void>();
+    const dictionaryRelease = createDeferred<{
+      exampleSentences: string[];
+      glosses: string[];
+      lemma: string;
+      morphologyHints: string[];
+      partOfSpeech: string | null;
+      registerLabels: string[];
+    } | null>();
+    let relationCalls = 0;
+    let dictionaryCalls = 0;
+    let modelCalls = 0;
+    const concurrentProviders: EnrichmentProviders = {
+      lexicalEvidenceProvider: {
+        getDictionaryEntry: async () => {
+          dictionaryCalls += 1;
+          dictionaryStarted.resolve();
+
+          return await dictionaryRelease.promise;
+        },
+        getRelationCandidates: () => {
+          relationCalls += 1;
+
+          return Promise.resolve({
+            contrastCandidates: ["opaque"],
+            relatedCandidates: ["lucid"],
+          });
+        },
+      },
+      modelProvider: {
+        generate: () => {
+          modelCalls += 1;
+
+          return Promise.resolve({
+            contrastiveWord: {
+              note: "Opaque language hides what pellucid language makes clear.",
+              word: "opaque",
+            },
+            gloss:
+              "In this sentence, it means the explanation was especially clear and easy to follow.",
+            registerNote: "It sounds more formal than everyday clear.",
+            relatedWord: {
+              note: "Both words praise clarity.",
+              word: "lucid",
+            },
+          });
+        },
+        model: "fixture-model",
+        provider: "fixture",
+      },
+    };
+    const concurrentContext = await createTestContext({
+      enrichmentProviders: concurrentProviders,
+    });
+
+    try {
+      const cookie = await signUpTestUser({
+        app: concurrentContext.app,
+        email: "concurrency@example.com",
+        env: concurrentContext.env,
+        name: "Concurrency Reader",
+      });
+      const createResponse = await concurrentContext.app.request(
+        "http://127.0.0.1:8787/capture/seeds",
+        {
+          body: JSON.stringify({
+            word: "pellucid",
+          }),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+            origin: concurrentContext.env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+      const createBody = createSeedResponseSchema.parse(
+        (await createResponse.json()) as unknown,
+      );
+      const firstEnrichPromise = concurrentContext.app.request(
+        `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+        {
+          headers: {
+            cookie,
+            origin: concurrentContext.env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+
+      await dictionaryStarted.promise;
+
+      const secondEnrichPromise = concurrentContext.app.request(
+        `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+        {
+          headers: {
+            cookie,
+            origin: concurrentContext.env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+
+      dictionaryRelease.resolve({
+        exampleSentences: [
+          "Her explanation remained pellucid even as the discussion became technical.",
+        ],
+        glosses: ["clear and easy to understand"],
+        lemma: "pellucid",
+        morphologyHints: [
+          "Merriam segments the headword as pel·lu·cid, which can help you notice the word's internal structure.",
+        ],
+        partOfSpeech: "adjective",
+        registerLabels: ["formal"],
+      });
+
+      const [firstEnrichResponse, secondEnrichResponse] = await Promise.all([
+        firstEnrichPromise,
+        secondEnrichPromise,
+      ]);
+      const firstEnrichBody = requestSeedEnrichmentResponseSchema.parse(
+        (await firstEnrichResponse.json()) as unknown,
+      );
+      const secondEnrichBody = requestSeedEnrichmentResponseSchema.parse(
+        (await secondEnrichResponse.json()) as unknown,
+      );
+
+      expect(firstEnrichBody.data.status).toBe("ready");
+      expect(["pending", "ready"]).toContain(secondEnrichBody.data.status);
+      expect(dictionaryCalls).toBe(1);
+      expect(relationCalls).toBe(1);
+      expect(modelCalls).toBe(1);
+    } finally {
+      await concurrentContext.database.pool.end();
+    }
   });
 });

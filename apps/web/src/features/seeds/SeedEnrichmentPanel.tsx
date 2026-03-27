@@ -3,13 +3,13 @@ import type { JSX } from "react";
 import type { SeedEnrichment } from "@gloss/shared/types";
 
 type SeedEnrichmentPanelProps = {
-  enrichment: SeedEnrichment | null;
+  enrichment: SeedEnrichment | null | undefined;
   errorMessage: string | null;
   isEnriching: boolean;
   onRetry: () => void;
 };
 
-const getFailedMessage = (enrichment: SeedEnrichment | null): string => {
+const getFailedMessage = (enrichment: SeedEnrichment | null | undefined): string => {
   if (!enrichment || enrichment.status !== "failed") {
     return "Gloss could not enrich this seed yet.";
   }
@@ -32,7 +32,7 @@ export const SeedEnrichmentPanel = ({
   isEnriching,
   onRetry,
 }: SeedEnrichmentPanelProps): JSX.Element => {
-  if (errorMessage && !isEnriching && enrichment === null) {
+  if (errorMessage && !isEnriching && !enrichment) {
     return (
       <section className="panel seed-enrichment">
         <p className="panel__eyebrow">Constrained Enrichment</p>
@@ -49,7 +49,7 @@ export const SeedEnrichmentPanel = ({
     );
   }
 
-  if (isEnriching || enrichment?.status === "pending" || enrichment === null) {
+  if (isEnriching || enrichment?.status === "pending" || !enrichment) {
     return (
       <section className="panel seed-enrichment">
         <p className="panel__eyebrow">Constrained Enrichment</p>
@@ -58,6 +58,15 @@ export const SeedEnrichmentPanel = ({
           Gloss is assembling evidence and generating a compact learning block for
           this seed.
         </p>
+        {enrichment?.status === "pending" ? (
+          <button
+            className="seed-enrichment__retry"
+            onClick={onRetry}
+            type="button"
+          >
+            Refresh enrichment
+          </button>
+        ) : null}
       </section>
     );
   }

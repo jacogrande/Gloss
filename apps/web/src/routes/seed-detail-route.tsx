@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useEffectEvent,
   useRef,
   useState,
   type JSX,
@@ -36,6 +37,28 @@ export const SeedDetailRoute = (): JSX.Element => {
       error instanceof Error ? error.message : "Unable to load this seed.",
     load: (signal) =>
       fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId ?? "", signal),
+  });
+
+  const refreshSeedDetail = useEffectEvent(async (): Promise<void> => {
+    if (!seedId) {
+      return;
+    }
+
+    try {
+      const nextSeed = await fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId);
+
+      setSeed(nextSeed);
+
+      if (nextSeed.enrichment?.status !== "failed") {
+        setEnrichmentErrorMessage(null);
+      }
+    } catch (error) {
+      setEnrichmentErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to refresh this seed right now.",
+      );
+    }
   });
 
   useEffect(() => {
@@ -94,6 +117,20 @@ export const SeedDetailRoute = (): JSX.Element => {
     autoRequestedSeedId.current = seed.id;
     void runEnrichment();
   }, [seed, seedId]);
+
+  useEffect(() => {
+    if (seed?.enrichment?.status !== "pending" || isEnriching) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void refreshSeedDetail();
+    }, 1_500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isEnriching, seed?.enrichment?.status, seed?.id]);
 
   if (isLoading) {
     return (

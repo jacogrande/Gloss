@@ -12,6 +12,7 @@ import {
   createDefaultEnrichmentService,
   type EnrichmentService,
 } from "../services/enrichment-service";
+import type { EnrichmentProviders } from "./enrichment-providers";
 import {
   createProfileService,
   type ProfileService,
@@ -35,6 +36,7 @@ export type AppRuntime = {
 
 export const createAppRuntime = (input: {
   database?: DatabaseClient;
+  enrichmentProviders?: EnrichmentProviders;
   env: ServerEnv;
   logger?: Logger;
 }): AppRuntime => {
@@ -47,6 +49,11 @@ export const createAppRuntime = (input: {
     db: database.db,
     env: input.env,
     logger,
+    ...(input.enrichmentProviders
+      ? {
+          providers: input.enrichmentProviders,
+        }
+      : {}),
   });
   const auth = createAuth({
     env: input.env,

@@ -17,6 +17,34 @@ import { normalizeWord } from "./seed-contracts";
 
 export const seedEnrichmentPromptTemplateVersion = "seed-enrichment.v1" as const;
 
+type EnrichmentPromptBody = {
+  allowed_output_schema_version: typeof seedEnrichmentPayloadSchemaVersion;
+  lexical_evidence: LexicalEvidenceSnapshot;
+  omission_rules: {
+    contrastiveWord: string;
+    morphologyNote: string;
+    registerNote: string;
+    relatedWord: string;
+  };
+  seed_capture_context: {
+    sentence: string | null;
+    source:
+      | {
+          kind: LexicalEvidenceSnapshot["sourceSummary"]["kind"];
+          title: LexicalEvidenceSnapshot["sourceSummary"]["title"];
+        }
+      | null;
+    word: string;
+  };
+  task: {
+    contrastiveWord: string;
+    gloss: string;
+    morphologyNote: string;
+    registerNote: string;
+    relatedWord: string;
+  };
+};
+
 type DictionaryEvidence = {
   exampleSentences: string[];
   glosses: string[];
@@ -186,52 +214,61 @@ export const applyEnrichmentGuardrails = (input: {
   };
 };
 
+const buildEnrichmentPromptBody = (input: {
+  snapshot: LexicalEvidenceSnapshot;
+  seed: Pick<SeedDetail, "primarySentence" | "source" | "word">;
+}): EnrichmentPromptBody => ({
+  allowed_output_schema_version: seedEnrichmentPayloadSchemaVersion,
+  lexical_evidence: input.snapshot,
+  omission_rules: {
+    contrastiveWord:
+      "Omit when the evidence does not support one safe contrastive candidate.",
+    morphologyNote:
+      "Omit when morphology evidence is weak or absent.",
+    registerNote:
+      "Omit when register evidence is weak or absent.",
+    relatedWord:
+      "Omit when the evidence does not support one safe related candidate.",
+  },
+  seed_capture_context: {
+    sentence: input.seed.primarySentence,
+    source: input.seed.source
+      ? {
+          kind: input.seed.source.kind,
+          title: input.seed.source.title,
+        }
+      : null,
+    word: input.seed.word,
+  },
+  task: {
+    contrastiveWord:
+      "Provide one contrastive word and one short distinction note only if evidence supports it.",
+    gloss:
+      "Provide one plain-English gloss in the captured context.",
+    morphologyNote:
+      "Provide one concise structural or family clue only if evidence supports it.",
+    registerNote:
+      "Provide one concise register note only if evidence supports it.",
+    relatedWord:
+      "Provide one related word and one short why-this-is-related note only if evidence supports it.",
+  },
+});
+
 export const buildEnrichmentPrompts = (input: {
   snapshot: LexicalEvidenceSnapshot;
   seed: Pick<SeedDetail, "primarySentence" | "source" | "word">;
 }): {
   developerInstruction: string;
+  seedWord: string;
+  snapshot: LexicalEvidenceSnapshot;
   userInstruction: string;
 } => ({
   developerInstruction:
     "Produce compact lexical scaffolding for one saved vocabulary seed. Return strict JSON matching the provided schema. Keep the output calm, concise, and pedagogically useful. Use lexical evidence first. Omit unsupported fields instead of guessing. Do not invent etymology, extra relations, or unsupported register claims.",
+  seedWord: input.seed.word,
+  snapshot: input.snapshot,
   userInstruction: JSON.stringify(
-    {
-      allowed_output_schema_version: seedEnrichmentPayloadSchemaVersion,
-      lexical_evidence: input.snapshot,
-      omission_rules: {
-        contrastiveWord:
-          "Omit when the evidence does not support one safe contrastive candidate.",
-        morphologyNote:
-          "Omit when morphology evidence is weak or absent.",
-        registerNote:
-          "Omit when register evidence is weak or absent.",
-        relatedWord:
-          "Omit when the evidence does not support one safe related candidate.",
-      },
-      seed_capture_context: {
-        sentence: input.seed.primarySentence,
-        source: input.seed.source
-          ? {
-              kind: input.seed.source.kind,
-              title: input.seed.source.title,
-            }
-          : null,
-        word: input.seed.word,
-      },
-      task: {
-        contrastiveWord:
-          "Provide one contrastive word and one short distinction note only if evidence supports it.",
-        gloss:
-          "Provide one plain-English gloss in the captured context.",
-        morphologyNote:
-          "Provide one concise structural or family clue only if evidence supports it.",
-        registerNote:
-          "Provide one concise register note only if evidence supports it.",
-        relatedWord:
-          "Provide one related word and one short why-this-is-related note only if evidence supports it.",
-      },
-    },
+    buildEnrichmentPromptBody(input),
     null,
     2,
   ),

@@ -1,6 +1,7 @@
 import { createAppRuntime } from "../src/lib/app-runtime";
 import { createDatabaseClient } from "../src/lib/db";
 import { loadServerEnv } from "../src/lib/env";
+import type { EnrichmentProviders } from "../src/lib/enrichment-providers";
 import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../src/lib/local-postgres";
 import { applyMigrations, resetDatabase } from "../src/lib/migrations";
 
@@ -22,7 +23,9 @@ export type TestContext = {
   runtime: ReturnType<typeof createAppRuntime>;
 };
 
-export const createTestContext = async (): Promise<TestContext> => {
+export const createTestContext = async (input?: {
+  enrichmentProviders?: EnrichmentProviders;
+}): Promise<TestContext> => {
   const testDatabaseUrl = deriveTestDatabaseUrl(
     process.env.DATABASE_URL ?? defaultDatabaseUrl,
   );
@@ -48,6 +51,11 @@ export const createTestContext = async (): Promise<TestContext> => {
   const runtime = createAppRuntime({
     database,
     env,
+    ...(input?.enrichmentProviders
+      ? {
+          enrichmentProviders: input.enrichmentProviders,
+        }
+      : {}),
   });
 
   return {

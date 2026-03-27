@@ -160,6 +160,7 @@ describe("enrichment contracts", () => {
     });
 
     expect(prompts.developerInstruction).toContain("Return strict JSON");
+    expect(prompts.seedWord).toBe("pellucid");
     expect(prompts.userInstruction).toContain('"lexical_evidence"');
     expect(prompts.userInstruction.indexOf('"lexical_evidence"')).toBeLessThan(
       prompts.userInstruction.indexOf('"seed_capture_context"'),

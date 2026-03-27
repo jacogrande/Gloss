@@ -41,10 +41,16 @@ type MerriamDictionaryEntry = {
   hwi?: {
     hw?: string;
   };
+  ins?: Array<{
+    if?: string;
+  }>;
+  lbs?: string[];
   meta?: {
     id?: string;
+    stems?: string[];
   };
   shortdef?: string[];
+  sls?: string[];
 };
 
 type MerriamThesaurusEntry = {
@@ -297,6 +303,130 @@ const dedupeWords = (values: readonly string[]): string[] => {
   return deduped;
 };
 
+const normalizeMerriamText = (value: string): string =>
+  value
+    .replace(/\{\/?[^}]+\}/g, "")
+    .replace(/\*/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const collectNestedStrings = (value: unknown): string[] => {
+  if (typeof value === "string") {
+    const normalized = normalizeMerriamText(value);
+
+    return normalized.length > 0 ? [normalized] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectNestedStrings(entry));
+  }
+
+  if (isRecord(value)) {
+    return Object.values(value).flatMap((entry) => collectNestedStrings(entry));
+  }
+
+  return [];
+};
+
+const collectStringsForKey = (value: unknown, key: string): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectStringsForKey(entry, key));
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const ownMatches = key in value ? collectNestedStrings(value[key]) : [];
+
+  return [
+    ...ownMatches,
+    ...Object.values(value).flatMap((entry) => collectStringsForKey(entry, key)),
+  ];
+};
+
+const collectVisualTexts = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => collectVisualTexts(entry));
+  }
+
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const visualEntries =
+    "vis" in value ? collectVisualTexts(value.vis) : [];
+  const currentText =
+    typeof value.t === "string"
+      ? [normalizeMerriamText(value.t)]
+      : [];
+
+  return [
+    ...currentText,
+    ...visualEntries,
+    ...Object.values(value).flatMap((entry) => collectVisualTexts(entry)),
+  ];
+};
+
+const buildHeadwordMorphologyHint = (headword?: string): string | null => {
+  if (!headword || !headword.includes("*")) {
+    return null;
+  }
+
+  const segmentedHeadword = headword
+    .split("*")
+    .map((segment) => normalizeMerriamText(segment))
+    .filter((segment) => segment.length > 0)
+    .join("·");
+
+  if (segmentedHeadword.length === 0) {
+    return null;
+  }
+
+  return `Merriam segments the headword as ${segmentedHeadword}, which can help you notice the word's internal structure.`;
+};
+
+const buildStemMorphologyHint = (
+  entry: MerriamDictionaryEntry,
+  lemma: string,
+): string | null => {
+  const alternateForms = dedupeWords([
+    ...(entry.meta?.stems ?? []).map(normalizeMerriamText),
+    ...(entry.ins ?? [])
+      .map((inflection) => inflection.if)
+      .filter((value): value is string => typeof value === "string")
+      .map(normalizeMerriamText),
+  ]).filter(
+    (value) =>
+      value.length > 0 &&
+      !value.includes(" ") &&
+      normalizeWord(value) !== normalizeWord(lemma),
+  );
+
+  if (alternateForms.length === 0) {
+    return null;
+  }
+
+  const preview = alternateForms
+    .slice(0, 2)
+    .map((value) => `"${value}"`)
+    .join(" and ");
+
+  return `Dictionary forms like ${preview} help anchor this word family.`;
+};
+
+const buildMorphologyHints = (
+  entry: MerriamDictionaryEntry,
+  lemma: string,
+): string[] =>
+  dedupeWords([
+    buildHeadwordMorphologyHint(entry.hwi?.hw) ?? "",
+    buildStemMorphologyHint(entry, lemma) ?? "",
+  ]).filter((value) => value.length > 0);
+
 const findFixtureEntry = (word: string): FixtureEntry | null =>
   fixtureEntries[normalizeWord(word)] ?? null;
 
@@ -322,13 +452,7 @@ const createFixtureLexicalEvidenceProvider = (): LexicalEvidenceProvider => ({
 
 const createFixtureModelProvider = (): EnrichmentModelProvider => ({
   generate(input) {
-    const parsedPrompt = JSON.parse(input.userInstruction) as {
-      seed_capture_context?: {
-        word?: string;
-      };
-    };
-    const word = parsedPrompt.seed_capture_context?.word;
-    const matchingEntry = word ? findFixtureEntry(word) : null;
+    const matchingEntry = findFixtureEntry(input.seedWord);
 
     if (!matchingEntry) {
       throw enrichmentProviderError(
@@ -413,15 +537,27 @@ const createLiveLexicalEvidenceProvider = (
       return null;
     }
 
+    const lemma = stripMerriamHeadword(
+      firstEntry.hwi?.hw ?? firstEntry.meta?.id ?? word,
+    );
+    const registerLabels = dedupeWords([
+      ...(firstEntry.lbs ?? []).map(normalizeMerriamText),
+      ...(firstEntry.sls ?? []).map(normalizeMerriamText),
+      ...collectStringsForKey(firstEntry.def, "lbs"),
+      ...collectStringsForKey(firstEntry.def, "sls"),
+    ]).slice(0, 4);
+    const exampleSentences = dedupeWords(
+      collectVisualTexts(firstEntry.def),
+    ).slice(0, 4);
+    const morphologyHints = buildMorphologyHints(firstEntry, lemma).slice(0, 4);
+
     return {
-      exampleSentences: [],
-      glosses: firstEntry.shortdef,
-      lemma: stripMerriamHeadword(
-        firstEntry.hwi?.hw ?? firstEntry.meta?.id ?? word,
-      ),
-      morphologyHints: [],
+      exampleSentences,
+      glosses: firstEntry.shortdef.map(normalizeMerriamText),
+      lemma,
+      morphologyHints,
       partOfSpeech: firstEntry.fl ?? null,
-      registerLabels: [],
+      registerLabels,
     };
   },
   async getRelationCandidates(word) {

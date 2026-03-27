@@ -105,70 +105,6 @@ export const seedEnrichmentMorphologySchema = z
 
 export const seedEnrichmentPayloadSchemaVersion = "seed-enrichment-payload.v1";
 
-export const seedEnrichmentPayloadJsonSchema = {
-  additionalProperties: false,
-  properties: {
-    contrastiveWord: {
-      additionalProperties: false,
-      properties: {
-        note: {
-          maxLength: 240,
-          minLength: 1,
-          type: "string",
-        },
-        word: {
-          maxLength: 160,
-          minLength: 1,
-          type: "string",
-        },
-      },
-      required: ["word", "note"],
-      type: "object",
-    },
-    gloss: {
-      maxLength: 320,
-      minLength: 1,
-      type: "string",
-    },
-    morphologyNote: {
-      additionalProperties: false,
-      properties: {
-        note: {
-          maxLength: 240,
-          minLength: 1,
-          type: "string",
-        },
-      },
-      required: ["note"],
-      type: "object",
-    },
-    registerNote: {
-      maxLength: 240,
-      minLength: 1,
-      type: "string",
-    },
-    relatedWord: {
-      additionalProperties: false,
-      properties: {
-        note: {
-          maxLength: 240,
-          minLength: 1,
-          type: "string",
-        },
-        word: {
-          maxLength: 160,
-          minLength: 1,
-          type: "string",
-        },
-      },
-      required: ["word", "note"],
-      type: "object",
-    },
-  },
-  required: ["gloss"],
-  type: "object",
-} as const;
-
 export const seedEnrichmentPayloadSchema = z
   .object({
     contrastiveWord: seedEnrichmentRelationSchema.optional(),
@@ -178,6 +114,10 @@ export const seedEnrichmentPayloadSchema = z
     relatedWord: seedEnrichmentRelationSchema.optional(),
   })
   .strict();
+
+export const seedEnrichmentPayloadJsonSchema = z.toJSONSchema(
+  seedEnrichmentPayloadSchema,
+);
 
 export const lexicalEvidenceSnapshotSchema = z
   .object({

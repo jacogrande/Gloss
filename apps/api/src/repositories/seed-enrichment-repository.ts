@@ -2,6 +2,9 @@ import {
   and,
   desc,
   eq,
+  lt,
+  ne,
+  or,
 } from "drizzle-orm";
 
 import type {
@@ -26,6 +29,15 @@ type SeedEnrichmentValidationResult = {
 };
 
 export type SeedEnrichmentRepository = {
+  acquirePending: (input: {
+    model: string;
+    promptTemplateVersion: string;
+    provider: string;
+    schemaVersion: string;
+    seedId: string;
+    staleBefore: Date;
+    userId: string;
+  }) => Promise<SeedEnrichmentRow | null>;
   createTrace: (input: {
     errorCode?: ApiErrorCode;
     guardrailFlags: SeedEnrichmentGuardrailFlag[];
@@ -58,14 +70,6 @@ export type SeedEnrichmentRepository = {
     seedId: string;
     userId: string;
   }) => Promise<SeedEnrichmentRow>;
-  markPending: (input: {
-    model: string;
-    promptTemplateVersion: string;
-    provider: string;
-    schemaVersion: string;
-    seedId: string;
-    userId: string;
-  }) => Promise<SeedEnrichmentRow>;
   markReady: (input: {
     enrichmentId: string;
     guardrailFlags: SeedEnrichmentGuardrailFlag[];
@@ -90,6 +94,56 @@ const requireRow = <TRow>(row: TRow | undefined, message: string): TRow => {
 export const createSeedEnrichmentRepository = (
   db: GlossDatabase,
 ): SeedEnrichmentRepository => ({
+  async acquirePending(input) {
+    const timestamp = now();
+    const reacquireWhere = or(
+      ne(seedEnrichmentsTable.status, "pending"),
+      lt(seedEnrichmentsTable.updatedAt, input.staleBefore),
+    );
+    const [row] = await db
+      .insert(seedEnrichmentsTable)
+      .values({
+        guardrailFlags: [],
+        id: crypto.randomUUID(),
+        model: input.model,
+        payload: null,
+        promptTemplateVersion: input.promptTemplateVersion,
+        provider: input.provider,
+        requestedAt: timestamp,
+        schemaVersion: input.schemaVersion,
+        seedId: input.seedId,
+        startedAt: timestamp,
+        status: "pending",
+        updatedAt: timestamp,
+        userId: input.userId,
+      })
+      .onConflictDoUpdate({
+        set: {
+          completedAt: null,
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          model: input.model,
+          payload: null,
+          promptTemplateVersion: input.promptTemplateVersion,
+          provider: input.provider,
+          requestedAt: timestamp,
+          schemaVersion: input.schemaVersion,
+          startedAt: timestamp,
+          status: "pending",
+          updatedAt: timestamp,
+        },
+        target: seedEnrichmentsTable.seedId,
+        ...(reacquireWhere
+          ? {
+              setWhere: reacquireWhere,
+            }
+          : {}),
+      })
+      .returning();
+
+    return row ?? null;
+  },
   async createTrace(input) {
     const [createdTrace] = await db
       .insert(seedEnrichmentTracesTable)
@@ -167,46 +221,6 @@ export const createSeedEnrichmentRepository = (
       .returning();
 
     return requireRow(updatedRow, "Seed enrichment was not marked failed.");
-  },
-  async markPending(input) {
-    const [row] = await db
-      .insert(seedEnrichmentsTable)
-      .values({
-        guardrailFlags: [],
-        id: crypto.randomUUID(),
-        model: input.model,
-        payload: null,
-        promptTemplateVersion: input.promptTemplateVersion,
-        provider: input.provider,
-        requestedAt: now(),
-        schemaVersion: input.schemaVersion,
-        seedId: input.seedId,
-        startedAt: now(),
-        status: "pending",
-        updatedAt: now(),
-        userId: input.userId,
-      })
-      .onConflictDoUpdate({
-        set: {
-          completedAt: null,
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          model: input.model,
-          payload: null,
-          promptTemplateVersion: input.promptTemplateVersion,
-          provider: input.provider,
-          requestedAt: now(),
-          schemaVersion: input.schemaVersion,
-          startedAt: now(),
-          status: "pending",
-          updatedAt: now(),
-        },
-        target: seedEnrichmentsTable.seedId,
-      })
-      .returning();
-
-    return requireRow(row, "Seed enrichment was not marked pending.");
   },
   async markReady(input) {
     const [updatedRow] = await db

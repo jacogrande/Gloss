@@ -116,6 +116,42 @@ bun run test:web
 bun run build
 ```
 
+## Provider Keys
+
+You do not need external provider keys for the normal local Sprint 3 harness.
+
+These commands run in deterministic fixture mode by default:
+
+- `bun run test`
+- `bun run eval`
+- `bun run smoke`
+- `bun run dev`
+
+You only need provider credentials when you want to verify the live enrichment path against real vendors.
+
+Required env vars for live enrichment verification:
+
+- `ENRICHMENT_PROVIDER_MODE=live`
+- `OPENAI_API_KEY`
+- `MERRIAM_WEBSTER_DICTIONARY_API_KEY`
+- `MERRIAM_WEBSTER_THESAURUS_API_KEY`
+
+Optional but recommended:
+
+- `OPENAI_MODEL`
+
+Example:
+
+```bash
+ENRICHMENT_PROVIDER_MODE=live \
+OPENAI_API_KEY=... \
+MERRIAM_WEBSTER_DICTIONARY_API_KEY=... \
+MERRIAM_WEBSTER_THESAURUS_API_KEY=... \
+bun run eval
+```
+
+Use that mode for targeted provider validation, not for everyday smoke or regression checks.
+
 ## Sprint 3 Test Matrix
 
 Use each layer for a different kind of confidence.

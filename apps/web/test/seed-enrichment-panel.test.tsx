@@ -96,4 +96,40 @@ describe("SeedEnrichmentPanel", () => {
     ).toBeVisible();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
+
+  it("surfaces a refresh affordance while enrichment is pending", () => {
+    const onRetry = vi.fn();
+
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: null,
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          id: "enrichment_125",
+          model: "fixture-seed-enrichment-v1",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: "2026-03-26T12:34:58.000Z",
+          status: "pending",
+          updatedAt: "2026-03-26T12:34:58.000Z",
+        }}
+        errorMessage={null}
+        isEnriching={false}
+        onRetry={onRetry}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh enrichment" }));
+
+    expect(
+      screen.getByText(/assembling evidence and generating a compact learning block/i),
+    ).toBeVisible();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
 });
