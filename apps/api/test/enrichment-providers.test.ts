@@ -126,4 +126,104 @@ describe("enrichment providers", () => {
       relatedCandidates: ["lucid", "transparent"],
     });
   });
+
+  it("normalizes nullable live model output into the app payload shape", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          output_text: JSON.stringify({
+            contrastiveWord: null,
+            gloss: "Clear and easy to understand in this sentence.",
+            morphologyNote: {
+              note: "Related in form and sense to lucid.",
+            },
+            registerNote: null,
+            relatedWord: {
+              note: "Both words describe clarity of expression.",
+              word: "lucid",
+            },
+          }),
+        }),
+      ),
+    );
+    const providers = createEnrichmentProviders(liveEnv);
+
+    const payload = await providers.modelProvider.generate({
+      developerInstruction: "Return structured output only.",
+      seedWord: "pellucid",
+      snapshot: {
+        capturedSentencePreview: "Her explanation was pellucid even under pressure.",
+        contrastCandidates: ["opaque"],
+        dictionaryGlosses: ["clear and easy to understand"],
+        exampleSentences: [
+          "Her explanation was pellucid even under pressure.",
+        ],
+        lemma: "pellucid",
+        morphologyHints: ["Related to lucid."],
+        partOfSpeech: "adjective",
+        registerLabels: [],
+        relatedCandidates: ["lucid"],
+        sourceSummary: {
+          kind: "book",
+          title: "On Style",
+        },
+      },
+      userInstruction: "Use the supplied lexical evidence only.",
+    });
+
+    expect(payload).toEqual({
+      gloss: "Clear and easy to understand in this sentence.",
+      morphologyNote: {
+        note: "Related in form and sense to lucid.",
+      },
+      relatedWord: {
+        note: "Both words describe clarity of expression.",
+        word: "lucid",
+      },
+    });
+  });
+
+  it("surfaces upstream OpenAI schema errors with provider detail", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "invalid_json_schema",
+            message: "The schema is invalid.",
+            param: "text.format.schema",
+            type: "invalid_request_error",
+          },
+        }),
+        {
+          status: 400,
+        },
+      ),
+    );
+    const providers = createEnrichmentProviders(liveEnv);
+
+    await expect(
+      providers.modelProvider.generate({
+        developerInstruction: "Return structured output only.",
+        seedWord: "pellucid",
+        snapshot: {
+          capturedSentencePreview: null,
+          contrastCandidates: [],
+          dictionaryGlosses: ["clear and easy to understand"],
+          exampleSentences: [],
+          lemma: "pellucid",
+          morphologyHints: [],
+          partOfSpeech: "adjective",
+          registerLabels: [],
+          relatedCandidates: [],
+          sourceSummary: {
+            kind: null,
+            title: null,
+          },
+        },
+        userInstruction: "Use the supplied lexical evidence only.",
+      }),
+    ).rejects.toThrow(
+      "OpenAI Responses request failed with status 400. Details: invalid_request_error / invalid_json_schema / text.format.schema. Message: The schema is invalid.",
+    );
+  });
 });

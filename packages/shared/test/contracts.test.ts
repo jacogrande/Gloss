@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   createSeedInputSchema,
   healthResponseSchema,
+  normalizeSeedEnrichmentModelPayload,
   seedDetailResponseSchema,
+  seedEnrichmentPayloadJsonSchema,
   seedListResponseSchema,
   sessionResponseSchema,
 } from "../src/contracts/index";
@@ -131,5 +133,45 @@ describe("shared contracts", () => {
     });
 
     expect(parsed.data.contexts[0]?.kind).toBe("sentence");
+  });
+
+  it("exports an OpenAI-compatible enrichment schema with required nullable fields", () => {
+    const required = Array.isArray(seedEnrichmentPayloadJsonSchema.required)
+      ? seedEnrichmentPayloadJsonSchema.required
+      : [];
+
+    expect(required).toEqual([
+      "contrastiveWord",
+      "gloss",
+      "morphologyNote",
+      "registerNote",
+      "relatedWord",
+    ]);
+  });
+
+  it("normalizes nullable model payload fields back into the app payload shape", () => {
+    const payload = normalizeSeedEnrichmentModelPayload({
+      contrastiveWord: null,
+      gloss: "Clear and easy to understand in context.",
+      morphologyNote: {
+        note: "Related to lucid in form and sense.",
+      },
+      registerNote: null,
+      relatedWord: {
+        note: "Both point to clarity in expression.",
+        word: "lucid",
+      },
+    });
+
+    expect(payload).toEqual({
+      gloss: "Clear and easy to understand in context.",
+      morphologyNote: {
+        note: "Related to lucid in form and sense.",
+      },
+      relatedWord: {
+        note: "Both point to clarity in expression.",
+        word: "lucid",
+      },
+    });
   });
 });

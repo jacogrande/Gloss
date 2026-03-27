@@ -12,6 +12,7 @@ import {
   seedDetailSchema,
   seedEnrichmentGuardrailFlagSchema,
   seedEnrichmentMorphologySchema,
+  seedEnrichmentModelPayloadSchema,
   seedEnrichmentPayloadSchema,
   seedEnrichmentRelationSchema,
   seedEnrichmentSchema,
@@ -58,6 +59,10 @@ export type SeedEnrichmentGuardrailFlag = z.infer<
 
 export type SeedEnrichmentMorphology = z.infer<
   typeof seedEnrichmentMorphologySchema
+>;
+
+export type SeedEnrichmentModelPayload = z.infer<
+  typeof seedEnrichmentModelPayloadSchema
 >;
 
 export type SeedEnrichmentPayload = z.infer<

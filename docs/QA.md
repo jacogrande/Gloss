@@ -157,6 +157,12 @@ bun run smoke:live
 
 Use that mode for targeted provider validation, not for everyday smoke or regression checks.
 
+Live validation expectations are intentionally looser than fixture mode:
+
+- `bun run smoke:live` checks that enrichment reaches a usable ready state in the browser, not that it returns fixture-specific words like `lucid`
+- `ENRICHMENT_PROVIDER_MODE=live bun run eval` swaps to live enrichment journey expectations that focus on status, gloss quality, and stable failure codes
+- live trace evals still require trace persistence and guardrail behavior, but they derive omission expectations from the lexical evidence snapshot instead of fixture-only assumptions
+
 ## Sprint 3 Test Matrix
 
 Use each layer for a different kind of confidence.

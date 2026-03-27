@@ -1,5 +1,6 @@
 import type { ServerEnv } from "@gloss/shared/env";
 import {
+  normalizeSeedEnrichmentModelPayload,
   seedEnrichmentPayloadJsonSchema,
   seedEnrichmentPayloadSchema,
 } from "@gloss/shared/contracts";
@@ -76,7 +77,10 @@ type OpenAIResponseOutputItem = {
 
 type OpenAIResponseBody = {
   error?: {
+    code?: string;
     message?: string;
+    param?: string;
+    type?: string;
   };
   output?: OpenAIResponseOutputItem[];
   output_text?: string;
@@ -479,11 +483,21 @@ const ensureResponseOk = async (
   const body = (await response.json().catch(() => null)) as
     | OpenAIResponseBody
     | null;
-  const message =
-    body?.error?.message ??
-    `The ${providerName} request failed with status ${response.status}.`;
+  const detailSegments = [
+    body?.error?.type,
+    body?.error?.code,
+    body?.error?.param,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
 
-  throw enrichmentProviderError(message);
+  throw enrichmentProviderError(
+    [
+      `${providerName} request failed with status ${response.status}.`,
+      detailSegments.length > 0 ? `Details: ${detailSegments.join(" / ")}.` : null,
+      body?.error?.message ? `Message: ${body.error.message}` : null,
+    ]
+      .filter((value): value is string => value !== null)
+      .join(" "),
+  );
 };
 
 const parseDictionaryEntries = (
@@ -714,7 +728,7 @@ const createLiveModelProvider = (env: ServerEnv): EnrichmentModelProvider => ({
       );
     }
 
-    return seedEnrichmentPayloadSchema.parse(parsed);
+    return normalizeSeedEnrichmentModelPayload(parsed);
   },
   model: env.OPENAI_MODEL,
   provider: "openai.responses",

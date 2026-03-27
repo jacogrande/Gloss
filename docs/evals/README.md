@@ -30,6 +30,7 @@ Use for:
 
 - `docs/evals/datasets/capture_journeys.jsonl`
 - `docs/evals/datasets/enrichment_journeys.jsonl`
+- `docs/evals/datasets/enrichment_journeys_live.jsonl`
 - `docs/evals/datasets/mvp_seed_journeys.jsonl`
 
 Add a new dataset row whenever:
@@ -55,6 +56,12 @@ The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset fo
 
 - `bun run eval:journeys` should run both `capture_journeys.jsonl` and `enrichment_journeys.jsonl`
 - `bun run eval:traces` should run both HTTP boundary checks and persisted enrichment trace checks
+
+When `ENRICHMENT_PROVIDER_MODE=live` is enabled for targeted vendor checks:
+
+- `bun run eval:journeys` should swap to `enrichment_journeys_live.jsonl`
+- live output evals should validate stable invariants, not exact fixture words
+- live trace evals should validate guardrails against the lexical evidence snapshot rather than fixture-specific omissions
 
 ## Pass Rules
 

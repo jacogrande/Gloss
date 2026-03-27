@@ -3,6 +3,8 @@ import type { ServerEnv } from "@gloss/shared/env";
 
 import { resolveScriptEnv } from "./env";
 
+export { resolveScriptEnv } from "./env";
+
 export const extractCookies = (response: Response): string => {
   const header =
     typeof response.headers.getSetCookie === "function"

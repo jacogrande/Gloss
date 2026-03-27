@@ -3,6 +3,8 @@ import {
   test,
 } from "@playwright/test";
 
+const isLiveEnrichment = process.env.ENRICHMENT_PROVIDER_MODE === "live";
+
 test("@smoke unauthenticated library access redirects to login", async ({
   page,
 }) => {
@@ -62,8 +64,35 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
         name: "Contrastive Word",
       }),
     });
-  await expect(relatedWordCard.locator("strong")).toHaveText("lucid");
-  await expect(contrastiveWordCard.locator("strong")).toHaveText("opaque");
+
+  if (isLiveEnrichment) {
+    const enrichmentHeading = enrichmentPanel.getByRole("heading", { level: 3 });
+    const glossCard = enrichmentPanel
+      .locator(".seed-enrichment__item")
+      .filter({ has: page.getByRole("heading", { level: 4, name: "Gloss" }) });
+
+    await expect
+      .poll(async () => enrichmentHeading.textContent(), {
+        timeout: 30_000,
+      })
+      .toMatch(/Lexical scaffolding|Enrichment paused/);
+
+    const settledHeading = await enrichmentHeading.textContent();
+
+    if (settledHeading?.includes("Enrichment paused")) {
+      throw new Error(
+        `Live enrichment failed in the browser: ${await enrichmentPanel.locator(".panel__copy").textContent()}`,
+      );
+    }
+
+    await expect(glossCard.locator("p")).not.toHaveText("");
+    await expect
+      .poll(async () => enrichmentPanel.locator(".seed-enrichment__item").count())
+      .toBeGreaterThan(1);
+  } else {
+    await expect(relatedWordCard.locator("strong")).toHaveText("lucid");
+    await expect(contrastiveWordCard.locator("strong")).toHaveText("opaque");
+  }
 
   await page.getByRole("link", { name: "Library" }).click();
   await expect(page).toHaveURL(/\/library$/);

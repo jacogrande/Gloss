@@ -115,9 +115,49 @@ export const seedEnrichmentPayloadSchema = z
   })
   .strict();
 
+export const seedEnrichmentModelPayloadSchema = z
+  .object({
+    contrastiveWord: seedEnrichmentRelationSchema.nullable(),
+    gloss: conciseGlossSchema,
+    morphologyNote: seedEnrichmentMorphologySchema.nullable(),
+    registerNote: conciseNoteSchema.nullable(),
+    relatedWord: seedEnrichmentRelationSchema.nullable(),
+  })
+  .strict();
+
 export const seedEnrichmentPayloadJsonSchema = z.toJSONSchema(
-  seedEnrichmentPayloadSchema,
+  seedEnrichmentModelPayloadSchema,
 );
+
+export const normalizeSeedEnrichmentModelPayload = (
+  input: unknown,
+): z.infer<typeof seedEnrichmentPayloadSchema> => {
+  const parsed = seedEnrichmentModelPayloadSchema.parse(input);
+
+  return seedEnrichmentPayloadSchema.parse({
+    ...(parsed.contrastiveWord
+      ? {
+          contrastiveWord: parsed.contrastiveWord,
+        }
+      : {}),
+    gloss: parsed.gloss,
+    ...(parsed.morphologyNote
+      ? {
+          morphologyNote: parsed.morphologyNote,
+        }
+      : {}),
+    ...(parsed.registerNote
+      ? {
+          registerNote: parsed.registerNote,
+        }
+      : {}),
+    ...(parsed.relatedWord
+      ? {
+          relatedWord: parsed.relatedWord,
+        }
+      : {}),
+  });
+};
 
 export const lexicalEvidenceSnapshotSchema = z
   .object({

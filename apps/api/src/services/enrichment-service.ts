@@ -207,6 +207,7 @@ export const createEnrichmentService = (input: {
 
     input.logger.error("enrichment.failed", {
       errorCode: inputValue.failure.code,
+      failureMessage: inputValue.failure.message,
       model: input.providers.modelProvider.model,
       promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
       provider: input.providers.modelProvider.provider,

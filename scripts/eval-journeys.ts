@@ -19,6 +19,7 @@ import {
 } from "./lib/eval";
 import {
   prepareLocalHarness,
+  resolveScriptEnv,
   signUpHarnessUser,
 } from "./lib/harness";
 
@@ -43,12 +44,13 @@ type CaptureJourneyCase = {
 
 type EnrichmentJourneyCase = {
   expected: {
-    contrast_word: string | null;
+    contrast_word?: string | null;
     error_code: string | null;
-    gloss_includes: string;
-    morphology_present: boolean;
-    register_present: boolean;
-    related_word: string | null;
+    gloss_includes_any: string[];
+    minimum_optional_fields?: number;
+    morphology_present?: boolean;
+    register_present?: boolean;
+    related_word?: string | null;
     status: "failed" | "ready";
   };
   id: string;
@@ -75,6 +77,13 @@ const enrichmentDatasetPath = path.join(
   "evals",
   "datasets",
   "enrichment_journeys.jsonl",
+);
+const liveEnrichmentDatasetPath = path.join(
+  repoRoot,
+  "docs",
+  "evals",
+  "datasets",
+  "enrichment_journeys_live.jsonl",
 );
 
 const parseDatasetRow = <TRow>(value: unknown): TRow => {
@@ -311,10 +320,13 @@ const runCaptureJourneyEvaluations = async (): Promise<EvalFailure[]> => {
 };
 
 const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
-  const testCases =
-    await loadJsonlDataset<EnrichmentJourneyCase>(enrichmentDatasetPath);
   const failures: EvalFailure[] = [];
   const { env, runtime } = prepareLocalHarness();
+  const testCases = await loadJsonlDataset<EnrichmentJourneyCase>(
+    env.ENRICHMENT_PROVIDER_MODE === "live"
+      ? liveEnrichmentDatasetPath
+      : enrichmentDatasetPath,
+  );
 
   try {
     for (const [index, testCase] of testCases.entries()) {
@@ -441,18 +453,23 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
         continue;
       }
 
-      if (!payload.gloss.toLowerCase().includes(testCase.expected.gloss_includes)) {
+      const normalizedGloss = payload.gloss.toLowerCase();
+      const hasMatchingGlossFragment = testCase.expected.gloss_includes_any.some(
+        (fragment) => normalizedGloss.includes(fragment),
+      );
+
+      if (!hasMatchingGlossFragment) {
         failures.push({
           caseId: testCase.id,
           category: "gloss",
           journey: testCase.journey,
-          message:
-            "Expected the gloss to include the required lexical meaning fragment.",
+          message: "Expected the gloss to include one approved meaning fragment.",
           severity: "critical",
         });
       }
 
       if (
+        typeof testCase.expected.register_present === "boolean" &&
         (payload.registerNote !== undefined) !== testCase.expected.register_present
       ) {
         failures.push({
@@ -465,8 +482,9 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
       }
 
       if (
+        typeof testCase.expected.morphology_present === "boolean" &&
         (payload.morphologyNote !== undefined) !==
-        testCase.expected.morphology_present
+          testCase.expected.morphology_present
       ) {
         failures.push({
           caseId: testCase.id,
@@ -478,7 +496,11 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
         });
       }
 
-      if ((payload.relatedWord?.word ?? null) !== testCase.expected.related_word) {
+      if (
+        "related_word" in testCase.expected &&
+        (payload.relatedWord?.word ?? null) !==
+          (testCase.expected.related_word ?? null)
+      ) {
         failures.push({
           caseId: testCase.id,
           category: "related_word",
@@ -489,7 +511,9 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
       }
 
       if (
-        (payload.contrastiveWord?.word ?? null) !== testCase.expected.contrast_word
+        "contrast_word" in testCase.expected &&
+        (payload.contrastiveWord?.word ?? null) !==
+          (testCase.expected.contrast_word ?? null)
       ) {
         failures.push({
           caseId: testCase.id,
@@ -498,6 +522,25 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
           message: "Contrastive-word selection did not match the expected result.",
           severity: "critical",
         });
+      }
+
+      if (typeof testCase.expected.minimum_optional_fields === "number") {
+        const optionalFieldCount = [
+          payload.registerNote,
+          payload.relatedWord,
+          payload.contrastiveWord,
+          payload.morphologyNote,
+        ].filter((value) => value !== undefined).length;
+
+        if (optionalFieldCount < testCase.expected.minimum_optional_fields) {
+          failures.push({
+            caseId: testCase.id,
+            category: "optional_field_count",
+            journey: testCase.journey,
+            message: `Expected at least ${testCase.expected.minimum_optional_fields} optional enrichment field(s), received ${optionalFieldCount}.`,
+            severity: "critical",
+          });
+        }
       }
     }
   } finally {
@@ -508,6 +551,7 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
 };
 
 export const runJourneyEvaluations = async (): Promise<void> => {
+  const isLiveEnrichment = resolveScriptEnv().ENRICHMENT_PROVIDER_MODE === "live";
   const captureFailures = await runCaptureJourneyEvaluations();
   const captureCases =
     await loadJsonlDataset<CaptureJourneyCase>(captureDatasetPath);
@@ -519,11 +563,14 @@ export const runJourneyEvaluations = async (): Promise<void> => {
   });
 
   const enrichmentFailures = await runEnrichmentJourneyEvaluations();
-  const enrichmentCases =
-    await loadJsonlDataset<EnrichmentJourneyCase>(enrichmentDatasetPath);
+  const enrichmentCases = await loadJsonlDataset<EnrichmentJourneyCase>(
+    isLiveEnrichment ? liveEnrichmentDatasetPath : enrichmentDatasetPath,
+  );
 
   logSummary({
-    dataset: "enrichment_journeys",
+    dataset: isLiveEnrichment
+      ? "enrichment_journeys_live"
+      : "enrichment_journeys",
     failures: enrichmentFailures,
     total: enrichmentCases.length,
   });

@@ -22,7 +22,10 @@ type EnrichmentTraceRow = {
   error_code: string | null;
   guardrail_flags: string[];
   lexical_evidence: {
+    contrastCandidates?: string[];
     dictionaryGlosses?: string[];
+    morphologyHints?: string[];
+    registerLabels?: string[];
   };
   output_redacted: {
     contrastiveWord?: {
@@ -30,6 +33,9 @@ type EnrichmentTraceRow = {
       word: string;
     };
     gloss?: string;
+    morphologyNote?: {
+      note: string;
+    };
     registerNote?: string;
   } | null;
   prompt_template_version: string;
@@ -365,20 +371,50 @@ const runEnrichmentTraceChecks = async (): Promise<EvalFailure[]> => {
       });
     }
 
+    const missingExpectedGuardrail = (
+      trace: EnrichmentTraceRow,
+      input: {
+        flag: EnrichmentTraceRow["guardrail_flags"][number];
+        outputKey: "contrastiveWord" | "morphologyNote" | "registerNote";
+        shouldOmit: boolean;
+      },
+    ): boolean => {
+      if (!input.shouldOmit) {
+        return false;
+      }
+
+      return (
+        !trace.guardrail_flags.includes(input.flag) ||
+        typeof trace.output_redacted?.[input.outputKey] !== "undefined"
+      );
+    };
+
     if (
       !numinousTrace ||
       numinousTrace.status !== "ready" ||
-      !numinousTrace.guardrail_flags.includes("register_omitted_weak_evidence") ||
-      !numinousTrace.guardrail_flags.includes("contrast_omitted_weak_evidence") ||
-      !numinousTrace.guardrail_flags.includes("morphology_omitted_weak_evidence") ||
-      typeof numinousTrace.output_redacted?.registerNote !== "undefined"
+      numinousTrace.validation_result.accepted !== true ||
+      missingExpectedGuardrail(numinousTrace, {
+        flag: "register_omitted_weak_evidence",
+        outputKey: "registerNote",
+        shouldOmit: numinousTrace?.lexical_evidence.registerLabels?.length === 0,
+      }) ||
+      missingExpectedGuardrail(numinousTrace, {
+        flag: "contrast_omitted_weak_evidence",
+        outputKey: "contrastiveWord",
+        shouldOmit: numinousTrace?.lexical_evidence.contrastCandidates?.length === 0,
+      }) ||
+      missingExpectedGuardrail(numinousTrace, {
+        flag: "morphology_omitted_weak_evidence",
+        outputKey: "morphologyNote",
+        shouldOmit: numinousTrace?.lexical_evidence.morphologyHints?.length === 0,
+      })
     ) {
       failures.push({
         caseId: "enrichment_guardrail_trace",
         category: "guardrail_flags",
         journey: "seeds.enrich",
         message:
-          "Expected a weak-evidence enrichment trace to record omission guardrails and redacted output.",
+          "Expected a weak-evidence enrichment trace to record omission guardrails that match the lexical evidence snapshot.",
         severity: "critical",
       });
     }
