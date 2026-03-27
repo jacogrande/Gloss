@@ -1,0 +1,99 @@
+import {
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
+import {
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+
+import { SeedEnrichmentPanel } from "../src/features/seeds/SeedEnrichmentPanel";
+
+describe("SeedEnrichmentPanel", () => {
+  it("renders the accepted enrichment payload", () => {
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: "2026-03-26T12:35:10.000Z",
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          id: "enrichment_123",
+          model: "fixture-seed-enrichment-v1",
+          payload: {
+            contrastiveWord: {
+              note: "Opaque language hides the meaning that pellucid language makes plain.",
+              word: "opaque",
+            },
+            gloss:
+              "In this sentence, it means the explanation was strikingly clear and easy to follow.",
+            morphologyNote: {
+              note: "The root is associated with brightness or clarity.",
+            },
+            registerNote:
+              "It is more formal and literary than everyday words like clear.",
+            relatedWord: {
+              note: "Both words praise clarity, though pellucid sounds more elevated.",
+              word: "lucid",
+            },
+          },
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: null,
+          status: "ready",
+          updatedAt: "2026-03-26T12:35:10.000Z",
+        }}
+        errorMessage={null}
+        isEnriching={false}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Lexical scaffolding" })).toBeVisible();
+    expect(screen.getByText("lucid")).toBeVisible();
+    expect(screen.getByText("opaque")).toBeVisible();
+    expect(screen.getByText(/formal and literary/i)).toBeVisible();
+  });
+
+  it("surfaces the failed state and retry affordance", () => {
+    const onRetry = vi.fn();
+
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: null,
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+          failedAt: "2026-03-26T12:35:10.000Z",
+          guardrailFlags: [],
+          id: "enrichment_124",
+          model: "fixture-seed-enrichment-v1",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: null,
+          status: "failed",
+          updatedAt: "2026-03-26T12:35:10.000Z",
+        }}
+        errorMessage={null}
+        isEnriching={false}
+        onRetry={onRetry}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry enrichment" }));
+
+    expect(
+      screen.getByText(/lexical evidence was too thin/i),
+    ).toBeVisible();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});

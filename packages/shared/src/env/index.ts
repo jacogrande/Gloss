@@ -6,6 +6,8 @@ const nodeEnvSchema = z.enum(["development", "test", "production"]);
 
 const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
+const enrichmentProviderModeSchema = z.enum(["fixture", "live"]);
+
 const portSchema = z
   .string()
   .optional()
@@ -43,13 +45,50 @@ export const serverEnvSchema = z.object({
   BETTER_AUTH_URL: z.url(),
   COOKIE_DOMAIN: nonEmptyStringSchema.optional(),
   DATABASE_URL: nonEmptyStringSchema,
+  ENRICHMENT_PROVIDER_MODE: enrichmentProviderModeSchema.default("fixture"),
   LOG_LEVEL: logLevelSchema.default("info"),
+  MERRIAM_WEBSTER_DICTIONARY_API_KEY: nonEmptyStringSchema.optional(),
+  MERRIAM_WEBSTER_THESAURUS_API_KEY: nonEmptyStringSchema.optional(),
   NODE_ENV: nodeEnvSchema.default("development"),
+  OPENAI_API_KEY: nonEmptyStringSchema.optional(),
+  OPENAI_MODEL: nonEmptyStringSchema.default("gpt-5-mini-2025-08-07"),
   PORT: portSchema,
   WEB_ORIGIN: z.url(),
+}).superRefine((value, context) => {
+  if (value.ENRICHMENT_PROVIDER_MODE !== "live") {
+    return;
+  }
+
+  if (!value.OPENAI_API_KEY) {
+    context.addIssue({
+      code: "custom",
+      message: "OPENAI_API_KEY is required when ENRICHMENT_PROVIDER_MODE=live.",
+      path: ["OPENAI_API_KEY"],
+    });
+  }
+
+  if (!value.MERRIAM_WEBSTER_DICTIONARY_API_KEY) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "MERRIAM_WEBSTER_DICTIONARY_API_KEY is required when ENRICHMENT_PROVIDER_MODE=live.",
+      path: ["MERRIAM_WEBSTER_DICTIONARY_API_KEY"],
+    });
+  }
+
+  if (!value.MERRIAM_WEBSTER_THESAURUS_API_KEY) {
+    context.addIssue({
+      code: "custom",
+      message:
+        "MERRIAM_WEBSTER_THESAURUS_API_KEY is required when ENRICHMENT_PROVIDER_MODE=live.",
+      path: ["MERRIAM_WEBSTER_THESAURUS_API_KEY"],
+    });
+  }
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+
+export type EnrichmentProviderMode = z.infer<typeof enrichmentProviderModeSchema>;
 
 export const webEnvSchema = z.object({
   MODE: nodeEnvSchema.default("development"),

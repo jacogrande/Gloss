@@ -1,6 +1,7 @@
 import {
   createSeedResponseSchema,
   listSeedsQuerySchema,
+  requestSeedEnrichmentResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
   sessionResponseSchema,
@@ -8,6 +9,7 @@ import {
 import type {
   CreateSeedInput,
   ListSeedsQuery,
+  SeedEnrichment,
 } from "@gloss/shared/types";
 import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 
@@ -198,3 +200,14 @@ export const fetchSeedDetail = async (
           responseSchema: seedDetailResponseSchema,
         },
   );
+
+export const requestSeedEnrichment = async (
+  apiBaseUrl: string,
+  seedId: string,
+): Promise<SeedEnrichment> =>
+  requestJson({
+    apiBaseUrl,
+    method: "POST",
+    pathname: `/seeds/${seedId}/enrich`,
+    responseSchema: requestSeedEnrichmentResponseSchema,
+  });

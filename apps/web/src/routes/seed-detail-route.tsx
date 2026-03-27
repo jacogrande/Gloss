@@ -1,18 +1,32 @@
-import type { JSX } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type JSX,
+} from "react";
 import { Link, useParams } from "react-router-dom";
 
 import type { SeedDetail } from "@gloss/shared/types";
 
 import { SeedDetailPanel } from "../features/seeds/SeedDetailPanel";
-import { fetchSeedDetail } from "../lib/api-client";
+import {
+  fetchSeedDetail,
+  requestSeedEnrichment,
+} from "../lib/api-client";
 import { webEnv } from "../lib/env";
 import { useAsyncResource } from "../lib/use-async-resource";
 
 export const SeedDetailRoute = (): JSX.Element => {
   const { seedId } = useParams<{ seedId: string }>();
+  const [seed, setSeed] = useState<SeedDetail | null>(null);
+  const [enrichmentErrorMessage, setEnrichmentErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [isEnriching, setIsEnriching] = useState(false);
+  const autoRequestedSeedId = useRef<string | null>(null);
 
   const {
-    data: seed,
+    data: loadedSeed,
     errorMessage,
     isLoading,
   } = useAsyncResource<SeedDetail>({
@@ -23,6 +37,63 @@ export const SeedDetailRoute = (): JSX.Element => {
     load: (signal) =>
       fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId ?? "", signal),
   });
+
+  useEffect(() => {
+    setSeed(loadedSeed ?? null);
+    setEnrichmentErrorMessage(null);
+    setIsEnriching(false);
+    autoRequestedSeedId.current = null;
+  }, [loadedSeed]);
+
+  const runEnrichment = async (): Promise<void> => {
+    if (!seedId) {
+      return;
+    }
+
+    setIsEnriching(true);
+    setEnrichmentErrorMessage(null);
+
+    try {
+      const enrichment = await requestSeedEnrichment(
+        webEnv.VITE_API_BASE_URL,
+        seedId,
+      );
+
+      setSeed((currentSeed) =>
+        currentSeed
+          ? {
+              ...currentSeed,
+              enrichment,
+            }
+          : currentSeed,
+      );
+    } catch (error) {
+      setEnrichmentErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to enrich this seed right now.",
+      );
+    } finally {
+      setIsEnriching(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!seed || !seedId) {
+      return;
+    }
+
+    if (seed.enrichment?.status === "ready" || seed.enrichment?.status === "failed") {
+      return;
+    }
+
+    if (autoRequestedSeedId.current === seed.id) {
+      return;
+    }
+
+    autoRequestedSeedId.current = seed.id;
+    void runEnrichment();
+  }, [seed, seedId]);
 
   if (isLoading) {
     return (
@@ -44,5 +115,15 @@ export const SeedDetailRoute = (): JSX.Element => {
     );
   }
 
-  return <SeedDetailPanel seed={seed} />;
+  return (
+    <SeedDetailPanel
+      enrichmentErrorMessage={enrichmentErrorMessage}
+      isEnriching={isEnriching}
+      onRetryEnrichment={() => {
+        autoRequestedSeedId.current = seed.id;
+        void runEnrichment();
+      }}
+      seed={seed}
+    />
+  );
 };

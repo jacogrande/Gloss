@@ -6,7 +6,16 @@ import { isAppError } from "@gloss/shared/errors";
 
 type ErrorBody = {
   error: {
-    code: "AUTH_UNAUTHORIZED" | "CONFLICT" | "INTERNAL_ERROR" | "NOT_FOUND" | "VALIDATION_ERROR";
+    code:
+      | "AUTH_UNAUTHORIZED"
+      | "CONFLICT"
+      | "ENRICHMENT_CONFLICT"
+      | "ENRICHMENT_EVIDENCE_UNAVAILABLE"
+      | "ENRICHMENT_PROVIDER_ERROR"
+      | "ENRICHMENT_SCHEMA_INVALID"
+      | "INTERNAL_ERROR"
+      | "NOT_FOUND"
+      | "VALIDATION_ERROR";
     message: string;
     requestId?: string;
   };

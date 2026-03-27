@@ -8,8 +8,9 @@ Implement these first:
 
 1. sign in
 2. manual capture
-3. library browse
-4. seed detail readback
+3. enrichment on seed detail
+4. library browse
+5. seed detail readback
 
 Current `bun run smoke` is the Playwright entrypoint for these flows. It should always exercise:
 
@@ -17,6 +18,7 @@ Current `bun run smoke` is the Playwright entrypoint for these flows. It should 
 - split local web and API origins
 - cookie-based auth
 - the actual Vite + Hono boundary
+- the detail-page enrichment trigger
 
 ## Test Data Principles
 

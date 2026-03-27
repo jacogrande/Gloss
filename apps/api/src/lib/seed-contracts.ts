@@ -12,8 +12,10 @@ import type {
 
 import type {
   SeedContextRow,
+  SeedEnrichmentRow,
   SeedRow,
 } from "../db/schema";
+import { toSeedEnrichment } from "./enrichment-contracts";
 
 export type NormalizedSourceInput = NonNullable<CreateSeedInput["source"]>;
 export type SourceSummaryRecord = {
@@ -90,6 +92,7 @@ export const toSeedSummary = (input: {
 
 export const toSeedDetail = (input: {
   contexts: SeedContextRow[];
+  enrichment?: SeedEnrichmentRow | null;
   seed: SeedRow;
   source: SourceSummaryRecord | null;
 }): SeedDetail => {
@@ -99,6 +102,7 @@ export const toSeedDetail = (input: {
   return seedDetailSchema.parse({
     contexts: input.contexts.map(toSeedContext),
     createdAt: input.seed.createdAt.toISOString(),
+    enrichment: input.enrichment ? toSeedEnrichment(input.enrichment) : null,
     id: input.seed.id,
     primarySentence: primaryContext?.text ?? null,
     source: toSourceSummary(input.source),

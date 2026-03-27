@@ -198,7 +198,7 @@ const waitForServer = async (config: {
   port: number;
   username: string;
 }): Promise<void> => {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     if (await canConnectToServer(config)) {
       return;
     }

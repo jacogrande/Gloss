@@ -47,6 +47,23 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   );
   await expect(page.getByText("On Style")).toBeVisible();
   await expect(page.getByText("A. Reader")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Lexical scaffolding" }),
+  ).toBeVisible();
+  const enrichmentPanel = page.locator(".seed-enrichment");
+  const relatedWordCard = enrichmentPanel
+    .locator(".seed-enrichment__item")
+    .filter({ has: page.getByRole("heading", { level: 4, name: "Related Word" }) });
+  const contrastiveWordCard = enrichmentPanel
+    .locator(".seed-enrichment__item")
+    .filter({
+      has: page.getByRole("heading", {
+        level: 4,
+        name: "Contrastive Word",
+      }),
+    });
+  await expect(relatedWordCard.locator("strong")).toHaveText("lucid");
+  await expect(contrastiveWordCard.locator("strong")).toHaveText("opaque");
 
   await page.getByRole("link", { name: "Library" }).click();
   await expect(page).toHaveURL(/\/library$/);

@@ -118,6 +118,7 @@ describe("shared contracts", () => {
           },
         ],
         createdAt: "2026-03-26T12:34:56.000Z",
+        enrichment: null,
         id: "seed_123",
         primarySentence:
           "The prose became unexpectedly lapidary by the final chapter.",

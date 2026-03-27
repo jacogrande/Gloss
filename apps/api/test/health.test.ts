@@ -12,7 +12,7 @@ describe("health endpoint", () => {
   });
 
   afterAll(async () => {
-    await context.database.pool.end();
+    await context?.database.pool.end();
   });
 
   it("returns the typed health response", async () => {

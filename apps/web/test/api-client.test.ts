@@ -5,6 +5,7 @@ import {
   fetchSeedDetail,
   fetchSeedList,
   fetchSessionSnapshot,
+  requestSeedEnrichment,
 } from "../src/lib/api-client";
 
 describe("fetchSessionSnapshot", () => {
@@ -106,6 +107,7 @@ describe("fetchSessionSnapshot", () => {
           data: {
             contexts: [],
             createdAt: "2026-03-26T12:34:56.000Z",
+            enrichment: null,
             id: "seed_123",
             primarySentence: null,
             source: null,
@@ -189,6 +191,7 @@ describe("fetchSessionSnapshot", () => {
               },
             ],
             createdAt: "2026-03-26T12:34:56.000Z",
+            enrichment: null,
             id: "seed_123",
             primarySentence:
               "The prose became unexpectedly lapidary by the final chapter.",
@@ -210,6 +213,57 @@ describe("fetchSessionSnapshot", () => {
       "http://127.0.0.1:8787/seeds/seed_123",
       expect.objectContaining({
         credentials: "include",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("requests enrichment through the typed contract", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            completedAt: "2026-03-26T12:35:10.000Z",
+            createdAt: "2026-03-26T12:34:56.000Z",
+            errorCode: null,
+            failedAt: null,
+            guardrailFlags: [],
+            id: "enrichment_123",
+            model: "fixture-seed-enrichment-v1",
+            payload: {
+              gloss: "It means notably clear and easy to understand.",
+              relatedWord: {
+                note: "Both words praise clarity.",
+                word: "lucid",
+              },
+            },
+            promptTemplateVersion: "seed-enrichment.v1",
+            provider: "fixture",
+            requestedAt: "2026-03-26T12:34:57.000Z",
+            schemaVersion: "seed-enrichment-payload.v1",
+            startedAt: null,
+            status: "ready",
+            updatedAt: "2026-03-26T12:35:10.000Z",
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const enrichment = await requestSeedEnrichment(
+      "http://127.0.0.1:8787",
+      "seed_123",
+    );
+
+    expect(enrichment.status).toBe("ready");
+    expect(enrichment.payload?.relatedWord?.word).toBe("lucid");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/seeds/seed_123/enrich",
+      expect.objectContaining({
+        credentials: "include",
+        method: "POST",
       }),
     );
 

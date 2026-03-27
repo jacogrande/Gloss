@@ -18,6 +18,10 @@ import {
   createSeedRepository,
   type SeedRepository,
 } from "../repositories/seed-repository";
+import {
+  createSeedEnrichmentRepository,
+  type SeedEnrichmentRepository,
+} from "../repositories/seed-enrichment-repository";
 
 export type SeedService = {
   createSeed: (input: { capture: CreateSeedInput; userId: string }) => Promise<SeedDetail>;
@@ -28,6 +32,9 @@ export type SeedService = {
 export const createSeedService = (
   db: GlossDatabase,
   repository: SeedRepository = createSeedRepository(db),
+  enrichmentRepository: SeedEnrichmentRepository = createSeedEnrichmentRepository(
+    db,
+  ),
 ): SeedService => ({
   async createSeed(input) {
     const normalizedCapture = normalizeCaptureInput(input.capture);
@@ -36,7 +43,13 @@ export const createSeedService = (
       userId: input.userId,
     });
 
-    return toSeedDetail(createdRecord);
+    return toSeedDetail({
+      ...createdRecord,
+      enrichment: await enrichmentRepository.getCurrentForSeed({
+        seedId: createdRecord.seed.id,
+        userId: input.userId,
+      }),
+    });
   },
   async getSeedDetail(input) {
     const detailRecord = await repository.getSeedDetail({
@@ -48,7 +61,13 @@ export const createSeedService = (
       throw notFoundError("Seed not found.", input.requestId);
     }
 
-    return toSeedDetail(detailRecord);
+    return toSeedDetail({
+      ...detailRecord,
+      enrichment: await enrichmentRepository.getCurrentForSeed({
+        seedId: input.seedId,
+        userId: input.userId,
+      }),
+    });
   },
   async listSeeds(input) {
     const listed = await repository.listSeeds(input);

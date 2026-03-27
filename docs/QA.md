@@ -1,10 +1,10 @@
 # Manual QA
 
-This document describes how to run and validate the current Sprint 2 MVP locally.
+This document describes how to run and validate the current Sprint 3 MVP locally.
 
 ## Scope
 
-Sprint 2 covers:
+Sprint 3 covers:
 
 - Bun workspace setup
 - native local PostgreSQL bootstrap
@@ -14,7 +14,8 @@ Sprint 2 covers:
 - manual seed capture
 - personal library browsing
 - seed detail pages
-- smoke and test scripts for the capture flow
+- constrained seed enrichment
+- smoke and eval scripts for the capture and enrichment flow
 
 This is a local-development guide. Railway deploys are covered in [docs/DEPLOYMENT.md](/Users/jackson/Code/projects/gloss/docs/DEPLOYMENT.md).
 
@@ -90,7 +91,7 @@ bun run db:stop
 
 ## Fast Validation
 
-Run the full Sprint 2 validation set:
+Run the full Sprint 3 validation set:
 
 ```bash
 bun run lint
@@ -105,6 +106,7 @@ Expected result:
 - all commands exit `0`
 - `bun run eval` prints JSON summaries for journey and boundary checks
 - `bun run smoke` passes in Playwright against the split local web and API servers
+- `bun run eval` prints separate summaries for capture journeys, enrichment journeys, HTTP boundaries, and enrichment traces
 
 Useful narrower checks:
 
@@ -113,6 +115,107 @@ bun run test:integration
 bun run test:web
 bun run build
 ```
+
+## Sprint 3 Test Matrix
+
+Use each layer for a different kind of confidence.
+
+### `bun run test:unit`
+
+What it is for:
+
+- fast validation of pure shared and web logic
+- normalization, filtering, formatting, and contract helper behavior
+- safe refactors that should not depend on the DB or browser boundary
+
+Run this when:
+
+- changing pure transforms
+- changing shared schemas or helpers
+- refactoring library filtering or display helpers
+
+### `bun run test:integration`
+
+What it is for:
+
+- validating the Hono API, DB access, Better Auth session flow, and ownership rules
+- proving seed create, list, and detail work correctly
+- proving cross-user denial still holds
+
+Run this when:
+
+- changing routes
+- changing Drizzle schema or DB queries
+- changing auth or session behavior
+- changing request or response contracts
+
+### `bun run test:web`
+
+What it is for:
+
+- validating route-level React behavior without a full browser run
+- catching client-side loading, redirect, and error-handling regressions early
+
+Run this when:
+
+- changing route components
+- changing the API client
+- changing protected-shell behavior
+
+### `bun run smoke`
+
+What it is for:
+
+- validating the real browser against split local web and API origins
+- proving cookie auth, CORS, routing, capture, library, and seed detail work together
+
+Current Sprint 3 smoke scope:
+
+- sign in
+- manual capture
+- detail-page enrichment
+- library browse
+- seed detail readback
+
+Run this when:
+
+- touching auth/session behavior
+- touching capture, library, or detail flows
+- touching origin, cookie, or deployment-relevant boundary behavior
+
+### `bun run eval`
+
+What it is for:
+
+- validating harness-level product invariants that ordinary tests can miss
+- checking current capture journeys and HTTP boundary assumptions
+
+Current Sprint 3 eval scope:
+
+- capture preserves context
+- source metadata survives ingestion
+- enrichment returns the expected compact payload
+- weak evidence causes omission instead of fabrication
+- failed enrichment persists a stable failed state
+- split-origin CORS headers are exposed on product routes
+- request ids, schema versions, and stable error codes survive unhappy paths
+
+Run this when:
+
+- changing route wiring
+- changing response shape or error contracts
+- changing logging or boundary rules
+
+## Recommended Sprint 3 Validation Order
+
+For most Sprint 3 changes:
+
+1. run `bun run test:unit` or `bun run test:web` while iterating
+2. run `bun run test:integration` once the API or DB boundary changes
+3. run `bun run smoke` for any user-visible flow change
+4. run `bun run eval` when changing boundary assumptions or harness behavior
+5. run the full closeout set before merging:
+   `bun run lint && bun run typecheck && bun run test && bun run smoke && bun run eval`
 
 ## Manual Browser QA
 
@@ -143,7 +246,22 @@ Expected result:
 - the shell shows the signed-in user email
 - the library empty state renders
 
-### 3. Sign Out
+### 3. Word-Only Capture
+
+1. While signed in as the fresh user, open `/capture`.
+2. Enter:
+   - word: `sesquipedalian`
+3. Submit the form.
+
+Expected result:
+
+- the request succeeds
+- the app navigates to `/seeds/<id>`
+- the detail page shows the word `sesquipedalian`
+- the enrichment block appears and settles without breaking the page
+- stage renders as `new`
+
+### 4. Sign Out
 
 1. From `/library`, click sign out.
 
@@ -152,7 +270,7 @@ Expected result:
 - you return to `/login`
 - revisiting `/library` redirects back to `/login`
 
-### 4. Sign In With The Seeded Demo Account
+### 5. Sign In With The Seeded Demo Account
 
 1. Sign in with:
    - email: `demo@gloss.local`
@@ -165,7 +283,7 @@ Expected result:
 - seeded demo entries render in the library
 - at least one card shows the word `lapidary`
 
-### 5. Reload Stability
+### 6. Reload Stability
 
 1. While signed in on `/library`, refresh the page.
 
@@ -175,7 +293,7 @@ Expected result:
 - the page remains authenticated
 - the `/api/me` data reloads and the page does not bounce to `/login`
 
-### 6. Manual Capture Flow
+### 7. Manual Capture Flow With Context
 
 1. While signed in, open `/capture`.
 2. Enter:
@@ -196,8 +314,11 @@ Expected result:
   - source title `On Style`
   - source author `A. Reader`
   - stage `new`
+  - an enrichment block with a gloss
+  - a related word entry showing `lucid`
+  - a contrastive word entry showing `opaque`
 
-### 7. Library Flow
+### 8. Library Flow
 
 1. From the detail page, click back to the library.
 2. Confirm the newly created seed appears first.
@@ -210,7 +331,7 @@ Expected result:
 - the seed card shows the source title and sentence preview
 - filtering by `new` still includes the new seed
 
-### 8. Seed Detail Reload Stability
+### 9. Seed Detail Reload Stability
 
 1. Open a seed detail page at `/seeds/<id>`.
 2. Refresh the browser.
@@ -220,6 +341,18 @@ Expected result:
 - the detail page reloads in place
 - the session remains valid
 - the captured source metadata still renders
+
+### 10. User Scope Check
+
+1. Sign out from the demo account.
+2. Sign back in as the fresh user created earlier.
+3. Open `/library`.
+
+Expected result:
+
+- the fresh user does not see the demo user’s seeds
+- the fresh user still sees the earlier word-only seed
+- direct navigation to a demo seed detail URL should not reveal demo seed content
 
 ## Manual API QA
 
@@ -314,6 +447,7 @@ These are the behaviors that should hold every time:
 - sign-up creates a real session immediately
 - sign-out clears access to the protected shell
 - the capture, library, and seed detail flows work across split local web and API origins
+- the seed detail page can trigger and render enrichment
 - `bun run db:reset` is deterministic
 - `bun run eval` passes after a reset
 - `bun run smoke` passes after a reset
@@ -369,4 +503,4 @@ If local state gets confusing:
 bun run db:reset
 ```
 
-That is the fastest way to return to a known-good Sprint 1 state.
+That is the fastest way to return to a known-good Sprint 3 state.

@@ -2,18 +2,28 @@ import type { JSX } from "react";
 
 import type { SeedDetail } from "@gloss/shared/types";
 
+import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
+
 type SeedDetailPanelProps = {
+  enrichmentErrorMessage: string | null;
+  isEnriching: boolean;
+  onRetryEnrichment: () => void;
   seed: SeedDetail;
 };
 
-export const SeedDetailPanel = ({ seed }: SeedDetailPanelProps): JSX.Element => (
+export const SeedDetailPanel = ({
+  enrichmentErrorMessage,
+  isEnriching,
+  onRetryEnrichment,
+  seed,
+}: SeedDetailPanelProps): JSX.Element => (
   <section className="seed-detail">
     <div className="seed-detail__hero">
       <p className="seed-detail__eyebrow">{seed.stage}</p>
       <h2>{seed.word}</h2>
       <p className="seed-detail__copy">
-        This is the captured reading moment. Sprint 3 will layer enrichment on top
-        of this preserved context rather than replacing it.
+        This is the captured reading moment. Gloss keeps that original context in
+        view while layering constrained enrichment on top of it.
       </p>
     </div>
 
@@ -67,12 +77,11 @@ export const SeedDetailPanel = ({ seed }: SeedDetailPanelProps): JSX.Element => 
       </ul>
     </section>
 
-    <section className="panel panel--muted">
-      <p className="panel__eyebrow">Coming Next</p>
-      <h3>Constrained Enrichment</h3>
-      <p className="panel__copy">
-        Gloss, register, related contrast, and morphology notes arrive in Sprint 3.
-      </p>
-    </section>
+    <SeedEnrichmentPanel
+      enrichment={seed.enrichment}
+      errorMessage={enrichmentErrorMessage}
+      isEnriching={isEnriching}
+      onRetry={onRetryEnrichment}
+    />
   </section>
 );

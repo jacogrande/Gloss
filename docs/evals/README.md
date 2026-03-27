@@ -29,6 +29,7 @@ Use for:
 ## Dataset Files
 
 - `docs/evals/datasets/capture_journeys.jsonl`
+- `docs/evals/datasets/enrichment_journeys.jsonl`
 - `docs/evals/datasets/mvp_seed_journeys.jsonl`
 
 Add a new dataset row whenever:
@@ -38,16 +39,22 @@ Add a new dataset row whenever:
 - a regression slips past tests
 - a new prompt template is introduced
 
-## MVP Eval Set
+## Current MVP Eval Set
 
-The current implemented eval set focuses on capture and boundary risks:
+The current implemented eval set focuses on capture, enrichment, and boundary risks:
 
 1. capture preserves context
 2. source metadata survives ingestion
-3. product routes expose split-origin CORS correctly
-4. request ids and stable error codes survive unhappy paths
+3. enrichment returns the expected compact payload for strong evidence
+4. weak evidence causes omission instead of fabrication
+5. failed enrichment persists a stable failed state
+6. product routes expose split-origin CORS correctly
+7. request ids, schema versions, and stable error codes survive boundary and trace checks
 
-The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for Sprint 3+ AI and review workflows. Until those systems exist, `bun run eval:journeys` should target `capture_journeys.jsonl`, and `bun run eval:traces` should grade HTTP boundary invariants instead of pretending real AI traces already exist.
+The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for later review-generation work. For the current implementation:
+
+- `bun run eval:journeys` should run both `capture_journeys.jsonl` and `enrichment_journeys.jsonl`
+- `bun run eval:traces` should run both HTTP boundary checks and persisted enrichment trace checks
 
 ## Pass Rules
 

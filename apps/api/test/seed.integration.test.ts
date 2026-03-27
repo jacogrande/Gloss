@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import {
   createSeedResponseSchema,
+  requestSeedEnrichmentResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
 } from "@gloss/shared/contracts";
@@ -21,7 +22,7 @@ describe("seed integration", () => {
   });
 
   afterAll(async () => {
-    await context.database.pool.end();
+    await context?.database.pool.end();
   });
 
   it("creates a seed, lists it, and fetches its detail for the owner", async () => {
@@ -78,6 +79,7 @@ describe("seed integration", () => {
 
     expect(createResponse.status).toBe(201);
     expect(createBody.data.word).toBe("lapidary");
+    expect(createBody.data.enrichment).toBeNull();
     expect(createBody.data.source?.title).toBe("Collected Essays");
     expect(listResponse.status).toBe(200);
     expect(listBody.data.total).toBe(1);
@@ -238,5 +240,162 @@ describe("seed integration", () => {
     expect(body.error.code).toBe("AUTH_UNAUTHORIZED");
     expect(body.error.requestId).toBeTruthy();
     expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
+
+  it("enriches a seed for the owner and exposes the enrichment on seed detail", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "enrichment@example.com",
+      env: context.env,
+      name: "Enrichment Reader",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          sentence: "Her explanation was pellucid even under pressure.",
+          source: {
+            kind: "book",
+            title: "On Style",
+          },
+          word: "pellucid",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const enrichResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const enrichBody = requestSeedEnrichmentResponseSchema.parse(
+      (await enrichResponse.json()) as unknown,
+    );
+    const detailResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+      },
+    );
+    const detailBody = seedDetailResponseSchema.parse(
+      (await detailResponse.json()) as unknown,
+    );
+
+    expect(enrichResponse.status).toBe(200);
+    expect(enrichBody.data.status).toBe("ready");
+    expect(enrichBody.data.payload?.gloss).toContain("clear");
+    expect(enrichBody.data.payload?.relatedWord?.word).toBe("lucid");
+    expect(detailBody.data.enrichment?.status).toBe("ready");
+    expect(detailBody.data.enrichment?.payload?.contrastiveWord?.word).toBe(
+      "opaque",
+    );
+  });
+
+  it("returns a failed enrichment state when evidence is unavailable", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "thin-evidence@example.com",
+      env: context.env,
+      name: "Thin Evidence",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          word: "obscurium",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const enrichResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const enrichBody = requestSeedEnrichmentResponseSchema.parse(
+      (await enrichResponse.json()) as unknown,
+    );
+
+    expect(enrichResponse.status).toBe(200);
+    expect(enrichBody.data.status).toBe("failed");
+    expect(enrichBody.data.errorCode).toBe("ENRICHMENT_EVIDENCE_UNAVAILABLE");
+    expect(enrichBody.data.payload).toBeNull();
+  });
+
+  it("does not allow one user to enrich another user's seed", async () => {
+    const ownerCookie = await signUpTestUser({
+      app: context.app,
+      email: "owner-enrich@example.com",
+      env: context.env,
+      name: "Owner Enrich",
+    });
+    const otherCookie = await signUpTestUser({
+      app: context.app,
+      email: "other-enrich@example.com",
+      env: context.env,
+      name: "Other Enrich",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          word: "pellucid",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const enrichResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+      {
+        headers: {
+          cookie: otherCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const enrichBody = apiErrorResponseSchema.parse(
+      (await enrichResponse.json()) as unknown,
+    );
+
+    expect(enrichResponse.status).toBe(404);
+    expect(enrichBody.error.code).toBe("NOT_FOUND");
   });
 });

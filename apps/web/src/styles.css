@@ -357,6 +357,45 @@ button {
   gap: 16px;
 }
 
+.seed-enrichment {
+  gap: 20px;
+}
+
+.seed-enrichment__grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.seed-enrichment__item {
+  background: rgba(22, 34, 38, 0.05);
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.seed-enrichment__item h4 {
+  font-family: "Iowan Old Style", "Georgia", serif;
+  font-size: 1.1rem;
+  margin: 0 0 10px;
+}
+
+.seed-enrichment__item p {
+  margin: 0;
+}
+
+.seed-enrichment__item p + p {
+  margin-top: 10px;
+}
+
+.seed-enrichment__retry {
+  background: #162226;
+  border: 0;
+  border-radius: 16px;
+  color: #f8f3e8;
+  justify-self: start;
+  padding: 14px 18px;
+}
+
 .capture-form__field {
   display: grid;
   gap: 8px;

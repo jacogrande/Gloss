@@ -3,6 +3,10 @@ import { z } from "zod";
 export const apiErrorCodeSchema = z.enum([
   "AUTH_UNAUTHORIZED",
   "CONFLICT",
+  "ENRICHMENT_CONFLICT",
+  "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+  "ENRICHMENT_PROVIDER_ERROR",
+  "ENRICHMENT_SCHEMA_INVALID",
   "INTERNAL_ERROR",
   "NOT_FOUND",
   "VALIDATION_ERROR",
@@ -67,5 +71,60 @@ export const validationError = (
     code: "VALIDATION_ERROR",
     message,
     status: 400,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const conflictError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "CONFLICT",
+    message,
+    status: 409,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const enrichmentConflictError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "ENRICHMENT_CONFLICT",
+    message,
+    status: 409,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const enrichmentEvidenceUnavailableError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+    message,
+    status: 409,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const enrichmentProviderError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "ENRICHMENT_PROVIDER_ERROR",
+    message,
+    status: 500,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const enrichmentSchemaInvalidError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "ENRICHMENT_SCHEMA_INVALID",
+    message,
+    status: 500,
     ...(requestId ? { requestId } : {}),
   });

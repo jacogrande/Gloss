@@ -65,6 +65,8 @@ Runtime notes:
 - `BETTER_AUTH_URL` must match the public API origin for that environment.
 - `WEB_ORIGIN` must match the public SPA origin for that environment.
 - `API_ORIGIN` should match `BETTER_AUTH_URL`.
+- `ENRICHMENT_PROVIDER_MODE` should be `fixture` for local smoke/eval and explicit `live` only when provider keys are configured.
+- `OPENAI_API_KEY`, `OPENAI_MODEL`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are only required when `ENRICHMENT_PROVIDER_MODE=live`.
 
 ## Web Service
 
@@ -89,12 +91,17 @@ Required API environment variables:
 - `BETTER_AUTH_URL`
 - `API_ORIGIN`
 - `WEB_ORIGIN`
+- `ENRICHMENT_PROVIDER_MODE`
+- `OPENAI_MODEL`
 - `PORT`
 - `LOG_LEVEL`
 
 Optional API environment variables:
 
 - `COOKIE_DOMAIN`
+- `OPENAI_API_KEY`
+- `MERRIAM_WEBSTER_DICTIONARY_API_KEY`
+- `MERRIAM_WEBSTER_THESAURUS_API_KEY`
 - `POSTGRES_BIN_DIR` for local development only
 
 Required web environment variables:
@@ -106,6 +113,7 @@ Guidelines:
 - Use a different `BETTER_AUTH_SECRET` per hosted environment.
 - Keep `WEB_ORIGIN`, `API_ORIGIN`, and `BETTER_AUTH_URL` aligned exactly per environment.
 - Only set `COOKIE_DOMAIN` when using a custom domain strategy that requires it.
+- Keep fixture mode as the default for local harness work so smoke and eval stay deterministic.
 
 ## Release Checklist
 

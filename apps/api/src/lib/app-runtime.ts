@@ -9,6 +9,10 @@ import {
 import type { Logger } from "./logger";
 import { createLogger } from "./logger";
 import {
+  createDefaultEnrichmentService,
+  type EnrichmentService,
+} from "../services/enrichment-service";
+import {
   createProfileService,
   type ProfileService,
 } from "../services/profile-service";
@@ -22,6 +26,7 @@ export type AppRuntime = {
   auth: GlossAuth;
   close: () => Promise<void>;
   database: DatabaseClient;
+  enrichmentService: EnrichmentService;
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
@@ -38,6 +43,11 @@ export const createAppRuntime = (input: {
   const logger = input.logger ?? createLogger(input.env.LOG_LEVEL);
   const profileService = createProfileService(database.db);
   const seedService = createSeedService(database.db);
+  const enrichmentService = createDefaultEnrichmentService({
+    db: database.db,
+    env: input.env,
+    logger,
+  });
   const auth = createAuth({
     env: input.env,
     logger,
@@ -46,6 +56,7 @@ export const createAppRuntime = (input: {
   });
   const app = createApp({
     auth,
+    enrichmentService,
     env: input.env,
     logger,
     profileService,
@@ -68,6 +79,7 @@ export const createAppRuntime = (input: {
       await closePromise;
     },
     database,
+    enrichmentService,
     env: input.env,
     logger,
     profileService,

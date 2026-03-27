@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   createSeedResponseSchema,
+  requestSeedEnrichmentResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
 } from "@gloss/shared/contracts";
@@ -40,6 +41,26 @@ type CaptureJourneyCase = {
   journey: string;
 };
 
+type EnrichmentJourneyCase = {
+  expected: {
+    contrast_word: string | null;
+    error_code: string | null;
+    gloss_includes: string;
+    morphology_present: boolean;
+    register_present: boolean;
+    related_word: string | null;
+    status: "failed" | "ready";
+  };
+  id: string;
+  input: {
+    context_sentence: string | null;
+    source_title: string | null;
+    source_type: SourceKind | null;
+    word: string;
+  };
+  journey: string;
+};
+
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const captureDatasetPath = path.join(
   repoRoot,
@@ -48,90 +69,102 @@ const captureDatasetPath = path.join(
   "datasets",
   "capture_journeys.jsonl",
 );
+const enrichmentDatasetPath = path.join(
+  repoRoot,
+  "docs",
+  "evals",
+  "datasets",
+  "enrichment_journeys.jsonl",
+);
 
-const parseCaptureJourneyCase = (value: unknown): CaptureJourneyCase => {
+const parseDatasetRow = <TRow>(value: unknown): TRow => {
   if (typeof value !== "object" || value === null) {
     throw new Error("Eval dataset row must be an object.");
   }
 
-  const candidate = value as Partial<CaptureJourneyCase>;
-
-  if (
-    typeof candidate.id !== "string" ||
-    typeof candidate.journey !== "string" ||
-    typeof candidate.input !== "object" ||
-    candidate.input === null ||
-    typeof candidate.expected !== "object" ||
-    candidate.expected === null
-  ) {
-    throw new Error("Eval dataset row is missing required fields.");
-  }
-
-  return candidate as CaptureJourneyCase;
+  return value as TRow;
 };
 
-const loadCaptureJourneyCases = async (): Promise<CaptureJourneyCase[]> => {
-  const raw = await readFile(captureDatasetPath, "utf8");
+const loadJsonlDataset = async <TRow>(filePath: string): Promise<TRow[]> => {
+  const raw = await readFile(filePath, "utf8");
 
   return raw
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .map((line) => parseCaptureJourneyCase(JSON.parse(line) as unknown));
+    .map((line) => parseDatasetRow<TRow>(JSON.parse(line) as unknown));
 };
 
 const buildCaptureRequestBody = (
-  testCase: CaptureJourneyCase,
+  input:
+    | CaptureJourneyCase["input"]
+    | EnrichmentJourneyCase["input"],
 ): CreateSeedInput => ({
-  ...(testCase.input.context_sentence
+  ...(input.context_sentence
     ? {
-        sentence: testCase.input.context_sentence,
+        sentence: input.context_sentence,
       }
     : {}),
-  ...(testCase.input.source_type
+  ...(input.source_type
     ? {
         source: {
-          ...(testCase.input.source_author
+          ...("source_author" in input && input.source_author
             ? {
-                author: testCase.input.source_author,
+                author: input.source_author,
               }
             : {}),
-          kind: testCase.input.source_type,
-          ...(testCase.input.source_title
+          kind: input.source_type,
+          ...(input.source_title
             ? {
-                title: testCase.input.source_title,
+                title: input.source_title,
               }
             : {}),
-          ...(testCase.input.source_url
+          ...("source_url" in input && input.source_url
             ? {
-                url: testCase.input.source_url,
+                url: input.source_url,
               }
             : {}),
         },
       }
     : {}),
-  word: testCase.input.word,
+  word: input.word,
 });
 
-export const runJourneyEvaluations = async (): Promise<void> => {
-  const testCases = await loadCaptureJourneyCases();
+const logSummary = (input: {
+  dataset: string;
+  failures: EvalFailure[];
+  total: number;
+}): void => {
+  console.log(
+    JSON.stringify({
+      dataset: input.dataset,
+      ...buildEvalSummary({
+        failures: input.failures,
+        total: input.total,
+      }),
+    }),
+  );
+};
+
+const runCaptureJourneyEvaluations = async (): Promise<EvalFailure[]> => {
+  const testCases = await loadJsonlDataset<CaptureJourneyCase>(captureDatasetPath);
   const failures: EvalFailure[] = [];
   const { env, runtime } = prepareLocalHarness();
 
   try {
     for (const [index, testCase] of testCases.entries()) {
-      const email = `eval+${index + 1}@gloss.local`;
+      const email = `eval+capture+${index + 1}@gloss.local`;
       const cookie = await signUpHarnessUser({
         app: runtime.app,
         apiOrigin: env.API_ORIGIN,
         email,
-        name: `Eval User ${index + 1}`,
+        name: `Capture Eval User ${index + 1}`,
         webOrigin: env.WEB_ORIGIN,
       });
       const createResponse = await runtime.app.request(
         new URL("/capture/seeds", `${env.API_ORIGIN}/`).toString(),
         {
-          body: JSON.stringify(buildCaptureRequestBody(testCase)),
+          body: JSON.stringify(buildCaptureRequestBody(testCase.input)),
           headers: {
             "content-type": "application/json",
             cookie,
@@ -274,19 +307,228 @@ export const runJourneyEvaluations = async (): Promise<void> => {
     await runtime.close();
   }
 
-  const summary = buildEvalSummary({
-    failures,
-    total: testCases.length,
+  return failures;
+};
+
+const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
+  const testCases =
+    await loadJsonlDataset<EnrichmentJourneyCase>(enrichmentDatasetPath);
+  const failures: EvalFailure[] = [];
+  const { env, runtime } = prepareLocalHarness();
+
+  try {
+    for (const [index, testCase] of testCases.entries()) {
+      const cookie = await signUpHarnessUser({
+        app: runtime.app,
+        apiOrigin: env.API_ORIGIN,
+        email: `eval+enrich+${index + 1}@gloss.local`,
+        name: `Enrichment Eval User ${index + 1}`,
+        webOrigin: env.WEB_ORIGIN,
+      });
+      const createResponse = await runtime.app.request(
+        new URL("/capture/seeds", `${env.API_ORIGIN}/`).toString(),
+        {
+          body: JSON.stringify(buildCaptureRequestBody(testCase.input)),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+
+      if (createResponse.status !== 201) {
+        failures.push({
+          caseId: testCase.id,
+          category: "create_status",
+          journey: testCase.journey,
+          message: `Expected seed create status 201, received ${createResponse.status}.`,
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const createBody = createSeedResponseSchema.parse(
+        (await createResponse.json()) as unknown,
+      );
+      const enrichResponse = await runtime.app.request(
+        new URL(`/seeds/${createBody.data.id}/enrich`, `${env.API_ORIGIN}/`).toString(),
+        {
+          headers: {
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+      const detailResponse = await runtime.app.request(
+        new URL(`/seeds/${createBody.data.id}`, `${env.API_ORIGIN}/`).toString(),
+        {
+          headers: {
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+        },
+      );
+
+      if (enrichResponse.status !== 200 || detailResponse.status !== 200) {
+        failures.push({
+          caseId: testCase.id,
+          category: "enrich_status",
+          journey: testCase.journey,
+          message: `Expected enrich/detail statuses 200/200, received ${enrichResponse.status}/${detailResponse.status}.`,
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const enrichBody = requestSeedEnrichmentResponseSchema.parse(
+        (await enrichResponse.json()) as unknown,
+      );
+      const detailBody = seedDetailResponseSchema.parse(
+        (await detailResponse.json()) as unknown,
+      );
+      const enrichment = enrichBody.data;
+      const detailEnrichment = detailBody.data.enrichment;
+
+      if (enrichment.status !== testCase.expected.status) {
+        failures.push({
+          caseId: testCase.id,
+          category: "enrichment_status",
+          journey: testCase.journey,
+          message: `Expected enrichment status ${testCase.expected.status}, received ${enrichment.status}.`,
+          severity: "critical",
+        });
+        continue;
+      }
+
+      if (detailEnrichment?.status !== enrichment.status) {
+        failures.push({
+          caseId: testCase.id,
+          category: "detail_projection",
+          journey: testCase.journey,
+          message:
+            "Expected seed detail to expose the same persisted enrichment state.",
+          severity: "critical",
+        });
+      }
+
+      if (testCase.expected.status === "failed") {
+        if (enrichment.errorCode !== testCase.expected.error_code) {
+          failures.push({
+            caseId: testCase.id,
+            category: "failure_code",
+            journey: testCase.journey,
+            message: `Expected failure code ${testCase.expected.error_code}, received ${enrichment.errorCode}.`,
+            severity: "critical",
+          });
+        }
+
+        continue;
+      }
+
+      const payload = enrichment.payload;
+
+      if (!payload) {
+        failures.push({
+          caseId: testCase.id,
+          category: "payload_missing",
+          journey: testCase.journey,
+          message: "Expected a ready enrichment payload to be present.",
+          severity: "critical",
+        });
+        continue;
+      }
+
+      if (!payload.gloss.toLowerCase().includes(testCase.expected.gloss_includes)) {
+        failures.push({
+          caseId: testCase.id,
+          category: "gloss",
+          journey: testCase.journey,
+          message:
+            "Expected the gloss to include the required lexical meaning fragment.",
+          severity: "critical",
+        });
+      }
+
+      if (
+        (payload.registerNote !== undefined) !== testCase.expected.register_present
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "register",
+          journey: testCase.journey,
+          message: "Register presence did not match the expected guardrail outcome.",
+          severity: "critical",
+        });
+      }
+
+      if (
+        (payload.morphologyNote !== undefined) !==
+        testCase.expected.morphology_present
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "morphology",
+          journey: testCase.journey,
+          message:
+            "Morphology-note presence did not match the expected guardrail outcome.",
+          severity: "critical",
+        });
+      }
+
+      if ((payload.relatedWord?.word ?? null) !== testCase.expected.related_word) {
+        failures.push({
+          caseId: testCase.id,
+          category: "related_word",
+          journey: testCase.journey,
+          message: "Related-word selection did not match the expected result.",
+          severity: "critical",
+        });
+      }
+
+      if (
+        (payload.contrastiveWord?.word ?? null) !== testCase.expected.contrast_word
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "contrast_word",
+          journey: testCase.journey,
+          message: "Contrastive-word selection did not match the expected result.",
+          severity: "critical",
+        });
+      }
+    }
+  } finally {
+    await runtime.close();
+  }
+
+  return failures;
+};
+
+export const runJourneyEvaluations = async (): Promise<void> => {
+  const captureFailures = await runCaptureJourneyEvaluations();
+  const captureCases =
+    await loadJsonlDataset<CaptureJourneyCase>(captureDatasetPath);
+
+  logSummary({
+    dataset: "capture_journeys",
+    failures: captureFailures,
+    total: captureCases.length,
   });
 
-  console.log(
-    JSON.stringify({
-      dataset: "capture_journeys",
-      ...summary,
-    }),
-  );
+  const enrichmentFailures = await runEnrichmentJourneyEvaluations();
+  const enrichmentCases =
+    await loadJsonlDataset<EnrichmentJourneyCase>(enrichmentDatasetPath);
 
-  if (summary.failed > 0) {
+  logSummary({
+    dataset: "enrichment_journeys",
+    failures: enrichmentFailures,
+    total: enrichmentCases.length,
+  });
+
+  if (captureFailures.length > 0 || enrichmentFailures.length > 0) {
     throw new Error("Journey evals failed.");
   }
 };
