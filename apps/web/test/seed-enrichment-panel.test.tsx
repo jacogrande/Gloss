@@ -56,13 +56,14 @@ describe("SeedEnrichmentPanel", () => {
     );
 
     expect(
+      screen.getByText("The explanation was strikingly clear and easy to follow."),
+    ).toBeVisible();
+    expect(screen.getByText("Meaning here")).toBeVisible();
+    expect(
       screen.getByText(
         "In this sentence, it means the explanation was strikingly clear and easy to follow.",
       ),
     ).toBeVisible();
-    expect(screen.getByText("lucid")).toBeVisible();
-    expect(screen.getByText("opaque")).toBeVisible();
-    expect(screen.getByText(/formal and literary/i)).toBeVisible();
   });
 
   it("surfaces the failed state and retry affordance", () => {

@@ -94,8 +94,21 @@ describe("SeedDetailRoute", () => {
           id: "enrichment_1",
           model: "fixture-model",
           payload: {
+            contrastiveWord: {
+              note: "Opaque language hides the clarity that pellucid language keeps visible.",
+              word: "opaque",
+            },
             gloss:
               "In this sentence, it means the explanation was especially clear and easy to follow.",
+            morphologyNote: {
+              note: "The root is associated with brightness and clarity.",
+            },
+            registerNote:
+              "It is more formal and literary than everyday words like clear.",
+            relatedWord: {
+              note: "Lucid is close in meaning, but pellucid sounds slightly more elevated.",
+              word: "lucid",
+            },
           },
           promptTemplateVersion: "seed-enrichment.v1",
           provider: "fixture",
@@ -145,8 +158,14 @@ describe("SeedDetailRoute", () => {
     expect(fetchSeedDetail).toHaveBeenCalledTimes(2);
     expect(
       screen.getByText(
-        "In this sentence, it means the explanation was especially clear and easy to follow.",
+        "The explanation was especially clear and easy to follow.",
       ),
     ).toBeVisible();
+    expect(screen.getByText("Example")).toBeVisible();
+    expect(screen.getByText("Meaning here")).toBeVisible();
+    expect(screen.getByText("Compare")).toBeVisible();
+    expect(screen.getByText("Similar")).toBeVisible();
+    expect(screen.getByText("lucid")).toBeVisible();
+    expect(screen.getByText("Roots")).toBeVisible();
   });
 });

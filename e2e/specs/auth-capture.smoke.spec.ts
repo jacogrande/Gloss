@@ -47,21 +47,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   await expect(page.locator(".seed-detail__sentence")).toHaveText(
     "Her explanation was pellucid even under pressure.",
   );
+  await page.getByText("Source details").click();
   await expect(page.getByText("On Style")).toBeVisible();
   await expect(page.getByText("A. Reader")).toBeVisible();
   const enrichmentPanel = page.locator(".seed-enrichment");
   const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
-  const relatedWordCard = enrichmentPanel
-    .locator(".seed-enrichment__item")
-    .filter({ has: page.getByRole("heading", { level: 4, name: "Related Word" }) });
-  const contrastiveWordCard = enrichmentPanel
-    .locator(".seed-enrichment__item")
-    .filter({
-      has: page.getByRole("heading", {
-        level: 4,
-        name: "Contrastive Word",
-      }),
-    });
 
   if (isLiveEnrichment) {
     await expect
@@ -93,19 +83,19 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
 
     await expect(gloss).not.toHaveText("");
     await expect
-      .poll(async () => enrichmentPanel.locator(".seed-enrichment__item").count())
+      .poll(async () => page.locator(".seed-detail__stack div").count())
       .toBeGreaterThan(1);
   } else {
     await expect(gloss).not.toHaveText("");
-    await expect(relatedWordCard.locator(".seed-enrichment__relation-word")).toHaveText(
-      "lucid",
-    );
-    await expect(
-      contrastiveWordCard.locator(".seed-enrichment__relation-word"),
-    ).toHaveText("opaque");
+    await expect(page.getByText("Similar")).toBeVisible();
+    await expect(page.locator(".seed-detail__term").filter({ hasText: "lucid" })).toBeVisible();
+    await expect(page.locator(".seed-detail__term").filter({ hasText: "opaque" })).toBeVisible();
   }
 
-  await page.getByRole("link", { name: "Library" }).click();
+  await page
+    .getByLabel("Primary")
+    .getByRole("link", { exact: true, name: "Library" })
+    .click();
   await expect(page).toHaveURL(/\/library$/);
   await expect(page.getByRole("link", { name: "pellucid" })).toBeVisible();
 });

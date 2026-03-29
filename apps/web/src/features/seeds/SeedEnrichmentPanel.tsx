@@ -2,6 +2,11 @@ import type { JSX } from "react";
 
 import type { SeedEnrichment } from "@gloss/shared/types";
 
+import {
+  shouldShowContextualGloss,
+  toDictionaryDefinition,
+} from "./seed-presenters";
+
 type SeedEnrichmentPanelProps = {
   enrichment: SeedEnrichment | null | undefined;
   errorMessage: string | null;
@@ -35,7 +40,7 @@ export const SeedEnrichmentPanel = ({
   if (errorMessage && !isEnriching && !enrichment) {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__kicker">Meaning</p>
         <p className="seed-enrichment__state-copy">{errorMessage}</p>
         <button
           className="seed-enrichment__retry"
@@ -51,7 +56,7 @@ export const SeedEnrichmentPanel = ({
   if (isEnriching || enrichment?.status === "pending" || !enrichment) {
     return (
       <section className="seed-enrichment seed-enrichment--pending">
-        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__kicker">Meaning</p>
         <p className="seed-enrichment__state-copy">Loading definition...</p>
         {enrichment?.status === "pending" ? (
           <button
@@ -69,7 +74,7 @@ export const SeedEnrichmentPanel = ({
   if (enrichment.status === "failed") {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__kicker">Meaning</p>
         <p className="seed-enrichment__state-copy">
           {errorMessage ?? getFailedMessage(enrichment)}
         </p>
@@ -87,7 +92,7 @@ export const SeedEnrichmentPanel = ({
   if (!enrichment.payload) {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__label">Definition</p>
+        <p className="seed-enrichment__kicker">Meaning</p>
         <p className="seed-enrichment__state-copy">
           No definition available.
         </p>
@@ -96,47 +101,22 @@ export const SeedEnrichmentPanel = ({
   }
 
   const payload = enrichment.payload;
+  const dictionaryDefinition = toDictionaryDefinition(payload.gloss);
+  const showContextualGloss = shouldShowContextualGloss(
+    dictionaryDefinition,
+    payload.gloss,
+  );
 
   return (
     <section className="seed-enrichment seed-enrichment--ready">
-      <div className="seed-enrichment__header">
-        <p className="seed-enrichment__label">Definition</p>
-      </div>
-      <p className="seed-enrichment__gloss">{payload.gloss}</p>
-      <div className="seed-enrichment__grid">
-        
-        {payload.registerNote ? (
-          <article className="seed-enrichment__item">
-            <h4>Register</h4>
-            <p>{payload.registerNote}</p>
-          </article>
-        ) : null}
-
-        {payload.relatedWord ? (
-          <article className="seed-enrichment__item">
-            <h4>Related Word</h4>
-            <p className="seed-enrichment__relation-word">{payload.relatedWord.word}</p>
-            <p>{payload.relatedWord.note}</p>
-          </article>
-        ) : null}
-
-        {payload.contrastiveWord ? (
-          <article className="seed-enrichment__item">
-            <h4>Contrastive Word</h4>
-            <p className="seed-enrichment__relation-word">
-              {payload.contrastiveWord.word}
-            </p>
-            <p>{payload.contrastiveWord.note}</p>
-          </article>
-        ) : null}
-
-        {payload.morphologyNote ? (
-          <article className="seed-enrichment__item">
-            <h4>Morphology</h4>
-            <p>{payload.morphologyNote.note}</p>
-          </article>
-        ) : null}
-      </div>
+      <p className="seed-enrichment__kicker">Meaning</p>
+      <p className="seed-enrichment__gloss">{dictionaryDefinition}</p>
+      {showContextualGloss ? (
+        <article className="seed-enrichment__item seed-enrichment__contextual">
+          <h2 className="seed-detail__section-title">Meaning here</h2>
+          <p>{payload.gloss}</p>
+        </article>
+      ) : null}
     </section>
   );
 };
