@@ -51,19 +51,19 @@ Do the docs still describe the current system accurately?
 
 ## Current Baseline
 
-Status as of `2026-03-26`:
+Status as of `2026-03-29`:
 
 | Dimension | Score | Notes |
 | --- | --- | --- |
-| Product Alignment | 2 | Strong product spec exists in `docs/core.md` and `docs/PRODUCT.md`. |
-| Architectural Clarity | 2 | Railway, Better Auth, API, and DB boundaries are now documented. |
-| Type And Schema Safety | 0 | No code or schemas yet. |
-| Test Coverage | 0 | No runnable tests yet. |
-| Smoke Coverage | 0 | Smoke journeys are specified but not implemented. |
-| Observability | 1 | Logging and trace contract defined, implementation absent. |
-| Security | 1 | Security rules documented, implementation absent. |
-| AI Discipline | 1 | Prompt and schema rules defined, no runtime enforcement yet. |
-| Documentation Freshness | 2 | Docs are current for the chosen MVP direction. |
+| Product Alignment | 2 | The current app preserves the context-first, constrained-enrichment thesis. |
+| Architectural Clarity | 2 | Web, API, shared contracts, and DB boundaries are documented and now have lightweight boundary checks. |
+| Type And Schema Safety | 3 | Request, response, env, DB, and AI payload contracts are typed and schema-validated. |
+| Test Coverage | 2 | Unit, integration, and route-level web coverage exist for the shipped MVP flows. |
+| Smoke Coverage | 2 | Playwright smoke checks cover sign-in, capture, and seed-detail readback. |
+| Observability | 2 | Structured request logs, enrichment traces, stable error codes, and guardrail metadata are implemented. |
+| Security | 2 | Server-side auth, user ownership checks, schema validation, and untrusted-input rules are implemented for the MVP paths. |
+| AI Discipline | 2 | Enrichment is schema-first, evidence-gated, trace-backed, and eval-covered. |
+| Documentation Freshness | 2 | Core docs are current and now checked by `bun run harness:check`, though ongoing freshness still depends on discipline. |
 
 ## MVP Merge Gate
 

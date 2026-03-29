@@ -24,10 +24,12 @@ export const registerMeRoute = (
     });
     context.set("actorTag", String(sessionData.user.id));
     context.set("sessionId", String(sessionData.session.id));
+    const dbStartedAt = performance.now();
 
     const profile = await dependencies.profileService.getProfileByUserId(
       String(sessionData.user.id),
     );
+    context.set("dbTimeMs", Math.round(performance.now() - dbStartedAt));
 
     return jsonSuccess(
       context,

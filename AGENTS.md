@@ -30,6 +30,8 @@ Start here, then go deeper only as needed.
 Before closing work, run the smallest relevant subset of:
 
 - `bun run lint`
+- `bun run harness:check`
+- `bun run lint:boundaries`
 - `bun run typecheck`
 - `bun run test`
 - `bun run test:integration`

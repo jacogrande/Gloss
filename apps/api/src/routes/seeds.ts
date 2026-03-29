@@ -34,10 +34,12 @@ export const registerSeedRoutes = (
     const query = listSeedsQuerySchema.parse({
       stage: context.req.query("stage") ?? undefined,
     });
+    const dbStartedAt = performance.now();
     const seedList = await dependencies.seedService.listSeeds({
       query,
       userId: String(session.user.id),
     });
+    context.set("dbTimeMs", Math.round(performance.now() - dbStartedAt));
 
     return jsonSuccess(
       context,
@@ -57,11 +59,15 @@ export const registerSeedRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
+    const seedId = context.req.param("seedId");
+    context.set("seedId", seedId);
+    const dbStartedAt = performance.now();
     const seedDetail = await dependencies.seedService.getSeedDetail({
       requestId: context.get("requestId"),
-      seedId: context.req.param("seedId"),
+      seedId,
       userId: String(session.user.id),
     });
+    context.set("dbTimeMs", Math.round(performance.now() - dbStartedAt));
 
     return jsonSuccess(
       context,
@@ -81,12 +87,29 @@ export const registerSeedRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
+    const seedId = context.req.param("seedId");
+    context.set("seedId", seedId);
 
     const enrichment = await dependencies.enrichmentService.requestSeedEnrichment({
       requestId: context.get("requestId"),
-      seedId: context.req.param("seedId"),
+      seedId,
       userId: String(session.user.id),
     });
+    context.set("guardrailFlags", enrichment.guardrailFlags.join(",") || "none");
+    context.set("model", enrichment.model ?? undefined);
+    context.set("provider", enrichment.provider ?? undefined);
+    context.set("schemaVersion", enrichment.schemaVersion);
+    context.set(
+      "toolCalls",
+      enrichment.status === "failed" &&
+        enrichment.errorCode === "ENRICHMENT_EVIDENCE_UNAVAILABLE"
+        ? 2
+        : 3,
+    );
+    context.set(
+      "validationOutcome",
+      enrichment.status === "ready" ? "accepted" : "rejected",
+    );
 
     return jsonSuccess(
       context,

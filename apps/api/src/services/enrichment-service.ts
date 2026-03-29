@@ -215,7 +215,10 @@ export const createEnrichmentService = (input: {
       schemaVersion: failedRow.schemaVersion,
       seedId: inputValue.seedId,
       status: failedRow.status,
+      toolCalls:
+        inputValue.failure.code === "ENRICHMENT_EVIDENCE_UNAVAILABLE" ? 2 : 3,
       userId: inputValue.userId,
+      validationOutcome: "rejected",
     });
 
     return toSeedEnrichment(failedRow);
@@ -390,7 +393,9 @@ export const createEnrichmentService = (input: {
           guardrailFlags: guardedPayload.guardrailFlags.join(",") || "none",
           modelLatencyMs: modelResult.latencyMs,
           status: readyRow.status,
+          toolCalls: 3,
           totalLatencyMs: Date.now() - startedAt,
+          validationOutcome: "accepted",
         });
 
         return toSeedEnrichment(readyRow);

@@ -114,6 +114,8 @@ Choose the smallest profile that answers your question.
 Use this for normal development and pre-merge confidence.
 
 ```bash
+bun run harness:check
+bun run lint:boundaries
 bun run lint
 bun run typecheck
 bun run test
@@ -124,6 +126,7 @@ bun run smoke
 Expected result:
 
 - every command exits `0`
+- the harness/doc checks pass before app-level validation starts
 - fixture-mode smoke passes in a real browser
 - fixture-mode eval prints passing summaries for:
   - capture journeys
@@ -137,11 +140,13 @@ Use this when you want to manually verify the current MVP from the browser and A
 
 Recommended order:
 
-1. `bun run db:reset`
-2. `bun run dev`
-3. complete the browser checklist in this document
-4. complete the API checklist in this document
-5. finish with `bun run smoke` and `bun run eval`
+1. `bun run harness:check`
+2. `bun run lint:boundaries`
+3. `bun run db:reset`
+4. `bun run dev`
+5. complete the browser checklist in this document
+6. complete the API checklist in this document
+7. finish with `bun run smoke` and `bun run eval`
 
 ### 3. Live Vendor Validation
 

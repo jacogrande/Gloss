@@ -104,6 +104,7 @@ Every important production failure should follow this path:
 1. classify the failure
 2. patch the code or prompt
 3. add or update an eval case
+   Prefer `bun run eval:add-case` so the regression becomes a tracked dataset row instead of a TODO.
 4. rerun the relevant smoke, test, or eval set
 
 If a bug cannot be reproduced, the harness is missing visibility.
@@ -117,6 +118,7 @@ A feature is not reliable enough for merge unless:
 - its errors are surfaced with specific codes
 - its AI path is schema-validated
 - its user-scoped data paths are covered by at least one authorization test
+- the harness checks and boundary checks pass for the current repo state
 
 ## Provisional Targets
 

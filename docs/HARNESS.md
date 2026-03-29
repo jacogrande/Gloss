@@ -114,6 +114,10 @@ These scripts are part of the harness and should be implemented as the repo is s
 
 - `bun run lint`
   Lint all TS, SQL, and config files.
+- `bun run harness:check`
+  Validate core harness artifacts, doc freshness, plan shape, and required repo links.
+- `bun run lint:boundaries`
+  Enforce lightweight structural boundaries between web, API, shared, routes, and services.
 - `bun run typecheck`
   Run TS project references or workspace typechecks.
 - `bun run test`
@@ -150,6 +154,8 @@ These scripts are part of the harness and should be implemented as the repo is s
   Run output-level evals for capture, enrichment, and review generation.
 - `bun run eval:traces`
   Run trace graders on stored API execution traces.
+- `bun run eval:add-case`
+  Append a new eval dataset row from a concrete bug or regression.
 - `bun run fixtures:seed`
   Load seed data for local smoke tests and evals.
 
@@ -163,6 +169,7 @@ Default flow for substantial work:
 4. Run the narrowest validation that can disprove the change quickly.
 5. If the task touches AI behavior, run the relevant evals.
 6. If a failure mode is new, add an eval case before closing the work.
+7. Keep docs and scorecards current enough that `bun run harness:check` stays green.
 
 ## Runtime Visibility
 
@@ -179,12 +186,14 @@ Minimum observability for API requests and jobs:
 - `model`
 - `provider`
 - `tool_calls`
-- `schema_name`
+- `schema_version`
 - `status`
 - `latency_ms`
 - `db_time_ms`
 - `error_code`
 - `guardrail_flags`
+- `validation_outcome`
+- `seed_id` when relevant
 
 Minimum observability for the web app:
 
@@ -211,9 +220,12 @@ No feature is considered complete unless it satisfies all of:
 
 - architecture boundaries still hold
 - touched paths have a validation story
+- `bun run harness:check` is green for the current repo state
+- `bun run lint:boundaries` is green for touched architecture paths
 - logs and error codes are intelligible
 - AI output is schema-checked
 - at least one smoke or eval path covers the new behavior
+- CI can run the relevant scripts without hand-edited local state
 
 ## Documents In This Harness
 

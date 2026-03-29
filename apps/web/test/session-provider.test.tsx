@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import {
   render,
   screen,
@@ -13,6 +14,7 @@ import {
 } from "vitest";
 
 import type { SessionData } from "@gloss/shared/types";
+import type { fetchSessionSnapshot as fetchSessionSnapshotFn } from "../src/lib/api-client";
 
 import { ApiClientError } from "../src/lib/http";
 import {
@@ -20,10 +22,13 @@ import {
   useSessionState,
 } from "../src/features/auth/session-provider";
 
-const fetchSessionSnapshot = vi.fn();
+const fetchSessionSnapshotMock = vi.fn<typeof fetchSessionSnapshotFn>();
 
 vi.mock("../src/lib/api-client", () => ({
-  fetchSessionSnapshot: (...args: unknown[]) => fetchSessionSnapshot(...args),
+  fetchSessionSnapshot: (
+    apiBaseUrl: string,
+    signal?: AbortSignal,
+  ): Promise<SessionData> => fetchSessionSnapshotMock(apiBaseUrl, signal),
 }));
 
 vi.mock("../src/lib/env", () => ({
@@ -54,7 +59,7 @@ const sessionFixture: SessionData = {
   },
 };
 
-const Probe = () => {
+const Probe = (): ReactElement => {
   const session = useSessionState();
 
   return (
@@ -68,7 +73,7 @@ const Probe = () => {
 describe("SessionProvider", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
-    fetchSessionSnapshot.mockReset();
+    fetchSessionSnapshotMock.mockReset();
   });
 
   afterEach(() => {
@@ -77,7 +82,7 @@ describe("SessionProvider", () => {
 
   it("keeps the last known session during transient refresh failures", async () => {
     window.sessionStorage.setItem(storedSessionKey, JSON.stringify(sessionFixture));
-    fetchSessionSnapshot.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+    fetchSessionSnapshotMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
 
     render(
       <SessionProvider>
@@ -89,7 +94,7 @@ describe("SessionProvider", () => {
     expect(screen.getByText("reader@example.com")).toBeVisible();
 
     await waitFor(() => {
-      expect(fetchSessionSnapshot).toHaveBeenCalledTimes(1);
+      expect(fetchSessionSnapshotMock).toHaveBeenCalledTimes(1);
     });
 
     expect(screen.getByText("authenticated")).toBeVisible();
@@ -98,7 +103,7 @@ describe("SessionProvider", () => {
 
   it("clears the cached session on unauthorized responses", async () => {
     window.sessionStorage.setItem(storedSessionKey, JSON.stringify(sessionFixture));
-    fetchSessionSnapshot.mockRejectedValueOnce(
+    fetchSessionSnapshotMock.mockRejectedValueOnce(
       new ApiClientError(
         "AUTH_UNAUTHORIZED",
         "Authentication is required to access this resource.",

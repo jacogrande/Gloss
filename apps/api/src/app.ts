@@ -27,10 +27,18 @@ type AppDependencies = {
 
 type AppVariables = {
   actorTag?: string;
+  dbTimeMs?: number;
   errorCode?: string;
+  guardrailFlags?: string;
   journey?: string;
+  model?: string;
+  provider?: string;
   requestId: string;
+  schemaVersion?: string;
+  seedId?: string;
   sessionId?: string;
+  toolCalls?: number;
+  validationOutcome?: string;
 };
 
 export type GlossApp = Hono<{ Variables: AppVariables }>;
@@ -56,14 +64,22 @@ export const createApp = ({
 
     logger.info("request.complete", {
       actorTag: context.var.actorTag ?? "anonymous",
+      dbTimeMs: context.var.dbTimeMs ?? null,
       errorCode: context.var.errorCode ?? null,
+      guardrailFlags: context.var.guardrailFlags ?? null,
       journey: context.var.journey ?? null,
       latencyMs: Math.round(performance.now() - startedAt),
       method: context.req.method,
+      model: context.var.model ?? null,
+      provider: context.var.provider ?? null,
       requestId,
       route: context.req.path,
+      schemaVersion: context.var.schemaVersion ?? null,
+      seedId: context.var.seedId ?? null,
       sessionId: context.var.sessionId ?? null,
       status: context.res.status,
+      toolCalls: context.var.toolCalls ?? null,
+      validationOutcome: context.var.validationOutcome ?? null,
     });
   });
 
@@ -112,15 +128,23 @@ export const createApp = ({
     if (response.status >= 500) {
       logger.error("request.failed", {
         actorTag: context.var.actorTag ?? "anonymous",
+        dbTimeMs: context.var.dbTimeMs ?? null,
         errorCode: response.body.error.code,
         error:
           error instanceof Error
             ? error.message
             : "Unexpected non-error thrown by route handler.",
+        guardrailFlags: context.var.guardrailFlags ?? null,
         journey: context.var.journey ?? null,
+        model: context.var.model ?? null,
+        provider: context.var.provider ?? null,
         requestId,
         route: context.req.path,
+        schemaVersion: context.var.schemaVersion ?? null,
+        seedId: context.var.seedId ?? null,
         sessionId: context.var.sessionId ?? null,
+        toolCalls: context.var.toolCalls ?? null,
+        validationOutcome: context.var.validationOutcome ?? null,
       });
     }
 

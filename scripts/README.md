@@ -5,8 +5,11 @@ This folder should hold executable helpers once the repo is scaffolded.
 Suggested entries:
 
 - `dev.ts` or workspace task wiring
+- `check-harness.ts`
+- `check-boundaries.ts`
 - `eval-journeys.ts`
 - `eval-traces.ts`
+- `add-eval-case.ts`
 - `db-seed.ts`
 - `trace-export.ts`
 
@@ -20,3 +23,9 @@ Suggested entries:
 ## Near-Term Goal
 
 The current harness uses Playwright for `bun run smoke` and keeps deterministic API-level checks in the eval scripts. Do not collapse those two layers back together.
+
+The scripts layer now also owns:
+
+- repo harness checks
+- structural boundary enforcement
+- append-only eval scaffolding from real failures

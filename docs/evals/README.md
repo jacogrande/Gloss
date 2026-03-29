@@ -40,6 +40,17 @@ Add a new dataset row whenever:
 - a regression slips past tests
 - a new prompt template is introduced
 
+Default path:
+
+- use `bun run eval:add-case --print-template --dataset enrichment` to print a scaffold
+- append the new row with `bun run eval:add-case --dataset ... --category ... --id ... --journey ... --input ... --expected ... --note ...`
+
+When you add a case:
+
+- use `category` for the failure family, not the exact symptom
+- keep `note` focused on the escaped bug, hallucination, or regression this row protects against
+- prefer stable expected invariants over brittle exact phrasing
+
 ## Current MVP Eval Set
 
 The current implemented eval set focuses on capture, enrichment, and boundary risks:
@@ -76,3 +87,4 @@ For MVP workflows:
 - run targeted evals before merge for any AI-sensitive change
 - run the full MVP eval set in CI
 - review failures by category, not as a flat list
+- treat every escaped AI bug as incomplete until it exists in a dataset file

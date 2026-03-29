@@ -28,10 +28,13 @@ export const registerCaptureRoutes = (
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
     const body = createSeedInputSchema.parse(await context.req.json());
+    const dbStartedAt = performance.now();
     const createdSeed = await dependencies.seedService.createSeed({
       capture: body,
       userId: String(session.user.id),
     });
+    context.set("dbTimeMs", Math.round(performance.now() - dbStartedAt));
+    context.set("seedId", createdSeed.id);
 
     return jsonSuccess(
       context,
