@@ -23,19 +23,83 @@ type SessionContextValue = {
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
+const sessionStorageKey = "gloss.session";
 
 const isUnauthorized = (value: unknown): boolean =>
   value instanceof ApiClientError && value.code === "AUTH_UNAUTHORIZED";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isSessionData = (value: unknown): value is SessionData => {
+  if (!isRecord(value) || !isRecord(value.user) || !isRecord(value.session)) {
+    return false;
+  }
+
+  return (
+    typeof value.user.email === "string" &&
+    typeof value.user.id === "string" &&
+    typeof value.user.name === "string" &&
+    typeof value.session.id === "string" &&
+    typeof value.session.userId === "string" &&
+    typeof value.session.expiresAt === "string" &&
+    ("profile" in value
+      ? value.profile === null ||
+        (isRecord(value.profile) &&
+          typeof value.profile.userId === "string" &&
+          typeof value.profile.createdAt === "string" &&
+          typeof value.profile.updatedAt === "string")
+      : false)
+  );
+};
+
+const readStoredSession = (): SessionData | null => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const rawValue = window.sessionStorage.getItem(sessionStorageKey);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(rawValue) as unknown;
+
+    return isSessionData(parsedValue) ? parsedValue : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeStoredSession = (value: SessionData | null): void => {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (value === null) {
+    window.sessionStorage.removeItem(sessionStorageKey);
+    return;
+  }
+
+  window.sessionStorage.setItem(sessionStorageKey, JSON.stringify(value));
+};
+
 export const SessionProvider = ({
   children,
 }: PropsWithChildren): JSX.Element => {
-  const [session, setSessionState] = useState<SessionData | null>(null);
-  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [session, setSessionState] = useState<SessionData | null>(() =>
+    readStoredSession(),
+  );
+  const [status, setStatus] = useState<SessionStatus>(() =>
+    readStoredSession() ? "authenticated" : "loading",
+  );
 
   const setSession = (value: SessionData | null): void => {
     setSessionState(value);
     setStatus(value ? "authenticated" : "anonymous");
+    writeStoredSession(value);
   };
 
   const refreshSession = async (): Promise<SessionData | null> => {
@@ -51,7 +115,13 @@ export const SessionProvider = ({
         return null;
       }
 
-      setSession(null);
+      const storedSession = readStoredSession();
+
+      if (storedSession) {
+        setSession(storedSession);
+        return storedSession;
+      }
+
       throw error;
     }
   };
@@ -78,7 +148,14 @@ export const SessionProvider = ({
           return;
         }
 
-        setSession(null);
+        const storedSession = readStoredSession();
+
+        if (storedSession) {
+          setSession(storedSession);
+          return;
+        }
+
+        setStatus("anonymous");
       }
     })();
 
