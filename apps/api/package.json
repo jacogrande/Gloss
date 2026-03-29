@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --hot src/index.ts",
+    "dev": "bun src/index.ts",
     "build": "bunx tsc -p tsconfig.build.json && bun build src/index.ts --outdir dist --target bun --format esm",
     "start": "bun dist/index.js",
     "lint": "bunx eslint auth.ts drizzle.config.ts src test vitest.config.ts",

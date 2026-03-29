@@ -14,6 +14,13 @@ type SpawnedService = {
   name: "api" | "web";
 };
 
+const apiBindHost = "0.0.0.0";
+const requiredLiveEnvNames = [
+  "OPENAI_API_KEY",
+  "MERRIAM_WEBSTER_DICTIONARY_API_KEY",
+  "MERRIAM_WEBSTER_THESAURUS_API_KEY",
+] as const;
+
 const isRecoverablePortError = (error: unknown): boolean =>
   error instanceof Error &&
   "code" in error &&
@@ -72,6 +79,27 @@ const formatOrigin = (input: URL, port: number): string => {
   return next.origin;
 };
 
+const hasCompleteLiveCredentials = (
+  env: NodeJS.ProcessEnv,
+): boolean =>
+  requiredLiveEnvNames.every((name) => {
+    const value = env[name];
+
+    return typeof value === "string" && value.trim().length > 0;
+  });
+
+const resolveLocalEnrichmentProviderMode = (
+  env: NodeJS.ProcessEnv,
+): "fixture" | "live" => {
+  const configuredMode = env.ENRICHMENT_PROVIDER_MODE;
+
+  if (configuredMode === "fixture" || configuredMode === "live") {
+    return configuredMode;
+  }
+
+  return hasCompleteLiveCredentials(env) ? "live" : "fixture";
+};
+
 const spawnService = (options: {
   args: string[];
   cwd: string;
@@ -86,12 +114,36 @@ const spawnService = (options: {
   name: options.name,
 });
 
+const waitForExit = async (
+  child: ChildProcess,
+  timeoutMs: number,
+): Promise<void> =>
+  new Promise((resolve) => {
+    if (child.exitCode !== null) {
+      resolve();
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      if (child.exitCode === null && !child.killed) {
+        child.kill("SIGKILL");
+      }
+
+      resolve();
+    }, timeoutMs);
+
+    child.once("exit", () => {
+      clearTimeout(timeoutId);
+      resolve();
+    });
+  });
+
 const run = async (): Promise<void> => {
   const baseEnv = loadServerEnvFromDotenv();
   const preferredApiOrigin = new URL(baseEnv.API_ORIGIN);
   const preferredWebOrigin = new URL(baseEnv.WEB_ORIGIN);
   const apiPort = await findAvailablePort(
-    preferredApiOrigin.hostname,
+    apiBindHost,
     baseEnv.PORT,
   );
   const preferredWebPort =
@@ -102,12 +154,14 @@ const run = async (): Promise<void> => {
     preferredWebOrigin.hostname,
     preferredWebPort,
   );
+  const enrichmentProviderMode = resolveLocalEnrichmentProviderMode(process.env);
   const apiOrigin = formatOrigin(preferredApiOrigin, apiPort);
   const webOrigin = formatOrigin(preferredWebOrigin, webPort);
 
   console.log(
     JSON.stringify({
       apiOrigin,
+      enrichmentProviderMode,
       preferredApiPort: baseEnv.PORT,
       preferredWebPort,
       status: "starting",
@@ -122,8 +176,15 @@ const run = async (): Promise<void> => {
     BETTER_AUTH_URL: apiOrigin,
     COOKIE_DOMAIN: baseEnv.COOKIE_DOMAIN,
     DATABASE_URL: baseEnv.DATABASE_URL,
+    ENRICHMENT_PROVIDER_MODE: enrichmentProviderMode,
     LOG_LEVEL: baseEnv.LOG_LEVEL,
+    MERRIAM_WEBSTER_DICTIONARY_API_KEY:
+      process.env.MERRIAM_WEBSTER_DICTIONARY_API_KEY,
+    MERRIAM_WEBSTER_THESAURUS_API_KEY:
+      process.env.MERRIAM_WEBSTER_THESAURUS_API_KEY,
     NODE_ENV: baseEnv.NODE_ENV,
+    OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+    OPENAI_MODEL: process.env.OPENAI_MODEL,
     WEB_ORIGIN: webOrigin,
   };
 
@@ -166,15 +227,19 @@ const run = async (): Promise<void> => {
 
     isShuttingDown = true;
 
-    for (const service of services) {
-      if (!service.child.killed) {
-        service.child.kill("SIGTERM");
+    void (async () => {
+      for (const service of services) {
+        if (service.child.exitCode === null && !service.child.killed) {
+          service.child.kill("SIGTERM");
+        }
       }
-    }
 
-    setTimeout(() => {
+      await Promise.all(
+        services.map((service) => waitForExit(service.child, 1_000)),
+      );
+
       process.exit(exitCode);
-    }, 100);
+    })();
   };
 
   for (const service of services) {

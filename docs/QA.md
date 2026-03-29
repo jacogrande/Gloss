@@ -82,6 +82,7 @@ bun run dev
 Important notes:
 
 - `bun run dev` prints the chosen `webOrigin` and `apiOrigin`
+- when `ENRICHMENT_PROVIDER_MODE` is unset, `bun run dev` auto-selects `live` if `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are all present
 - if `5173` or `8787` is already occupied, the dev runner chooses the next free local port
 - use the printed origins for browser and `curl` checks
 
