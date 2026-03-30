@@ -569,3 +569,4 @@ Private-alpha release gate:
 - 2026-03-30: upgraded the private-alpha report and documented preview, staging, and issue-intake workflows
 - 2026-03-30: added a typed deploy-environment checker for preview, staging, and private-alpha env alignment
 - 2026-03-30: added hosted Playwright verification so preview and staging browser checks are executable from the repo
+- 2026-03-30: added integration coverage for repeated local reset and fixture seeding so demo auth and seed state stay deterministic across repeated `db:reset`-style cycles
