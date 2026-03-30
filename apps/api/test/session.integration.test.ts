@@ -3,7 +3,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sessionResponseSchema } from "@gloss/shared/contracts";
 import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 
-import { createTestContext, extractCookies } from "./helpers";
+import {
+  createTestContext,
+  extractCookies,
+  signInTestUser,
+  signUpTestUser,
+  signOutTestUser,
+} from "./helpers";
 
 let context: Awaited<ReturnType<typeof createTestContext>>;
 
@@ -84,5 +90,53 @@ describe("session integration", () => {
     expect(response.headers.get("access-control-allow-credentials")).toBe(
       "true",
     );
+  });
+
+  it("forces re-auth after sign-out and rejects the stale session cookie", async () => {
+    const email = "session-recovery@example.com";
+    const firstCookie = await signUpTestUser({
+      app: context.app,
+      email,
+      env: context.env,
+      name: "Session Recovery",
+    });
+
+    const signOutResponse = await signOutTestUser({
+      app: context.app,
+      cookie: firstCookie,
+      env: context.env,
+    });
+    const staleSessionResponse = await context.app.request(
+      "http://127.0.0.1:8787/api/me",
+      {
+        headers: {
+          cookie: firstCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+      },
+    );
+    const staleSessionBody = apiErrorResponseSchema.parse(
+      (await staleSessionResponse.json()) as unknown,
+    );
+    const secondCookie = await signInTestUser({
+      app: context.app,
+      email,
+      env: context.env,
+    });
+    const recoveredSessionResponse = await context.app.request(
+      "http://127.0.0.1:8787/api/me",
+      {
+        headers: {
+          cookie: secondCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+      },
+    );
+
+    expect(signOutResponse.status).toBe(200);
+    expect(staleSessionResponse.status).toBe(401);
+    expect(staleSessionBody.error.code).toBe("AUTH_UNAUTHORIZED");
+    expect(recoveredSessionResponse.status).toBe(200);
+    expect(secondCookie).not.toBe(firstCookie);
   });
 });

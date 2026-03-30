@@ -437,4 +437,86 @@ describe("review integration", () => {
     expect(duplicateSubmitResponse.status).toBe(409);
     expect(duplicateBody.error.code).toBe("REVIEW_CONFLICT");
   });
+
+  it("does not allow one user to read or submit another user's review session", async () => {
+    const ownerEmail = `review-owner-${crypto.randomUUID()}@example.com`;
+    const otherEmail = `review-other-${crypto.randomUUID()}@example.com`;
+    const ownerCookie = await signUpTestUser({
+      app: context.app,
+      email: ownerEmail,
+      env: context.env,
+      name: "Review Owner",
+    });
+    const otherCookie = await signUpTestUser({
+      app: context.app,
+      email: otherEmail,
+      env: context.env,
+      name: "Review Other",
+    });
+    await createAndEnrichSeed({
+      cookie: ownerCookie,
+      email: ownerEmail,
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+
+    const startResponse = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const firstCard = startBody.data.cards.find((card) => card.status === "pending");
+
+    expect(firstCard).toBeTruthy();
+
+    const readResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}`,
+      {
+        headers: {
+          cookie: otherCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+      },
+    );
+    const readBody = apiErrorResponseSchema.parse(
+      (await readResponse.json()) as unknown,
+    );
+    const submitResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
+      {
+        body: JSON.stringify({
+          choiceId: firstCard?.promptPayload.choices[0]?.id ?? "",
+          latencyMs: 100,
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: otherCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const submitBody = apiErrorResponseSchema.parse(
+      (await submitResponse.json()) as unknown,
+    );
+
+    expect(readResponse.status).toBe(404);
+    expect(readBody.error.code).toBe("NOT_FOUND");
+    expect(submitResponse.status).toBe(404);
+    expect(submitBody.error.code).toBe("NOT_FOUND");
+  });
 });

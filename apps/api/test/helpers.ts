@@ -114,8 +114,51 @@ export const signUpTestUser = async (input: {
   );
 
   if (response.status !== 200) {
-    throw new Error(`Failed to sign up test user ${input.email}.`);
+    throw new Error(
+      `Failed to sign up test user ${input.email}: ${response.status} ${await response.text()}`,
+    );
   }
 
   return extractCookies(response);
 };
+
+export const signInTestUser = async (input: {
+  app: TestContext["app"];
+  email: string;
+  env: TestContext["env"];
+  password?: string;
+}): Promise<string> => {
+  const response = await input.app.request(
+    "http://127.0.0.1:8787/api/auth/sign-in/email",
+    {
+      body: JSON.stringify({
+        email: input.email,
+        password: input.password ?? "password1234",
+      }),
+      headers: {
+        "content-type": "application/json",
+        origin: input.env.WEB_ORIGIN,
+      },
+      method: "POST",
+    },
+  );
+
+  if (response.status !== 200) {
+    throw new Error(`Failed to sign in test user ${input.email}.`);
+  }
+
+  return extractCookies(response);
+};
+
+export const signOutTestUser = async (input: {
+  app: TestContext["app"];
+  cookie: string;
+  env: TestContext["env"];
+}): Promise<Response> =>
+  input.app.request("http://127.0.0.1:8787/api/auth/sign-out", {
+    headers: {
+      cookie: input.cookie,
+      origin: input.env.WEB_ORIGIN,
+    },
+    method: "POST",
+  });

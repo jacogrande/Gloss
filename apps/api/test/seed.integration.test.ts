@@ -203,6 +203,55 @@ describe("seed integration", () => {
     expect(detailBody.error.code).toBe("NOT_FOUND");
   });
 
+  it("does not allow one user to enrich another user's seed", async () => {
+    const ownerEmail = `owner-enrich-${crypto.randomUUID()}@example.com`;
+    const otherEmail = `other-enrich-${crypto.randomUUID()}@example.com`;
+    const ownerCookie = await signUpTestUser({
+      app: context.app,
+      email: ownerEmail,
+      env: context.env,
+      name: "Owner Enrich",
+    });
+    const otherCookie = await signUpTestUser({
+      app: context.app,
+      email: otherEmail,
+      env: context.env,
+      name: "Other Enrich",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          sentence: "Her explanation was pellucid even under pressure.",
+          word: "pellucid",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const response = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
+      {
+        headers: {
+          cookie: otherCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const body = apiErrorResponseSchema.parse((await response.json()) as unknown);
+
+    expect(response.status).toBe(404);
+    expect(body.error.code).toBe("NOT_FOUND");
+  });
+
   it("exposes split-origin CORS headers on product routes", async () => {
     const preflightResponse = await context.app.request(
       "http://127.0.0.1:8787/capture/seeds",

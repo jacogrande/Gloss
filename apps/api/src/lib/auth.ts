@@ -14,10 +14,12 @@ export type AuthDependencies = {
   profileService: ProfileService;
 };
 
+type GlossAdvancedAuthOptions = NonNullable<BetterAuthOptions["advanced"]> & {
+  useSecureCookies: boolean;
+};
+
 type GlossAuthOptions = BetterAuthOptions & {
-  advanced: {
-    useSecureCookies: boolean;
-  };
+  advanced: GlossAdvancedAuthOptions;
   basePath: "/api/auth";
   baseURL: string;
   database: Pool;
@@ -38,15 +40,34 @@ type GlossAuthOptions = BetterAuthOptions & {
   trustedOrigins: string[];
 };
 
-const createAuthOptions = ({
+export const resolveAuthTrustedOrigins = (
+  env: Pick<ServerEnv, "API_ORIGIN" | "BETTER_AUTH_URL" | "WEB_ORIGIN">,
+): string[] =>
+  Array.from(new Set([env.WEB_ORIGIN, env.API_ORIGIN, env.BETTER_AUTH_URL]));
+
+export const resolveAuthAdvancedOptions = (
+  env: Pick<ServerEnv, "API_ORIGIN" | "BETTER_AUTH_URL" | "COOKIE_DOMAIN">,
+): GlossAdvancedAuthOptions => ({
+  ...(env.COOKIE_DOMAIN
+    ? {
+        crossSubDomainCookies: {
+          domain: env.COOKIE_DOMAIN,
+          enabled: true,
+        },
+      }
+    : {}),
+  useSecureCookies:
+    env.API_ORIGIN.startsWith("https://") ||
+    env.BETTER_AUTH_URL.startsWith("https://"),
+});
+
+export const createAuthOptions = ({
   env,
   pool,
   profileService,
 }: Pick<AuthDependencies, "env" | "pool" | "profileService">): GlossAuthOptions =>
   ({
-    advanced: {
-      useSecureCookies: env.API_ORIGIN.startsWith("https://"),
-    },
+    advanced: resolveAuthAdvancedOptions(env),
     basePath: "/api/auth",
     baseURL: env.BETTER_AUTH_URL,
     database: pool,
@@ -66,7 +87,7 @@ const createAuthOptions = ({
       requireEmailVerification: false,
     },
     secret: env.BETTER_AUTH_SECRET,
-    trustedOrigins: [env.WEB_ORIGIN, env.API_ORIGIN],
+    trustedOrigins: resolveAuthTrustedOrigins(env),
   }) satisfies GlossAuthOptions;
 
 export type GlossAuth = Auth<GlossAuthOptions>;
