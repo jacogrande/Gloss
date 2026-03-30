@@ -110,6 +110,18 @@ describe("private alpha report metrics", () => {
           userId: "user_1",
         }),
         createEvent({
+          actorTag: "user_2",
+          occurredAt: "2026-01-06T12:00:00.000Z",
+          payload: {
+            cardCount: 1,
+            seedIds: ["seed_missing_user_2"],
+          },
+          reviewSessionId: "review_session_2",
+          schemaVersion: "product-event.v1",
+          type: "review.session.started",
+          userId: "user_2",
+        }),
+        createEvent({
           actorTag: "user_1",
           occurredAt: "2026-01-04T12:02:00.000Z",
           payload: {
@@ -190,11 +202,12 @@ describe("private alpha report metrics", () => {
     expect(report.totals.reviewCardsSubmitted).toBe(2);
     expect(report.totals.reviewSessionsCompleted).toBe(1);
     expect(report.totals.usersWithSignIns).toBe(1);
+    expect(report.totals.usersWithReviewActivity).toBe(2);
     expect(report.metrics.captureToReviewConversion).toBe(0.5);
     expect(report.metrics.averageReviewsPerSavedWord).toBe(1);
     expect(report.metrics.percentageReachingDeepening).toBe(0.5);
     expect(report.metrics.repeatCaptureRate).toBe(1);
-    expect(report.metrics.retention7Day).toBe(1);
-    expect(report.metrics.retention30Day).toBe(1);
+    expect(report.metrics.retention7Day).toBe(0.5);
+    expect(report.metrics.retention30Day).toBe(0.5);
   });
 });

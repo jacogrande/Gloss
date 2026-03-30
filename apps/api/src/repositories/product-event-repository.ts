@@ -1,4 +1,5 @@
 import {
+  and,
   desc,
   eq,
 } from "drizzle-orm";
@@ -23,6 +24,7 @@ export type ProductEventRepository = {
   insert: (input: ProductEventInsert) => Promise<ProductEventRow>;
   list: (input?: {
     limit?: number;
+    schemaVersion?: string;
     type?: ProductEventType;
   }) => Promise<ProductEventRow[]>;
   listSeedSnapshots: () => Promise<
@@ -62,6 +64,21 @@ export const createProductEventRepository = (
     return created;
   },
   async list(input) {
+    if (input?.type && input?.schemaVersion) {
+      const query = db
+        .select()
+        .from(productEventsTable)
+        .where(
+          and(
+            eq(productEventsTable.type, input.type),
+            eq(productEventsTable.schemaVersion, input.schemaVersion),
+          ),
+        )
+        .orderBy(desc(productEventsTable.occurredAt));
+
+      return input.limit === undefined ? query : query.limit(input.limit);
+    }
+
     if (input?.type) {
       const query = db
         .select()
@@ -70,6 +87,16 @@ export const createProductEventRepository = (
         .orderBy(desc(productEventsTable.occurredAt));
 
       return input?.limit === undefined ? query : query.limit(input.limit);
+    }
+
+    if (input?.schemaVersion) {
+      const query = db
+        .select()
+        .from(productEventsTable)
+        .where(eq(productEventsTable.schemaVersion, input.schemaVersion))
+        .orderBy(desc(productEventsTable.occurredAt));
+
+      return input.limit === undefined ? query : query.limit(input.limit);
     }
 
     const query = db

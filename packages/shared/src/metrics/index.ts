@@ -166,8 +166,13 @@ export const derivePrivateAlphaReport = (input: {
     (seed) => seed.stage === "deepening" || seed.stage === "mature",
   ).length;
   const usersWithReviewActivity = new Set(
-    reviewCardEvents
-      .filter((event) => "userId" in event)
+    input.events
+      .filter(
+        (event) =>
+          (event.type === "review.session.started" ||
+            event.type === "review.card.submitted") &&
+          "userId" in event,
+      )
       .map((event) => event.userId),
   );
 

@@ -73,9 +73,12 @@ export const createProductEventService = (
   repository: ProductEventRepository = createProductEventRepository(db),
 ): ProductEventService => ({
   async listEvents(input) {
-    return (await repository.list(input))
-      .filter((event) => event.schemaVersion === productEventSchemaVersion)
-      .map(toProductEvent);
+    return (
+      await repository.list({
+        ...input,
+        schemaVersion: productEventSchemaVersion,
+      })
+    ).map(toProductEvent);
   },
   async listSeedSnapshots() {
     return (await repository.listSeedSnapshots()).map((seed) => ({
