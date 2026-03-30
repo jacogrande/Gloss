@@ -111,7 +111,6 @@ export const createApp = ({
   registerSeedRoutes(app, {
     auth,
     enrichmentService,
-    requestRateLimitService,
     seedService,
   });
 

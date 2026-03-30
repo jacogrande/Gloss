@@ -72,11 +72,11 @@ export const resolveRateLimitWindowEnd = (
 export const buildRequestRateLimitVerdict = (input: {
   now: Date;
   policy: RequestRateLimitPolicy;
-  row: Pick<RequestRateLimitRow, "requestCount" | "windowStartedAt" | "windowSeconds">;
+  row: Pick<RequestRateLimitRow, "requestCount" | "windowStartedAt">;
 }): RequestRateLimitVerdict => {
   const windowEndsAt = resolveRateLimitWindowEnd(
     input.row.windowStartedAt,
-    input.row.windowSeconds,
+    input.policy.windowSeconds,
   );
   const retryAfterMs = Math.max(windowEndsAt.getTime() - input.now.getTime(), 0);
   const remaining = Math.max(input.policy.limit - input.row.requestCount, 0);

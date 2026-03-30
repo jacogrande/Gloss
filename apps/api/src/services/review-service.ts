@@ -42,6 +42,7 @@ import {
   createReviewRepository,
   type ReviewRepository,
 } from "../repositories/review-repository";
+import type { RequestRateLimitService } from "./request-rate-limit-service";
 import type { SourceSummaryRecord } from "../lib/seed-contracts";
 
 export type ReviewService = {
@@ -194,6 +195,7 @@ export const createReviewService = (input: {
   logger: Logger;
   modelProvider?: ReviewModelProvider;
   pool: Pool;
+  requestRateLimitService: RequestRateLimitService;
   repository?: ReviewRepository;
 }): ReviewService => {
   const repository = input.repository ?? createReviewRepository(input.db);
@@ -251,6 +253,16 @@ export const createReviewService = (input: {
               requestId,
             );
           }
+
+          await input.requestRateLimitService.enforce({
+            actorKey: userId,
+            policyKey: "review.session.start",
+            ...(requestId
+              ? {
+                  requestId,
+                }
+              : {}),
+          });
 
           const cards: ReviewCardDraft[] = [];
 
@@ -428,10 +440,12 @@ export const createDefaultReviewService = (input: {
   database: DatabaseClient;
   env: ServerEnv;
   logger: Logger;
+  requestRateLimitService: RequestRateLimitService;
 }): ReviewService =>
   createReviewService({
     db: input.database.db,
     env: input.env,
     logger: input.logger,
     pool: input.database.pool,
+    requestRateLimitService: input.requestRateLimitService,
   });

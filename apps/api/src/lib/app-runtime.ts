@@ -56,23 +56,6 @@ export const createAppRuntime = (input: {
   const database =
     input.database ?? createDatabaseClient(input.env.DATABASE_URL);
   const logger = input.logger ?? createLogger(input.env.LOG_LEVEL);
-  const profileService = createProfileService(database.db);
-  const seedService = createSeedService(database.db);
-  const enrichmentService = createDefaultEnrichmentService({
-    db: database.db,
-    env: input.env,
-    logger,
-    ...(input.enrichmentProviders
-      ? {
-          providers: input.enrichmentProviders,
-        }
-      : {}),
-  });
-  const reviewService = createDefaultReviewService({
-    database,
-    env: input.env,
-    logger,
-  });
   const requestRateLimitService =
     input.requestRateLimitService ??
     createDefaultRequestRateLimitService({
@@ -84,6 +67,26 @@ export const createAppRuntime = (input: {
           }
         : {}),
     });
+  const profileService = createProfileService(database.db);
+  const seedService = createSeedService(database.db);
+  const enrichmentService = createDefaultEnrichmentService({
+    db: database.db,
+    env: input.env,
+    logger,
+    pool: database.pool,
+    requestRateLimitService,
+    ...(input.enrichmentProviders
+      ? {
+          providers: input.enrichmentProviders,
+        }
+      : {}),
+  });
+  const reviewService = createDefaultReviewService({
+    database,
+    env: input.env,
+    logger,
+    requestRateLimitService,
+  });
   const auth = createAuth({
     env: input.env,
     logger,

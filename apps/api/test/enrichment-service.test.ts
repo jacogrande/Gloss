@@ -16,6 +16,7 @@ import type { EnrichmentProviders } from "../src/lib/enrichment-providers";
 import { createEnrichmentService } from "../src/services/enrichment-service";
 import type { SeedEnrichmentRepository } from "../src/repositories/seed-enrichment-repository";
 import type { SeedRepository } from "../src/repositories/seed-repository";
+import type { RequestRateLimitService } from "../src/services/request-rate-limit-service";
 
 const createLogger = (): Logger => ({
   debug: vi.fn(),
@@ -139,6 +140,40 @@ const createProviders = (): EnrichmentProviders => ({
   },
 });
 
+const createRateLimitService = (): RequestRateLimitService => ({
+  enforce: vi.fn(() =>
+    Promise.resolve({
+      allowed: true,
+      limit: 10,
+      remaining: 9,
+      requestCount: 1,
+      retryAfterSeconds: 0,
+      windowEndsAt: new Date("2026-03-26T00:01:00.000Z"),
+      windowStartedAt: new Date("2026-03-26T00:00:00.000Z"),
+    }),
+  ),
+});
+
+const createPool = (): {
+  connect: () => Promise<{
+    query: (sql: string) => Promise<{
+      rows: Array<{ acquired?: boolean }>;
+    }>;
+    release: () => void;
+  }>;
+} => ({
+  connect: () =>
+    Promise.resolve({
+      query: (sql: string) =>
+        Promise.resolve({
+          rows: sql.includes("pg_try_advisory_lock")
+            ? [{ acquired: true }]
+            : [],
+        }),
+    release: (): void => {},
+    }),
+});
+
 describe("enrichment service", () => {
   it("preserves a ready enrichment when trace persistence fails", async () => {
     const logger = createLogger();
@@ -160,7 +195,9 @@ describe("enrichment service", () => {
     const service = createEnrichmentService({
       db: {} as never,
       logger,
+      pool: createPool() as never,
       providers,
+      requestRateLimitService: createRateLimitService(),
       repository,
       seedEnrichmentRepository,
     });

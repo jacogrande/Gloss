@@ -44,7 +44,6 @@ export const createRequestRateLimitRepository = (
         set: {
           requestCount: sql`${requestRateLimitsTable.requestCount} + 1`,
           updatedAt: input.now,
-          windowSeconds: input.windowSeconds,
         },
         target: [
           requestRateLimitsTable.actorKey,

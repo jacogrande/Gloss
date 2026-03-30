@@ -8,6 +8,7 @@ import {
 
 import {
   createSeedResponseSchema,
+  requestSeedEnrichmentResponseSchema,
   reviewSessionResponseSchema,
   submitReviewCardResponseSchema,
 } from "@gloss/shared/contracts";
@@ -191,7 +192,51 @@ describe("request rate limits", () => {
     expect(secondBody.error.code).toBe("RATE_LIMITED");
   });
 
-  it("limits repeated review-session starts", async () => {
+  it("allows harmless enrichment retries to reuse the existing enrichment", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "rate-enrich-retry@example.com",
+      env: context.env,
+      name: "Rate Enrich Retry",
+    });
+    const seedId = await createSeed({
+      cookie,
+      word: "lapidary",
+    });
+
+    const firstResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${seedId}/enrich`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const secondResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${seedId}/enrich`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const firstBody = requestSeedEnrichmentResponseSchema.parse(
+      (await firstResponse.json()) as unknown,
+    );
+    const secondBody = requestSeedEnrichmentResponseSchema.parse(
+      (await secondResponse.json()) as unknown,
+    );
+
+    expect(firstResponse.status).toBe(200);
+    expect(secondResponse.status).toBe(200);
+    expect(secondBody.data.id).toBe(firstBody.data.id);
+  });
+
+  it("reuses the active review session without consuming additional start budget", async () => {
     const cookie = await signUpTestUser({
       app: context.app,
       email: "rate-review-start@example.com",
@@ -240,11 +285,92 @@ describe("request rate limits", () => {
         method: "POST",
       },
     );
-    const secondBody = apiErrorResponseSchema.parse(
+    const firstBody = reviewSessionResponseSchema.parse(
+      (await firstStart.json()) as unknown,
+    );
+    const secondBody = reviewSessionResponseSchema.parse(
       (await secondStart.json()) as unknown,
     );
 
     expect(firstStart.status).toBe(200);
+    expect(secondStart.status).toBe(200);
+    expect(secondBody.data.session.id).toBe(firstBody.data.session.id);
+  });
+
+  it("limits creation of a new review session once the policy window is exhausted", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "rate-review-create@example.com",
+      env: context.env,
+      name: "Rate Review Create",
+    });
+    const seedId = await createSeed({
+      cookie,
+      word: "pellucid",
+    });
+
+    const enrichResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${seedId}/enrich`,
+      {
+        headers: {
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+
+    expect(enrichResponse.status).toBe(200);
+
+    const firstStart = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const firstBody = reviewSessionResponseSchema.parse(
+      (await firstStart.json()) as unknown,
+    );
+
+    expect(firstStart.status).toBe(200);
+
+    await context.database.pool.query(
+      `
+        DELETE FROM review_cards
+        WHERE review_session_id = $1
+      `,
+      [firstBody.data.session.id],
+    );
+    await context.database.pool.query(
+      `
+        DELETE FROM review_sessions
+        WHERE id = $1
+      `,
+      [firstBody.data.session.id],
+    );
+
+    const secondStart = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const secondBody = apiErrorResponseSchema.parse(
+      (await secondStart.json()) as unknown,
+    );
+
     expect(secondStart.status).toBe(429);
     expect(secondBody.error.code).toBe("RATE_LIMITED");
   });

@@ -54,11 +54,6 @@ export const registerReviewRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
-    await dependencies.requestRateLimitService.enforce({
-      actorKey: String(session.user.id),
-      policyKey: "review.session.start",
-      requestId: context.get("requestId"),
-    });
     const input = createReviewSessionInputSchema.parse(
       (await context.req.json().catch(() => ({}))) as unknown,
     );

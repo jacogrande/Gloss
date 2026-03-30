@@ -16,6 +16,7 @@ import type {
 
 import type { Logger } from "../lib/logger";
 import type { GlossDatabase } from "../lib/db";
+import { withPostgresAdvisoryLock } from "../lib/postgres-lock";
 import {
   applyEnrichmentGuardrails,
   buildEnrichmentPrompts,
@@ -38,6 +39,8 @@ import {
   createSeedRepository,
   type SeedRepository,
 } from "../repositories/seed-repository";
+import type { RequestRateLimitService } from "./request-rate-limit-service";
+import type { Pool } from "pg";
 
 export type EnrichmentService = {
   requestSeedEnrichment: (input: {
@@ -148,7 +151,9 @@ const measureAsync = async <TValue>(
 export const createEnrichmentService = (input: {
   db: GlossDatabase;
   logger: Logger;
+  pool: Pool;
   providers: EnrichmentProviders;
+  requestRateLimitService: RequestRateLimitService;
   repository?: SeedRepository;
   seedEnrichmentRepository?: SeedEnrichmentRepository;
 }): EnrichmentService => {
@@ -227,53 +232,90 @@ export const createEnrichmentService = (input: {
   return {
     async requestSeedEnrichment({ requestId, seedId, userId }) {
       const startedAt = Date.now();
-      const currentEnrichment =
-        await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
+      const acquisition = await withPostgresAdvisoryLock({
+        key: seedId,
+        namespace: "seed.enrichment.request",
+        pool: input.pool,
+        run: async () => {
+          const currentEnrichment =
+            await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
 
-      if (currentEnrichment?.status === "ready") {
-        return toSeedEnrichment(currentEnrichment);
-      }
+          if (currentEnrichment?.status === "ready") {
+            return {
+              enrichment: currentEnrichment,
+              kind: "existing" as const,
+            };
+          }
 
-      if (currentEnrichment && isActivePendingEnrichment(currentEnrichment)) {
-        return toSeedEnrichment(currentEnrichment);
-      }
+          if (currentEnrichment && isActivePendingEnrichment(currentEnrichment)) {
+            return {
+              enrichment: currentEnrichment,
+              kind: "existing" as const,
+            };
+          }
 
-      const detailRecord = await repository.getSeedDetail({
-        seedId,
-        userId,
+          const detailRecord = await repository.getSeedDetail({
+            seedId,
+            userId,
+          });
+
+          if (!detailRecord) {
+            throw notFoundError("Seed not found.", requestId);
+          }
+
+          await input.requestRateLimitService.enforce({
+            actorKey: userId,
+            policyKey: "seeds.enrich",
+            ...(requestId
+              ? {
+                  requestId,
+                }
+              : {}),
+          });
+
+          const pendingEnrichment = await seedEnrichmentRepository.acquirePending({
+            model: input.providers.modelProvider.model,
+            promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
+            provider: input.providers.modelProvider.provider,
+            schemaVersion: seedEnrichmentSchemaVersion,
+            seedId,
+            staleBefore: new Date(Date.now() - activePendingLeaseMs),
+            userId,
+          });
+
+          if (!pendingEnrichment) {
+            const activeEnrichment =
+              await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
+
+            if (activeEnrichment) {
+              return {
+                enrichment: activeEnrichment,
+                kind: "existing" as const,
+              };
+            }
+
+            throw enrichmentProviderError(
+              "Unable to acquire enrichment work for this seed.",
+              requestId,
+            );
+          }
+
+          return {
+            kind: "acquired" as const,
+            pendingEnrichment,
+            seedDetail: toSeedDetail({
+              ...detailRecord,
+              enrichment: currentEnrichment,
+            }),
+          };
+        },
       });
 
-      if (!detailRecord) {
-        throw notFoundError("Seed not found.", requestId);
+      if (acquisition.kind === "existing") {
+        return toSeedEnrichment(acquisition.enrichment);
       }
 
-      const seedDetail = toSeedDetail({
-        ...detailRecord,
-        enrichment: currentEnrichment,
-      });
-      const pendingEnrichment = await seedEnrichmentRepository.acquirePending({
-        model: input.providers.modelProvider.model,
-        promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
-        provider: input.providers.modelProvider.provider,
-        schemaVersion: seedEnrichmentSchemaVersion,
-        seedId,
-        staleBefore: new Date(Date.now() - activePendingLeaseMs),
-        userId,
-      });
-
-      if (!pendingEnrichment) {
-        const activeEnrichment =
-          await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
-
-        if (activeEnrichment) {
-          return toSeedEnrichment(activeEnrichment);
-        }
-
-        throw enrichmentProviderError(
-          "Unable to acquire enrichment work for this seed.",
-          requestId,
-        );
-      }
+      const { pendingEnrichment, seedDetail } = acquisition;
 
       const logContext = {
         model: input.providers.modelProvider.model,
@@ -419,10 +461,14 @@ export const createDefaultEnrichmentService = (input: {
   db: GlossDatabase;
   env: ServerEnv;
   logger: Logger;
+  pool: Pool;
   providers?: EnrichmentProviders;
+  requestRateLimitService: RequestRateLimitService;
 }): EnrichmentService =>
   createEnrichmentService({
     db: input.db,
     logger: input.logger,
+    pool: input.pool,
     providers: input.providers ?? createEnrichmentProviders(input.env),
+    requestRateLimitService: input.requestRateLimitService,
   });

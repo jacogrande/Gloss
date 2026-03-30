@@ -30,7 +30,6 @@ describe("request rate limit contracts", () => {
       },
       row: {
         requestCount: 3,
-        windowSeconds: 60,
         windowStartedAt: new Date("2026-03-29T12:34:00.000Z"),
       },
     });
