@@ -9,9 +9,10 @@ Start here, then go deeper only as needed.
 3. `docs/ROADMAP.md` for sequencing and milestone context
 4. `docs/ARCHITECTURE.md`
 5. `docs/DEPLOYMENT.md` when touching local DB setup, Railway, or environment wiring
-6. `docs/FRONTEND.md` when touching the SPA
-7. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
-8. `docs/plans/active/*.md` for any task that is already in flight
+6. `docs/PRIVATE_ALPHA.md` when touching preview, staging, release readiness, or issue intake
+7. `docs/FRONTEND.md` when touching the SPA
+8. `docs/RELIABILITY.md` and `docs/SECURITY.md` for validation and safety constraints
+9. `docs/plans/active/*.md` for any task that is already in flight
 
 `docs/core.md` remains the long-form source of truth for product vision and learning philosophy. The supporting docs translate that vision into build and operating rules.
 

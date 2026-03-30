@@ -203,11 +203,61 @@ describe("private alpha report metrics", () => {
     expect(report.totals.reviewSessionsCompleted).toBe(1);
     expect(report.totals.usersWithSignIns).toBe(1);
     expect(report.totals.usersWithReviewActivity).toBe(2);
+    expect(report.activity.activeUsers).toBe(2);
+    expect(report.activity.daysWithActivity).toBe(7);
+    expect(report.activity.firstEventAt).toBe("2026-01-01T11:00:00.000Z");
+    expect(report.activity.lastEventAt).toBe("2026-02-05T12:00:00.000Z");
+    expect(
+      report.eventCounts.find((eventCount) => eventCount.type === "auth.sign_up"),
+    ).toEqual({
+      count: 1,
+      type: "auth.sign_up",
+    });
+    expect(
+      report.signals.find((signal) => signal.id === "review_activity"),
+    ).toEqual({
+      id: "review_activity",
+      message: "Observed 2 review session start(s) and 2 card submission(s).",
+      status: "pass",
+    });
     expect(report.metrics.captureToReviewConversion).toBe(0.5);
     expect(report.metrics.averageReviewsPerSavedWord).toBe(1);
     expect(report.metrics.percentageReachingDeepening).toBe(0.5);
     expect(report.metrics.repeatCaptureRate).toBe(1);
     expect(report.metrics.retention7Day).toBe(0.5);
     expect(report.metrics.retention30Day).toBe(0.5);
+  });
+
+  it("emits warning signals when alpha activity is missing", () => {
+    const report = derivePrivateAlphaReport({
+      events: [],
+      generatedAt: "2026-02-15T12:00:00.000Z",
+      seeds: [],
+    });
+
+    expect(report.activity).toEqual({
+      activeUsers: 0,
+      daysWithActivity: 0,
+      firstEventAt: null,
+      lastEventAt: null,
+    });
+    expect(
+      report.signals.every((signal) => signal.status === "warn"),
+    ).toBe(true);
+    expect(
+      report.signals.find((signal) => signal.id === "capture_activity"),
+    ).toEqual({
+      id: "capture_activity",
+      message: "No seed capture events have been recorded yet.",
+      status: "warn",
+    });
+    expect(
+      report.eventCounts.find(
+        (eventCount) => eventCount.type === "review.card.submitted",
+      ),
+    ).toEqual({
+      count: 0,
+      type: "review.card.submitted",
+    });
   });
 });

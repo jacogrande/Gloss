@@ -49,6 +49,15 @@ Recommended Railway project layout:
 
 The API and web services should each deploy from GitHub auto-deploys on the main branch. Preview environments can use Railway preview deploys with environment-specific public URLs.
 
+## Environment Matrix
+
+| Environment | Web origin | API origin | Auth URL | Cookie domain | Provider mode | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `local` | `http://127.0.0.1:<web-port>` | `http://127.0.0.1:<api-port>` | same as API origin | unset | `fixture` by default, `live` only when keys are present | local `bun run dev` can auto-select free web/API ports |
+| `preview` | Railway preview web URL | Railway preview API URL | same as preview API origin | unset unless using preview subdomains on one shared parent domain | `fixture` unless doing explicit live validation | use for fast browser verification, not final promotion |
+| `staging` | stable staging web URL | stable staging API URL | same as staging API origin | set only when the staging domain strategy requires it | `fixture` for deterministic checks, `live` only when staged provider validation is deliberate | required promotion gate before private alpha |
+| `private-alpha` | stable invite-only web URL | stable invite-only API URL | same as invite-only API origin | set only when the deployed domain strategy requires it | `live` only if real providers are enabled for invited users | production-like environment for real cohort usage |
+
 ## API Service
 
 Recommended Railway settings for the API service:
@@ -118,6 +127,35 @@ Guidelines:
 - `COOKIE_DOMAIN` must be a bare domain or subdomain such as `gloss.test` or `preview.gloss.test`, never a full URL or host with a port.
 - Keep fixture mode as the default for local harness work so smoke and eval stay deterministic.
 
+## Preview Verification
+
+Run the preview checklist in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md) after every meaningful deploy that changes auth, routing, capture, enrichment, or review behavior.
+
+Minimum preview checks:
+
+1. direct-link SPA routing works for `/library`, `/capture`, `/review`, and `/seeds/:id`
+2. sign-in, refresh, and sign-out work under the preview origins
+3. one split-origin API path succeeds from the browser
+4. the deployed API can read the migrated schema
+
+Preview is not the final promotion gate.
+
+## Staging Verification
+
+Staging is required before private alpha.
+
+Minimum staging checks:
+
+1. repeat the full preview verification checklist
+2. confirm cookies are secure, HTTP-only, and `SameSite=Lax`
+3. confirm one capture, one enrichment, and one review session complete successfully
+4. confirm the deployed env values line up:
+   - `WEB_ORIGIN`
+   - `API_ORIGIN`
+   - `BETTER_AUTH_URL`
+   - `VITE_API_BASE_URL`
+5. capture the screenshot set and notes described in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
+
 ## Release Checklist
 
 Before promoting a deploy:
@@ -126,5 +164,7 @@ Before promoting a deploy:
 2. `bun run typecheck`
 3. `bun run test`
 4. `bun run smoke`
-5. confirm the target Railway environment variables are aligned
-6. confirm the API service ran `bun run db:migrate`
+5. `bun run report:alpha --pretty`
+6. confirm the target Railway environment variables are aligned
+7. confirm the API service ran `bun run db:migrate`
+8. confirm preview or staging verification notes are current for the commit being promoted

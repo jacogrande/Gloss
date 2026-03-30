@@ -157,7 +157,7 @@ These scripts are part of the harness and should be implemented as the repo is s
 - `bun run eval:add-case`
   Append a new eval dataset row from a concrete bug or regression.
 - `bun run report:alpha`
-  Derive the current private-alpha KPI snapshot from typed product events and seed state.
+  Derive the current private-alpha KPI snapshot, event counts, and warning signals from typed product events and seed state.
 - `bun run fixtures:seed`
   Load seed data for local smoke tests and evals.
 
@@ -238,9 +238,21 @@ No feature is considered complete unless it satisfies all of:
 - `bun run harness:check` is green for the current repo state
 - `bun run lint:boundaries` is green for touched architecture paths
 - logs and error codes are intelligible
+- preview and staging verification notes stay current for private-alpha work
 - AI output is schema-checked
 - at least one smoke or eval path covers the new behavior
 - CI can run the relevant scripts without hand-edited local state
+
+## Alpha Ops
+
+Private-alpha operator workflow lives in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md).
+
+Required rules:
+
+- preview is fast feedback only
+- staging is the promotion gate
+- every escaped bug must land as a test or eval artifact before closure
+- use `bun run report:alpha --pretty` for typed KPI and telemetry snapshots instead of ad hoc SQL
 
 ## Documents In This Harness
 
@@ -248,6 +260,7 @@ No feature is considered complete unless it satisfies all of:
 - `docs/ROADMAP.md`: sprint-level build sequencing and integration choices
 - `docs/ARCHITECTURE.md`: service boundaries and data ownership
 - `docs/DEPLOYMENT.md`: Railway service layout and native local Postgres rules
+- `docs/PRIVATE_ALPHA.md`: preview, staging, issue-intake, and promotion rules
 - `docs/QA.md`: local runbook and manual QA steps
 - `docs/FRONTEND.md`: UI, routing, and SPA rules
 - `docs/GLOSS_ART_DIRECTION.md`: concrete visual direction for the main product UI

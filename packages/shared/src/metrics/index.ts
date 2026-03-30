@@ -1,7 +1,9 @@
 import type {
   ProductEvent,
+  ProductEventType,
   SeedStage,
 } from "../types/index";
+import { productEventTypeValues } from "../values/index";
 
 export type PrivateAlphaSeedSnapshot = {
   createdAt: string;
@@ -11,6 +13,16 @@ export type PrivateAlphaSeedSnapshot = {
 };
 
 export type PrivateAlphaReport = {
+  activity: {
+    activeUsers: number;
+    daysWithActivity: number;
+    firstEventAt: string | null;
+    lastEventAt: string | null;
+  };
+  eventCounts: Array<{
+    count: number;
+    type: ProductEventType;
+  }>;
   generatedAt: string;
   metrics: {
     averageReviewsPerSavedWord: number | null;
@@ -20,6 +32,17 @@ export type PrivateAlphaReport = {
     retention30Day: number | null;
     retention7Day: number | null;
   };
+  signals: Array<{
+    id:
+      | "auth_activity"
+      | "capture_activity"
+      | "enrichment_activity"
+      | "review_activity"
+      | "capture_to_review"
+      | "session_completion";
+    message: string;
+    status: "pass" | "warn";
+  }>;
   totals: {
     authSignInFailures: number;
     authSignIns: number;
@@ -105,16 +128,43 @@ const computeRetentionRate = (input: {
   return toRate(retainedUsers, eligibleUsers);
 };
 
+const buildEventCounts = (
+  events: ProductEvent[],
+): Array<{
+  count: number;
+  type: ProductEventType;
+}> =>
+  productEventTypeValues.map((type) => ({
+    count: events.filter((event) => event.type === type).length,
+    type,
+  }));
+
+const hasUserId = (
+  event: ProductEvent,
+): event is ProductEvent & {
+  userId: string;
+} => "userId" in event && typeof event.userId === "string" && event.userId.length > 0;
+
 export const derivePrivateAlphaReport = (input: {
   events: ProductEvent[];
   generatedAt: string;
   seeds: PrivateAlphaSeedSnapshot[];
 }): PrivateAlphaReport => {
   const authoritativeSeedIds = new Set(input.seeds.map((seed) => seed.id));
+  const signUpEvents = input.events.filter((event) => event.type === "auth.sign_up");
   const captureEvents = input.events.filter((event) => event.type === "seed.capture");
   const signInEvents = input.events.filter((event) => event.type === "auth.sign_in");
   const signInFailureEvents = input.events.filter(
     (event) => event.type === "auth.sign_in_failed",
+  );
+  const enrichmentRequestedEvents = input.events.filter(
+    (event) => event.type === "seed.enrichment.requested",
+  );
+  const enrichmentReadyEvents = input.events.filter(
+    (event) => event.type === "seed.enrichment.ready",
+  );
+  const enrichmentFailedEvents = input.events.filter(
+    (event) => event.type === "seed.enrichment.failed",
   );
   const reviewCardEvents = input.events.filter((event) => {
     if (event.type !== "review.card.submitted") {
@@ -175,8 +225,87 @@ export const derivePrivateAlphaReport = (input: {
       )
       .map((event) => event.userId),
   );
+  const activityDayKeys = new Set(input.events.map((event) => toDayKey(event.occurredAt)));
+  const sortedOccurredAt = input.events
+    .map((event) => event.occurredAt)
+    .slice()
+    .sort((left, right) => left.localeCompare(right));
+  const usersWithActivity = new Set(
+    input.events
+      .filter(hasUserId)
+      .map((event) => event.userId),
+  );
+  const eventCounts = buildEventCounts(input.events);
+  const settledEnrichmentCount =
+    enrichmentReadyEvents.length + enrichmentFailedEvents.length;
+  const signals: PrivateAlphaReport["signals"] = [
+    {
+      id: "auth_activity",
+      message:
+        signInEvents.length > 0 || signUpEvents.length > 0
+          ? `Observed ${String(signUpEvents.length)} sign-up(s) and ${String(signInEvents.length)} sign-in(s).`
+          : "No successful sign-up or sign-in events have been recorded yet.",
+      status: signInEvents.length > 0 || signUpEvents.length > 0 ? "pass" : "warn",
+    },
+    {
+      id: "capture_activity",
+      message:
+        captureEvents.length > 0
+          ? `Observed ${String(captureEvents.length)} capture event(s) across ${String(captureDaySetsByUser.size)} user(s).`
+          : "No seed capture events have been recorded yet.",
+      status: captureEvents.length > 0 ? "pass" : "warn",
+    },
+    {
+      id: "enrichment_activity",
+      message:
+        settledEnrichmentCount > 0
+          ? `Observed ${String(settledEnrichmentCount)} settled enrichment event(s) from ${String(enrichmentRequestedEvents.length)} request(s).`
+          : "No settled enrichment events have been recorded yet.",
+      status: settledEnrichmentCount > 0 ? "pass" : "warn",
+    },
+    {
+      id: "review_activity",
+      message:
+        reviewSessionStartedEvents.length > 0 && reviewCardEvents.length > 0
+          ? `Observed ${String(reviewSessionStartedEvents.length)} review session start(s) and ${String(reviewCardEvents.length)} card submission(s).`
+          : "Review activity is still missing either session starts or card submissions.",
+      status:
+        reviewSessionStartedEvents.length > 0 && reviewCardEvents.length > 0
+          ? "pass"
+          : "warn",
+    },
+    {
+      id: "capture_to_review",
+      message:
+        reviewTouchedSeedIds.size > 0
+          ? `${String(reviewTouchedSeedIds.size)} saved word(s) have reached review activity.`
+          : "Captured words have not yet converted into review activity.",
+      status: reviewTouchedSeedIds.size > 0 ? "pass" : "warn",
+    },
+    {
+      id: "session_completion",
+      message:
+        reviewSessionStartedEvents.length === 0
+          ? "No review sessions have been started yet."
+          : reviewSessionCompletedEvents.length > 0
+            ? `${String(reviewSessionCompletedEvents.length)} review session(s) have completed.`
+            : "Review sessions have started, but none have completed yet.",
+      status:
+        reviewSessionStartedEvents.length > 0 &&
+        reviewSessionCompletedEvents.length > 0
+          ? "pass"
+          : "warn",
+    },
+  ];
 
   return {
+    activity: {
+      activeUsers: usersWithActivity.size,
+      daysWithActivity: activityDayKeys.size,
+      firstEventAt: sortedOccurredAt[0] ?? null,
+      lastEventAt: sortedOccurredAt.at(-1) ?? null,
+    },
+    eventCounts,
     generatedAt: input.generatedAt,
     metrics: {
       averageReviewsPerSavedWord: toRate(
@@ -206,6 +335,7 @@ export const derivePrivateAlphaReport = (input: {
         windowDays: 7,
       }),
     },
+    signals,
     totals: {
       authSignInFailures: signInFailureEvents.length,
       authSignIns: signInEvents.length,

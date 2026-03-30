@@ -109,6 +109,8 @@ Every important production failure should follow this path:
 
 If a bug cannot be reproduced, the harness is missing visibility.
 
+Private-alpha issue intake and hosted-environment triage live in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md).
+
 ## Release Readiness
 
 A feature is not reliable enough for merge unless:

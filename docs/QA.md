@@ -677,6 +677,28 @@ These should hold every time:
 - `bun run smoke` passes after a reset
 - `bun run eval` passes after a reset
 
+## Hosted Validation
+
+Use this after a preview or staging deploy.
+
+Preview:
+
+1. open `/login`, `/library`, `/capture`, `/review`, and one `/seeds/:id` URL directly
+2. confirm SPA fallback routing works on refresh and on direct links
+3. sign in, refresh on `/library`, and sign out
+4. capture one seed and confirm the detail route loads correctly
+5. confirm one review session starts and accepts at least one submission
+
+Staging:
+
+1. repeat the preview checklist
+2. confirm cookies persist across refresh and sign-out still clears protected access
+3. confirm auth, capture, enrichment, and review all work under the deployed origins
+4. capture the required screenshot set and notes from [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
+5. run `bun run report:alpha --pretty` against the staging-connected environment when real alpha traffic exists
+
+Issue intake and bug triage for hosted failures live in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md).
+
 ## Troubleshooting
 
 ### PostgreSQL binaries not found

@@ -29,3 +29,4 @@ The scripts layer now also owns:
 - repo harness checks
 - structural boundary enforcement
 - append-only eval scaffolding from real failures
+- private-alpha reporting via `bun run report:alpha`
