@@ -31,3 +31,4 @@ The scripts layer now also owns:
 - append-only eval scaffolding from real failures
 - private-alpha reporting via `bun run report:alpha`
 - deployment env verification via `bun run deploy:check-env`
+- hosted browser verification via `bun run smoke:hosted` and `bun run test:e2e:hosted`

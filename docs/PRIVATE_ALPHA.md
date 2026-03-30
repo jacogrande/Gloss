@@ -48,6 +48,7 @@ Run this against the current Railway preview deploy.
 6. Confirm one CORS-backed API path succeeds from the browser:
    `library`, `capture`, or `review`.
 7. Confirm the deployed API version can read the migrated schema without startup or route failures.
+8. Run `bun run smoke:hosted -- --web-origin <preview-web-url> --api-origin <preview-api-url>`.
 
 Record:
 
@@ -69,6 +70,7 @@ Run this against the stable staging environment before any new alpha rollout.
 6. Capture screenshots for `/login`, `/library`, `/capture`, `/seeds/:id`, and `/review`.
 7. Review the latest `bun run report:alpha --pretty` output if staging contains real alpha traffic.
 8. Run `bun run deploy:check-env -- --environment staging --target combined --pretty`.
+9. Run `bun run smoke:hosted -- --web-origin <staging-web-url> --api-origin <staging-api-url>`.
 
 Staging is only green when auth, capture, enrichment, and review all behave correctly under the deployed origins and cookies.
 

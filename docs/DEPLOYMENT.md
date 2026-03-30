@@ -140,6 +140,7 @@ Minimum preview checks:
 3. one split-origin API path succeeds from the browser
 4. the deployed API can read the migrated schema
 5. `bun run deploy:check-env -- --environment preview --target combined --pretty` passes from the preview-connected shell
+6. `bun run smoke:hosted -- --web-origin <preview-web-url> --api-origin <preview-api-url>` passes
 
 Preview is not the final promotion gate.
 
@@ -159,6 +160,7 @@ Minimum staging checks:
    - `VITE_API_BASE_URL`
 5. capture the screenshot set and notes described in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
 6. `bun run deploy:check-env -- --environment staging --target combined --pretty` passes from the staging-connected shell
+7. `bun run smoke:hosted -- --web-origin <staging-web-url> --api-origin <staging-api-url>` passes
 
 ## Release Checklist
 

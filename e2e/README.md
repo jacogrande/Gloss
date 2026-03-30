@@ -20,6 +20,8 @@ Current `bun run smoke` is the Playwright entrypoint for these flows. It should 
 - the actual Vite + Hono boundary
 - the detail-page enrichment trigger
 
+Use `bun run smoke:hosted -- --web-origin <url> --api-origin <url>` when you need the same browser harness to verify preview or staging without starting local services.
+
 `bun run smoke:live` is the opt-in browser validation path for the same flow shape with live enrichment providers. It should only be used when `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are configured.
 
 ## Test Data Principles
@@ -46,3 +48,4 @@ Current regression focus:
 2. session persistence and forced re-auth after cookie loss
 3. capture validation and cross-user isolation
 4. review stale-tab conflict recovery and completed-session behavior
+5. hosted preview or staging verification through `bun run test:e2e:hosted -- --web-origin <url> --api-origin <url>`

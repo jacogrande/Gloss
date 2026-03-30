@@ -688,6 +688,7 @@ Preview:
 3. sign in, refresh on `/library`, and sign out
 4. capture one seed and confirm the detail route loads correctly
 5. confirm one review session starts and accepts at least one submission
+6. run `bun run smoke:hosted -- --web-origin <preview-web-url> --api-origin <preview-api-url>`
 
 Staging:
 
@@ -696,6 +697,7 @@ Staging:
 3. confirm auth, capture, enrichment, and review all work under the deployed origins
 4. capture the required screenshot set and notes from [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
 5. run `bun run report:alpha --pretty` against the staging-connected environment when real alpha traffic exists
+6. run `bun run smoke:hosted -- --web-origin <staging-web-url> --api-origin <staging-api-url>`
 
 Issue intake and bug triage for hosted failures live in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md).
 
