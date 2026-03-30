@@ -5,11 +5,16 @@ import { fileURLToPath } from "node:url";
 import {
   createSeedResponseSchema,
   requestSeedEnrichmentResponseSchema,
+  reviewQueueResponseSchema,
+  reviewSessionResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
+  submitReviewCardResponseSchema,
 } from "@gloss/shared/contracts";
+import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 import type {
   CreateSeedInput,
+  SeedStage,
   SourceKind,
 } from "@gloss/shared/types";
 
@@ -63,6 +68,31 @@ type EnrichmentJourneyCase = {
   journey: string;
 };
 
+type ReviewJourneyCase = {
+  expected: {
+    due_count_at_least: number;
+    error_code: string | null;
+    final_seed_stage_in?: SeedStage[];
+    minimum_card_count?: number;
+    status: "not_reviewable" | "reviewable";
+  };
+  id: string;
+  input: {
+    context_sentence: string | null;
+    source_title: string | null;
+    source_type: SourceKind | null;
+    word: string;
+  };
+  journey: string;
+};
+
+type ReviewCardAnswerKeyRow = {
+  answer_key: {
+    correctChoiceId: string;
+  };
+  id: string;
+};
+
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const captureDatasetPath = path.join(
   repoRoot,
@@ -84,6 +114,13 @@ const liveEnrichmentDatasetPath = path.join(
   "evals",
   "datasets",
   "enrichment_journeys_live.jsonl",
+);
+const reviewDatasetPath = path.join(
+  repoRoot,
+  "docs",
+  "evals",
+  "datasets",
+  "review_journeys.jsonl",
 );
 
 const parseDatasetRow = <TRow>(value: unknown): TRow => {
@@ -138,6 +175,73 @@ const buildCaptureRequestBody = (
     : {}),
   word: input.word,
 });
+
+const createAndEnrichSeedForEval = async (input: {
+  apiOrigin: string;
+  app: ReturnType<typeof prepareLocalHarness>["runtime"]["app"];
+  email: string;
+  env: ReturnType<typeof prepareLocalHarness>["env"];
+  input: EnrichmentJourneyCase["input"] | ReviewJourneyCase["input"];
+  name: string;
+}): Promise<{
+  cookie: string;
+  enrichment: ReturnType<typeof requestSeedEnrichmentResponseSchema.parse>["data"];
+  seedId: string;
+}> => {
+  const cookie = await signUpHarnessUser({
+    app: input.app,
+    apiOrigin: input.apiOrigin,
+    email: input.email,
+    name: input.name,
+    webOrigin: input.env.WEB_ORIGIN,
+  });
+  const createResponse = await input.app.request(
+    new URL("/capture/seeds", `${input.apiOrigin}/`).toString(),
+    {
+      body: JSON.stringify(buildCaptureRequestBody(input.input)),
+      headers: {
+        "content-type": "application/json",
+        cookie,
+        origin: input.env.WEB_ORIGIN,
+      },
+      method: "POST",
+    },
+  );
+
+  if (createResponse.status !== 201) {
+    throw new Error(`Expected seed create status 201, received ${createResponse.status}.`);
+  }
+
+  const createBody = createSeedResponseSchema.parse(
+    (await createResponse.json()) as unknown,
+  );
+  const enrichResponse = await input.app.request(
+    new URL(`/seeds/${createBody.data.id}/enrich`, `${input.apiOrigin}/`).toString(),
+    {
+      headers: {
+        cookie,
+        origin: input.env.WEB_ORIGIN,
+      },
+      method: "POST",
+    },
+  );
+
+  if (enrichResponse.status !== 200) {
+    throw new Error(
+      `Expected seed enrich status 200, received ${enrichResponse.status}.`,
+    );
+  }
+
+  const enrichBody = requestSeedEnrichmentResponseSchema.parse(
+    (await enrichResponse.json()) as unknown,
+  );
+
+  return {
+    cookie,
+    enrichment: enrichBody.data,
+    seedId: createBody.data.id,
+  };
+};
 
 const logSummary = (input: {
   dataset: string;
@@ -550,6 +654,267 @@ const runEnrichmentJourneyEvaluations = async (): Promise<EvalFailure[]> => {
   return failures;
 };
 
+const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
+  const failures: EvalFailure[] = [];
+  const testCases = await loadJsonlDataset<ReviewJourneyCase>(reviewDatasetPath);
+  const { env, runtime } = prepareLocalHarness();
+
+  try {
+    for (const [index, testCase] of testCases.entries()) {
+      const email = `eval+review+${index + 1}@gloss.local`;
+
+      let cookie: string;
+      let seedId: string;
+
+      try {
+        const created = await createAndEnrichSeedForEval({
+          apiOrigin: env.API_ORIGIN,
+          app: runtime.app,
+          email,
+          env,
+          input: testCase.input,
+          name: `Review Eval User ${index + 1}`,
+        });
+
+        cookie = created.cookie;
+        seedId = created.seedId;
+      } catch (error) {
+        failures.push({
+          caseId: testCase.id,
+          category: "review_setup",
+          journey: testCase.journey,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Failed to create and enrich the review eval seed.",
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const userResult = await runtime.database.pool.query<{ id: string }>(
+        'SELECT id FROM "user" WHERE email = $1 LIMIT 1',
+        [email],
+      );
+      const userId = userResult.rows[0]?.id;
+
+      if (!userId) {
+        failures.push({
+          caseId: testCase.id,
+          category: "review_setup",
+          journey: testCase.journey,
+          message: "Expected the review eval user to exist after sign-up.",
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const queueResponse = await runtime.app.request(
+        new URL("/review/queue", `${env.API_ORIGIN}/`).toString(),
+        {
+          headers: {
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+        },
+      );
+
+      if (queueResponse.status !== 200) {
+        failures.push({
+          caseId: testCase.id,
+          category: "queue_status",
+          journey: testCase.journey,
+          message: `Expected queue status 200, received ${queueResponse.status}.`,
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const queueBody = reviewQueueResponseSchema.parse(
+        (await queueResponse.json()) as unknown,
+      );
+
+      if (queueBody.data.dueCount < testCase.expected.due_count_at_least) {
+        failures.push({
+          caseId: testCase.id,
+          category: "queue_due_count",
+          journey: testCase.journey,
+          message: `Expected at least ${testCase.expected.due_count_at_least} due review seed(s), received ${queueBody.data.dueCount}.`,
+          severity: "critical",
+        });
+      }
+
+      const startResponse = await runtime.app.request(
+        new URL("/review/sessions", `${env.API_ORIGIN}/`).toString(),
+        {
+          body: JSON.stringify({}),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+
+      if (testCase.expected.status === "not_reviewable") {
+        const errorBody = apiErrorResponseSchema.parse(
+          (await startResponse.json()) as unknown,
+        );
+
+        if (
+          startResponse.status !== 409 ||
+          errorBody.error.code !== testCase.expected.error_code
+        ) {
+          failures.push({
+            caseId: testCase.id,
+            category: "review_conflict",
+            journey: testCase.journey,
+            message: `Expected a 409 ${testCase.expected.error_code} response when no reviewable seeds exist.`,
+            severity: "critical",
+          });
+        }
+
+        continue;
+      }
+
+      if (startResponse.status !== 200) {
+        failures.push({
+          caseId: testCase.id,
+          category: "session_start_status",
+          journey: testCase.journey,
+          message: `Expected session start status 200, received ${startResponse.status}.`,
+          severity: "critical",
+        });
+        continue;
+      }
+
+      const startBody = reviewSessionResponseSchema.parse(
+        (await startResponse.json()) as unknown,
+      );
+
+      if (
+        typeof testCase.expected.minimum_card_count === "number" &&
+        startBody.data.session.cardCount < testCase.expected.minimum_card_count
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "session_card_count",
+          journey: testCase.journey,
+          message: `Expected at least ${testCase.expected.minimum_card_count} review card(s), received ${startBody.data.session.cardCount}.`,
+          severity: "critical",
+        });
+      }
+
+      const answerKeyResult = await runtime.database.pool.query<ReviewCardAnswerKeyRow>(
+        `
+          SELECT id, answer_key
+          FROM review_cards
+          WHERE review_session_id = $1
+          ORDER BY position ASC
+        `,
+        [startBody.data.session.id],
+      );
+
+      let latestSession = startBody.data;
+
+      for (const row of answerKeyResult.rows) {
+        const submitResponse = await runtime.app.request(
+          new URL(
+            `/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
+            `${env.API_ORIGIN}/`,
+          ).toString(),
+          {
+            body: JSON.stringify({
+              choiceId: row.answer_key.correctChoiceId,
+              latencyMs: 250,
+            }),
+            headers: {
+              "content-type": "application/json",
+              cookie,
+              origin: env.WEB_ORIGIN,
+            },
+            method: "POST",
+          },
+        );
+
+        if (submitResponse.status !== 200) {
+          failures.push({
+            caseId: testCase.id,
+            category: "submission_status",
+            journey: testCase.journey,
+            message: `Expected review submission status 200, received ${submitResponse.status}.`,
+            severity: "critical",
+          });
+          continue;
+        }
+
+        const submitBody = submitReviewCardResponseSchema.parse(
+          (await submitResponse.json()) as unknown,
+        );
+
+        latestSession = submitBody.data.session;
+      }
+
+      if (latestSession.session.status !== "completed") {
+        failures.push({
+          caseId: testCase.id,
+          category: "session_completion",
+          journey: testCase.journey,
+          message: "Expected the review session to complete after all answers.",
+          severity: "critical",
+        });
+      }
+
+      const eventResult = await runtime.database.pool.query<{ count: string }>(
+        `
+          SELECT COUNT(*)::text AS count
+          FROM review_events
+          WHERE review_session_id = $1
+        `,
+        [startBody.data.session.id],
+      );
+      const stageResult = await runtime.database.pool.query<{ stage: SeedStage }>(
+        `
+          SELECT stage
+          FROM seeds
+          WHERE id = $1
+        `,
+        [seedId],
+      );
+
+      if (Number(eventResult.rows[0]?.count ?? "0") !== answerKeyResult.rows.length) {
+        failures.push({
+          caseId: testCase.id,
+          category: "event_count",
+          journey: testCase.journey,
+          message: "Expected one durable review event per answered review card.",
+          severity: "critical",
+        });
+      }
+
+      if (
+        testCase.expected.final_seed_stage_in &&
+        !testCase.expected.final_seed_stage_in.includes(
+          stageResult.rows[0]?.stage ?? "new",
+        )
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "seed_stage",
+          journey: testCase.journey,
+          message: "Expected review completion to advance the seed stage.",
+          severity: "critical",
+        });
+      }
+    }
+  } finally {
+    await runtime.close();
+  }
+
+  return failures;
+};
+
 export const runJourneyEvaluations = async (): Promise<void> => {
   const isLiveEnrichment = resolveScriptEnv().ENRICHMENT_PROVIDER_MODE === "live";
   const captureFailures = await runCaptureJourneyEvaluations();
@@ -575,7 +940,20 @@ export const runJourneyEvaluations = async (): Promise<void> => {
     total: enrichmentCases.length,
   });
 
-  if (captureFailures.length > 0 || enrichmentFailures.length > 0) {
+  const reviewFailures = await runReviewJourneyEvaluations();
+  const reviewCases = await loadJsonlDataset<ReviewJourneyCase>(reviewDatasetPath);
+
+  logSummary({
+    dataset: "review_journeys",
+    failures: reviewFailures,
+    total: reviewCases.length,
+  });
+
+  if (
+    captureFailures.length > 0 ||
+    enrichmentFailures.length > 0 ||
+    reviewFailures.length > 0
+  ) {
     throw new Error("Journey evals failed.");
   }
 };

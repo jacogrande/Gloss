@@ -98,4 +98,42 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     .click();
   await expect(page).toHaveURL(/\/library$/);
   await expect(page.getByRole("link", { name: "pellucid" })).toBeVisible();
+
+  await page
+    .getByLabel("Primary")
+    .getByRole("link", { exact: true, name: "Review" })
+    .click();
+  await expect(page).toHaveURL(/\/review$/);
+  await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+  await expect(page.getByText(/\d+ due/)).toBeVisible();
+  await page.getByRole("button", { name: "Start review" }).click();
+
+  await expect(page.locator(".review-card__question")).toBeVisible();
+
+  const queueSummary = page.locator(".review__queue-summary");
+  const remainingBeforeSubmit = await queueSummary.textContent();
+  const firstChoice = page.getByRole("radio").first();
+
+  await firstChoice.click();
+  await page.getByRole("button", { name: "Submit" }).click();
+
+  await expect
+    .poll(async () => {
+      if (
+        await page
+          .getByRole("heading", { name: "Session finished" })
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return true;
+      }
+
+      const remainingAfterSubmit = await queueSummary.textContent().catch(
+        () => null,
+      );
+
+      return remainingAfterSubmit !== null &&
+        remainingAfterSubmit !== remainingBeforeSubmit;
+    })
+    .toBe(true);
 });

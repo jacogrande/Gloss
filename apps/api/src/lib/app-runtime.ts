@@ -18,6 +18,10 @@ import {
   type ProfileService,
 } from "../services/profile-service";
 import {
+  createDefaultReviewService,
+  type ReviewService,
+} from "../services/review-service";
+import {
   createSeedService,
   type SeedService,
 } from "../services/seed-service";
@@ -31,6 +35,7 @@ export type AppRuntime = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  reviewService: ReviewService;
   seedService: SeedService;
 };
 
@@ -55,6 +60,11 @@ export const createAppRuntime = (input: {
         }
       : {}),
   });
+  const reviewService = createDefaultReviewService({
+    database,
+    env: input.env,
+    logger,
+  });
   const auth = createAuth({
     env: input.env,
     logger,
@@ -67,6 +77,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    reviewService,
     seedService,
   });
   const ownsDatabase = input.database === undefined;
@@ -90,6 +101,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    reviewService,
     seedService,
   };
 };

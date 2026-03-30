@@ -1,6 +1,6 @@
 # Manual QA
 
-This document explains how to validate the current Gloss MVP across Sprint 1, Sprint 2, and Sprint 3.
+This document explains how to validate the current Gloss MVP across Sprint 1, Sprint 2, Sprint 3, and Sprint 4.
 
 Use it for three different goals:
 
@@ -31,6 +31,11 @@ The current QA surface spans:
   - pending, ready, and failed enrichment states
   - retry behavior
   - smoke and eval coverage for capture and enrichment
+- Sprint 4 review engine and scheduling
+  - review queue summaries
+  - short review session creation
+  - card submission and durable review events
+  - review-state updates and stage advancement
 
 ## Prerequisites
 
@@ -131,8 +136,10 @@ Expected result:
 - fixture-mode eval prints passing summaries for:
   - capture journeys
   - enrichment journeys
+  - review journeys
   - HTTP boundary checks
   - enrichment trace checks
+  - review trace checks
 
 ### 2. Full Manual Pass
 
@@ -221,6 +228,9 @@ Current smoke scope:
 - seed detail
 - enrichment
 - library browse
+- review queue
+- review session start
+- review card submission
 
 ### `bun run eval`
 
@@ -235,6 +245,9 @@ Current eval scope:
 - enrichment returns constrained valid payloads
 - weak evidence omits fields instead of inventing them
 - failed enrichment persists a stable failed state
+- review queue excludes failed enrichments
+- review sessions persist typed cards and complete cleanly
+- review submissions append durable events and update review state
 - split-origin HTTP boundaries expose the right headers and error codes
 - traces persist versions, validation state, and guardrail decisions
 
@@ -398,8 +411,7 @@ Expected result:
 
 Expected result in fixture mode:
 
-- the panel first shows `Lexical scaffolding`
-- the panel then renders accepted enrichment
+- the panel settles into a ready state
 - the enrichment block shows:
   - a non-empty gloss
   - related word `lucid`
@@ -444,6 +456,56 @@ Expected result:
 - the accepted enrichment still renders after reload
 - the page does not require recapture
 - the saved enrichment matches the last accepted state rather than rebuilding from scratch on every load
+
+### Sprint 4 Review Engine And Scheduling
+
+#### 15. Review Queue
+
+1. Sign in as `demo@gloss.local`.
+2. Open `/review`.
+
+Expected result:
+
+- the page loads without redirect loops
+- the queue shows a non-zero `due` count after `bun run db:reset`
+- the dimension breakdown renders for recognition, distinction, and usage
+- the primary action is enabled
+
+#### 16. Start A Review Session
+
+1. On `/review`, click `Start review`.
+
+Expected result:
+
+- a session starts immediately without a full page reload
+- the page shows one card at a time
+- the card shows:
+  - the target word
+  - a question
+  - at least two answer choices
+- the queue summary changes from `X due` to `Y remaining`
+
+#### 17. Submit A Review Card
+
+1. Select any answer choice.
+2. Click `Submit`.
+
+Expected result:
+
+- the request completes cleanly
+- the session either advances to the next card or finishes
+- the UI does not get stuck on the same pending choice state
+- refreshing the page does not lose the active or completed session state unexpectedly
+
+#### 18. Complete A Short Session
+
+1. Continue submitting answers until the session finishes.
+
+Expected result:
+
+- the page shows `Session finished`
+- the completion state reports the number of completed cards
+- returning to `/review` shows updated queue counts
 
 ## Manual API QA
 
@@ -552,6 +614,34 @@ Expected result for a known weak-evidence word like `obscurium`:
 - the detail payload shows `failed`
 - `errorCode` is `ENRICHMENT_EVIDENCE_UNAVAILABLE`
 
+### 6. Review Queue And Session
+
+Use a reviewable seed such as the seeded demo data or a freshly enriched `pellucid` capture.
+
+Run:
+
+```bash
+curl -i -b /tmp/gloss.cookies \
+  -H 'origin: http://127.0.0.1:5173' \
+  http://127.0.0.1:8787/review/queue
+
+curl -i -b /tmp/gloss.cookies \
+  -H 'content-type: application/json' \
+  -H 'origin: http://127.0.0.1:5173' \
+  -X POST http://127.0.0.1:8787/review/sessions \
+  --data '{}'
+```
+
+Expected result:
+
+- queue returns HTTP `200`
+- the payload includes `dueCount`, `availableCount`, and `dueByDimension`
+- session start returns HTTP `200` when reviewable seeds exist
+- the session payload includes:
+  - a session summary
+  - one or more typed review cards
+  - `currentCardId`
+
 ## Expected Product Behaviors
 
 These should hold every time:
@@ -562,10 +652,13 @@ These should hold every time:
 - sign-up creates a real session immediately
 - sign-out removes access to protected routes
 - capture, library, and seed detail work across split local web and API origins
+- review queue and review submission work across split local web and API origins
 - seed ownership is enforced in the API
 - enrichment never blocks initial capture
 - accepted enrichment is schema-validated before persistence
 - weak evidence causes omission or stable failure, not fabrication
+- failed enrichments do not enter the review queue
+- review submissions append durable events and update per-seed review state
 - `bun run db:reset` returns the repo to a deterministic state
 - `bun run smoke` passes after a reset
 - `bun run eval` passes after a reset
@@ -624,4 +717,4 @@ If local state gets confusing:
 bun run db:reset
 ```
 
-That is the fastest way to return to a known-good Sprint 1 through Sprint 3 state.
+That is the fastest way to return to a known-good Sprint 1 through Sprint 4 state.

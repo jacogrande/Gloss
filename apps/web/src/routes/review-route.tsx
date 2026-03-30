@@ -1,0 +1,319 @@
+import {
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type JSX,
+} from "react";
+
+import type {
+  ReviewCard,
+  ReviewQueueSummary,
+  ReviewSessionDetail,
+} from "@gloss/shared/types";
+
+import {
+  fetchReviewQueue,
+  fetchReviewSession,
+  startReviewSession,
+  submitReviewCard,
+} from "../lib/api-client";
+import { webEnv } from "../lib/env";
+import { useAsyncResource } from "../lib/use-async-resource";
+
+const getCurrentCard = (
+  session: ReviewSessionDetail | null,
+): ReviewCard | null =>
+  session?.cards.find((card) => card.status === "pending") ?? null;
+
+export const ReviewRoute = (): JSX.Element => {
+  const [session, setSession] = useState<ReviewSessionDetail | null>(null);
+  const [queueMessage, setQueueMessage] = useState<string | null>(null);
+  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const cardStartedAt = useRef<number>(Date.now());
+  const lastLoadedSessionId = useRef<string | null>(null);
+
+  const {
+    data: queue,
+    errorMessage,
+    isLoading,
+  } = useAsyncResource<ReviewQueueSummary>({
+    dependencies: [refreshKey],
+    getErrorMessage: (error) =>
+      error instanceof Error ? error.message : "Unable to load review right now.",
+    load: (signal) => fetchReviewQueue(webEnv.VITE_API_BASE_URL, signal),
+  });
+
+  const refreshQueue = useEffectEvent((): void => {
+    setRefreshKey((current) => current + 1);
+  });
+
+  const loadSession = useEffectEvent(async (sessionId: string): Promise<void> => {
+    try {
+      const nextSession = await fetchReviewSession(
+        webEnv.VITE_API_BASE_URL,
+        sessionId,
+      );
+
+      setSession(nextSession);
+      setSessionMessage(null);
+      setSelectedChoiceId(null);
+      cardStartedAt.current = Date.now();
+      lastLoadedSessionId.current = sessionId;
+    } catch (error) {
+      setSessionMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to load this review session.",
+      );
+    }
+  });
+
+  useEffect(() => {
+    if (!queue?.activeSessionId) {
+      if (session?.session.status !== "active") {
+        lastLoadedSessionId.current = null;
+      }
+
+      return;
+    }
+
+    if (lastLoadedSessionId.current === queue.activeSessionId) {
+      return;
+    }
+
+    void loadSession(queue.activeSessionId);
+  }, [loadSession, queue?.activeSessionId, session?.session.status]);
+
+  useEffect(() => {
+    cardStartedAt.current = Date.now();
+    setSelectedChoiceId(null);
+  }, [session?.session.currentCardId]);
+
+  const currentCard = getCurrentCard(session);
+
+  const startSession = async (): Promise<void> => {
+    setIsStarting(true);
+    setQueueMessage(null);
+
+    try {
+      const nextSession = await startReviewSession(webEnv.VITE_API_BASE_URL);
+
+      setSession(nextSession);
+      setSessionMessage(null);
+      lastLoadedSessionId.current = nextSession.session.id;
+      refreshQueue();
+    } catch (error) {
+      setQueueMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to start review right now.",
+      );
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const submitCurrentCard = async (): Promise<void> => {
+    if (!currentCard || !selectedChoiceId || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    setSessionMessage(null);
+
+    try {
+      const response = await submitReviewCard(webEnv.VITE_API_BASE_URL, {
+        cardId: currentCard.id,
+        sessionId: session?.session.id ?? "",
+        submission: {
+          choiceId: selectedChoiceId,
+          latencyMs: Math.max(Date.now() - cardStartedAt.current, 0),
+        },
+      });
+
+      setSession(response.session);
+      setSelectedChoiceId(null);
+      refreshQueue();
+    } catch (error) {
+      setSessionMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to submit this answer right now.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading && !queue && !session) {
+    return (
+      <section className="panel">
+        <p className="panel__copy">Loading review...</p>
+      </section>
+    );
+  }
+
+  if (session && currentCard) {
+    return (
+      <section className="review">
+        <div className="panel panel--compact review__queue-panel">
+          <div className="review__queue-header">
+            <div>
+              <h2>Review</h2>
+              <p className="panel__copy">
+                Card {currentCard.position + 1} of {session.session.cardCount}
+              </p>
+            </div>
+            <p className="review__queue-summary">
+              {session.session.remainingCount} remaining
+            </p>
+          </div>
+        </div>
+
+        <section className="review-card">
+          <div className="review-card__header">
+            <p className="panel__eyebrow">{currentCard.exerciseType.replaceAll("_", " ")}</p>
+            <h2>{currentCard.promptPayload.word}</h2>
+          </div>
+
+          {"sentence" in currentCard.promptPayload ? (
+            <p className="review-card__sentence">
+              {currentCard.promptPayload.sentence}
+            </p>
+          ) : null}
+
+          <p className="review-card__question">{currentCard.promptPayload.question}</p>
+
+          <div className="review-card__choices" role="radiogroup">
+            {currentCard.promptPayload.choices.map((choice) => {
+              const isSelected = selectedChoiceId === choice.id;
+
+              return (
+                <button
+                  aria-checked={isSelected}
+                  className={
+                    isSelected
+                      ? "review-card__choice review-card__choice--selected"
+                      : "review-card__choice"
+                  }
+                  key={choice.id}
+                  onClick={() => {
+                    setSelectedChoiceId(choice.id);
+                  }}
+                  role="radio"
+                  type="button"
+                >
+                  <span className="review-card__choice-label">{choice.label}</span>
+                  {choice.detail ? (
+                    <span className="review-card__choice-detail">{choice.detail}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+
+          {sessionMessage ? <p className="capture-form__error">{sessionMessage}</p> : null}
+
+          <div className="review-card__actions">
+            <button
+              className="capture-form__submit"
+              disabled={!selectedChoiceId || isSubmitting}
+              onClick={() => {
+                void submitCurrentCard();
+              }}
+              type="button"
+            >
+              {isSubmitting ? "Submitting..." : "Submit"}
+            </button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  if (session && session.session.status === "completed") {
+    return (
+      <section className="review">
+        <section className="panel">
+          <div className="panel__header">
+            <p className="panel__eyebrow">Review complete</p>
+            <h2>Session finished</h2>
+          </div>
+          <p className="panel__copy">
+            You completed {session.session.cardCount} review card(s).
+          </p>
+          <div className="capture-form__actions">
+            <button
+              className="capture-form__submit"
+              onClick={() => {
+                setSession(null);
+                refreshQueue();
+              }}
+              type="button"
+            >
+              Review again
+            </button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  return (
+    <section className="review">
+      <section className="panel review__queue-panel">
+        <div className="review__queue-header">
+          <div>
+            <p className="panel__eyebrow">Queue</p>
+            <h2>Review</h2>
+          </div>
+          <p className="review__queue-summary">
+            {queue?.dueCount ?? 0} due
+          </p>
+        </div>
+
+        <div className="review__queue-metrics">
+          <div>
+            <dt>Recognition</dt>
+            <dd>{queue?.dueByDimension.recognition ?? 0}</dd>
+          </div>
+          <div>
+            <dt>Distinction</dt>
+            <dd>{queue?.dueByDimension.distinction ?? 0}</dd>
+          </div>
+          <div>
+            <dt>Usage</dt>
+            <dd>{queue?.dueByDimension.usage ?? 0}</dd>
+          </div>
+        </div>
+
+        <p className="panel__copy">
+          {queue?.availableCount
+            ? "Short sessions focus on the weakest due dimension first."
+            : "Ready enrichments will appear here once there is something worth reviewing."}
+        </p>
+
+        {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
+        {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
+
+        <div className="capture-form__actions">
+          <button
+            className="capture-form__submit"
+            disabled={!queue?.availableCount || isStarting}
+            onClick={() => {
+              void startSession();
+            }}
+            type="button"
+          >
+            {isStarting ? "Starting..." : queue?.activeSessionId ? "Resume session" : "Start review"}
+          </button>
+        </div>
+      </section>
+    </section>
+  );
+};

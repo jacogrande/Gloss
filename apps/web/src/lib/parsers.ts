@@ -4,6 +4,18 @@ import type {
   ListSeedsData,
   ListSeedsQuery,
   Profile,
+  ReviewCard,
+  ReviewCardPromptPayload,
+  ReviewCardStatus,
+  ReviewDimension,
+  ReviewExerciseType,
+  ReviewGenerationSource,
+  ReviewOutcome,
+  ReviewQueueSummary,
+  ReviewSessionDetail,
+  ReviewSessionStatus,
+  ReviewSubmissionInput,
+  ReviewSubmissionResult,
   SeedContext,
   SeedContextKind,
   SeedDetail,
@@ -21,49 +33,47 @@ import type {
   SourceKind,
   SourceSummary,
 } from "@gloss/shared/types";
+import {
+  apiErrorCodeValues,
+  reviewCardStatusValues as reviewCardStatusValueList,
+  reviewDimensionValues as reviewDimensionValueList,
+  reviewExerciseTypeValues as reviewExerciseTypeValueList,
+  reviewGenerationSourceValues as reviewGenerationSourceValueList,
+  reviewOutcomeValues as reviewOutcomeValueList,
+  reviewSessionStatusValues as reviewSessionStatusValueList,
+  seedContextKindValues,
+  seedEnrichmentGuardrailFlagValues,
+  seedEnrichmentStatusValues,
+  seedStageValues,
+  sourceKindValues,
+} from "@gloss/shared/values";
 
 type JsonRecord = Record<string, unknown>;
 
-const seedStageValues = new Set<SeedStage>([
-  "new",
-  "stabilizing",
-  "deepening",
-  "mature",
-]);
-
-const sourceKindValues = new Set<SourceKind>([
-  "manual",
-  "article",
-  "book",
-  "other",
-]);
-
-const seedContextKindValues = new Set<SeedContextKind>(["sentence"]);
-
-const seedEnrichmentStatusValues = new Set<SeedEnrichmentStatus>([
-  "pending",
-  "ready",
-  "failed",
-]);
-
-const seedEnrichmentGuardrailValues = new Set<SeedEnrichmentGuardrailFlag>([
-  "contrast_omitted_weak_evidence",
-  "morphology_omitted_weak_evidence",
-  "register_omitted_weak_evidence",
-  "related_omitted_weak_evidence",
-]);
-
-const apiErrorCodeValues = new Set<ApiErrorCode>([
-  "AUTH_UNAUTHORIZED",
-  "CONFLICT",
-  "ENRICHMENT_CONFLICT",
-  "ENRICHMENT_EVIDENCE_UNAVAILABLE",
-  "ENRICHMENT_PROVIDER_ERROR",
-  "ENRICHMENT_SCHEMA_INVALID",
-  "INTERNAL_ERROR",
-  "NOT_FOUND",
-  "VALIDATION_ERROR",
-]);
+const seedStageValueSet = new Set<SeedStage>(seedStageValues);
+const sourceKindValueSet = new Set<SourceKind>(sourceKindValues);
+const seedContextKindValueSet = new Set<SeedContextKind>(seedContextKindValues);
+const seedEnrichmentStatusValueSet = new Set<SeedEnrichmentStatus>(
+  seedEnrichmentStatusValues,
+);
+const seedEnrichmentGuardrailValueSet = new Set<SeedEnrichmentGuardrailFlag>(
+  seedEnrichmentGuardrailFlagValues,
+);
+const apiErrorCodeValueSet = new Set<ApiErrorCode>(apiErrorCodeValues);
+const reviewDimensionValueSet = new Set<ReviewDimension>(reviewDimensionValueList);
+const reviewExerciseTypeValueSet = new Set<ReviewExerciseType>(
+  reviewExerciseTypeValueList,
+);
+const reviewCardStatusValueSet = new Set<ReviewCardStatus>(
+  reviewCardStatusValueList,
+);
+const reviewGenerationSourceValueSet = new Set<ReviewGenerationSource>(
+  reviewGenerationSourceValueList,
+);
+const reviewSessionStatusValueSet = new Set<ReviewSessionStatus>(
+  reviewSessionStatusValueList,
+);
+const reviewOutcomeValueSet = new Set<ReviewOutcome>(reviewOutcomeValueList);
 
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === "object" && value !== null;
@@ -177,7 +187,7 @@ const parseSourceSummary = (value: unknown): SourceSummary => {
   return {
     author: readNullableString(record.author),
     id: readString(record.id),
-    kind: readEnum(record.kind, sourceKindValues),
+    kind: readEnum(record.kind, sourceKindValueSet),
     title: readNullableString(record.title),
     url: readNullableString(record.url),
   };
@@ -190,7 +200,7 @@ const parseSeedContext = (value: unknown): SeedContext => {
     createdAt: readString(record.createdAt),
     id: readString(record.id),
     isPrimary: readBoolean(record.isPrimary),
-    kind: readEnum(record.kind, seedContextKindValues),
+    kind: readEnum(record.kind, seedContextKindValueSet),
     text: readString(record.text),
   };
 };
@@ -247,10 +257,10 @@ const parseSeedEnrichment = (value: unknown): SeedEnrichment => {
     errorCode:
       record.errorCode === null
         ? null
-        : readEnum(record.errorCode, apiErrorCodeValues),
+        : readEnum(record.errorCode, apiErrorCodeValueSet),
     failedAt: readNullableString(record.failedAt),
     guardrailFlags: readArray(record.guardrailFlags).map((item) =>
-      readEnum(item, seedEnrichmentGuardrailValues),
+      readEnum(item, seedEnrichmentGuardrailValueSet),
     ),
     id: readString(record.id),
     model: readNullableString(record.model),
@@ -261,7 +271,7 @@ const parseSeedEnrichment = (value: unknown): SeedEnrichment => {
     requestedAt: readString(record.requestedAt),
     schemaVersion: readString(record.schemaVersion),
     startedAt: readNullableString(record.startedAt),
-    status: readEnum(record.status, seedEnrichmentStatusValues),
+    status: readEnum(record.status, seedEnrichmentStatusValueSet),
     updatedAt: readString(record.updatedAt),
   };
 };
@@ -274,7 +284,7 @@ const parseSeedSummary = (value: unknown): SeedSummary => {
     id: readString(record.id),
     primarySentence: readNullableString(record.primarySentence),
     source: record.source === null ? null : parseSourceSummary(record.source),
-    stage: readEnum(record.stage, seedStageValues),
+    stage: readEnum(record.stage, seedStageValueSet),
     updatedAt: readString(record.updatedAt),
     word: readString(record.word),
   };
@@ -289,6 +299,100 @@ const parseSeedDetail = (value: unknown): SeedDetail => {
     contexts: readArray(record.contexts).map(parseSeedContext),
     enrichment:
       record.enrichment === null ? null : parseSeedEnrichment(record.enrichment),
+  };
+};
+
+const parseReviewChoice = (
+  value: unknown,
+): ReviewCardPromptPayload["choices"][number] => {
+  const record = readRecord(value);
+
+  return {
+    ...(typeof record.detail === "string"
+      ? {
+          detail: readString(record.detail),
+        }
+      : {}),
+    id: readString(record.id),
+    label: readString(record.label),
+  };
+};
+
+const parseReviewCardPromptPayload = (
+  value: unknown,
+): ReviewCardPromptPayload => {
+  const record = readRecord(value);
+  const type = readEnum(record.type, reviewExerciseTypeValueSet);
+
+  switch (type) {
+    case "meaning_in_context":
+      return {
+        choices: readArray(record.choices).map(parseReviewChoice),
+        question: readString(record.question),
+        sentence: readString(record.sentence),
+        type,
+        word: readString(record.word),
+      };
+    case "recognition_in_fresh_sentence":
+      return {
+        choices: readArray(record.choices).map(parseReviewChoice),
+        question: readString(record.question),
+        sentence: readString(record.sentence),
+        type,
+        word: readString(record.word),
+      };
+    case "contrastive_choice":
+      return {
+        choices: readArray(record.choices).map(parseReviewChoice),
+        question: readString(record.question),
+        sentence: readString(record.sentence),
+        type,
+        word: readString(record.word),
+      };
+    case "register_judgment":
+      return {
+        choices: readArray(record.choices).map(parseReviewChoice),
+        question: readString(record.question),
+        type,
+        word: readString(record.word),
+      };
+    default:
+      throw new Error("Unknown review card payload.");
+  }
+};
+
+const parseReviewCard = (value: unknown): ReviewCard => {
+  const record = readRecord(value);
+
+  return {
+    dimension: readEnum(record.dimension, reviewDimensionValueSet),
+    exerciseType: readEnum(record.exerciseType, reviewExerciseTypeValueSet),
+    generationSource: readEnum(
+      record.generationSource,
+      reviewGenerationSourceValueSet,
+    ),
+    id: readString(record.id),
+    position: readNonNegativeInteger(record.position),
+    promptPayload: parseReviewCardPromptPayload(record.promptPayload),
+    status: readEnum(record.status, reviewCardStatusValueSet),
+  };
+};
+
+const parseReviewSessionDetail = (value: unknown): ReviewSessionDetail => {
+  const record = readRecord(value);
+  const session = readRecord(record.session);
+
+  return {
+    cards: readArray(record.cards).map(parseReviewCard),
+    session: {
+      cardCount: readNonNegativeInteger(session.cardCount),
+      completedAt: readNullableString(session.completedAt),
+      currentCardId: readNullableString(session.currentCardId),
+      id: readString(session.id),
+      remainingCount: readNonNegativeInteger(session.remainingCount),
+      startedAt: readString(session.startedAt),
+      status: readEnum(session.status, reviewSessionStatusValueSet),
+    },
   };
 };
 
@@ -334,13 +438,55 @@ export const parseSeedDetailResponse = (value: unknown): SeedDetail =>
 export const parseSeedEnrichmentResponse = (value: unknown): SeedEnrichment =>
   parseApiSuccess(value, parseSeedEnrichment);
 
+export const parseReviewQueueResponse = (value: unknown): ReviewQueueSummary =>
+  parseApiSuccess(value, (data) => {
+    const record = readRecord(data);
+    const dueByDimension = readRecord(record.dueByDimension);
+
+    return {
+      activeSessionId: readNullableString(record.activeSessionId),
+      availableCount: readNonNegativeInteger(record.availableCount),
+      dueByDimension: {
+        distinction: readNonNegativeInteger(dueByDimension.distinction),
+        recognition: readNonNegativeInteger(dueByDimension.recognition),
+        usage: readNonNegativeInteger(dueByDimension.usage),
+      },
+      dueCount: readNonNegativeInteger(record.dueCount),
+    };
+  });
+
+export const parseReviewSessionResponse = (
+  value: unknown,
+): ReviewSessionDetail => parseApiSuccess(value, parseReviewSessionDetail);
+
+export const parseSubmitReviewCardResponse = (
+  value: unknown,
+): {
+  result: ReviewSubmissionResult;
+  session: ReviewSessionDetail;
+} =>
+  parseApiSuccess(value, (data) => {
+    const record = readRecord(data);
+    const result = readRecord(record.result);
+
+    return {
+      result: {
+        cardId: readString(result.cardId),
+        correct: readBoolean(result.correct),
+        outcome: readEnum(result.outcome, reviewOutcomeValueSet),
+        seedStage: readEnum(result.seedStage, seedStageValueSet),
+      },
+      session: parseReviewSessionDetail(record.session),
+    };
+  });
+
 export const parseListSeedsQuery = (value: ListSeedsQuery): ListSeedsQuery => {
   if (!value.stage) {
     return {};
   }
 
   return {
-    stage: readEnum(value.stage, seedStageValues),
+    stage: readEnum(value.stage, seedStageValueSet),
   };
 };
 
@@ -354,3 +500,14 @@ export const parseCreateSeedInput = (value: CreateSeedInput): CreateSeedInput =>
 
   return value;
 };
+
+export const parseReviewSubmissionInput = (
+  value: ReviewSubmissionInput,
+): ReviewSubmissionInput => ({
+  ...(typeof value.latencyMs === "number"
+    ? {
+        latencyMs: readNonNegativeInteger(value.latencyMs),
+      }
+    : {}),
+  choiceId: readString(value.choiceId),
+});

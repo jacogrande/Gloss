@@ -7,6 +7,22 @@ import {
   listSeedsDataSchema,
   listSeedsQuerySchema,
   profileSchema,
+  reviewAnswerKeySchema,
+  reviewCardPromptPayloadSchema,
+  reviewCardSchema,
+  reviewCardStatusSchema,
+  reviewDimensionSchema,
+  reviewExerciseTypeSchema,
+  reviewGenerationSourceSchema,
+  reviewOutcomeSchema,
+  reviewQueueSummarySchema,
+  reviewSessionDetailSchema,
+  reviewSessionStatusSchema,
+  reviewSessionSummarySchema,
+  reviewStateDimensionSchema,
+  reviewStateSchema,
+  reviewSubmissionInputSchema,
+  reviewSubmissionResultSchema,
   seedContextSchema,
   seedContextKindSchema,
   seedDetailSchema,
@@ -44,6 +60,38 @@ export type LexicalEvidenceSnapshot = z.infer<
 >;
 
 export type Profile = z.infer<typeof profileSchema>;
+
+export type ReviewAnswerKey = z.infer<typeof reviewAnswerKeySchema>;
+
+export type ReviewCard = z.infer<typeof reviewCardSchema>;
+
+export type ReviewCardPromptPayload = z.infer<typeof reviewCardPromptPayloadSchema>;
+
+export type ReviewCardStatus = z.infer<typeof reviewCardStatusSchema>;
+
+export type ReviewDimension = z.infer<typeof reviewDimensionSchema>;
+
+export type ReviewExerciseType = z.infer<typeof reviewExerciseTypeSchema>;
+
+export type ReviewGenerationSource = z.infer<typeof reviewGenerationSourceSchema>;
+
+export type ReviewOutcome = z.infer<typeof reviewOutcomeSchema>;
+
+export type ReviewQueueSummary = z.infer<typeof reviewQueueSummarySchema>;
+
+export type ReviewSessionDetail = z.infer<typeof reviewSessionDetailSchema>;
+
+export type ReviewSessionStatus = z.infer<typeof reviewSessionStatusSchema>;
+
+export type ReviewSessionSummary = z.infer<typeof reviewSessionSummarySchema>;
+
+export type ReviewState = z.infer<typeof reviewStateSchema>;
+
+export type ReviewStateDimension = z.infer<typeof reviewStateDimensionSchema>;
+
+export type ReviewSubmissionInput = z.infer<typeof reviewSubmissionInputSchema>;
+
+export type ReviewSubmissionResult = z.infer<typeof reviewSubmissionResultSchema>;
 
 export type SeedContext = z.infer<typeof seedContextSchema>;
 

@@ -11,9 +11,11 @@ import type { Logger } from "./lib/logger";
 import { registerCaptureRoutes } from "./routes/capture";
 import { registerHealthRoute } from "./routes/health";
 import { registerMeRoute } from "./routes/me";
+import { registerReviewRoutes } from "./routes/review";
 import { registerSeedRoutes } from "./routes/seeds";
 import type { EnrichmentService } from "./services/enrichment-service";
 import type { ProfileService } from "./services/profile-service";
+import type { ReviewService } from "./services/review-service";
 import type { SeedService } from "./services/seed-service";
 
 type AppDependencies = {
@@ -22,6 +24,7 @@ type AppDependencies = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  reviewService: ReviewService;
   seedService: SeedService;
 };
 
@@ -49,6 +52,7 @@ export const createApp = ({
   env,
   logger,
   profileService,
+  reviewService,
   seedService,
 }: AppDependencies): GlossApp => {
   const app = new Hono<{ Variables: AppVariables }>();
@@ -92,6 +96,7 @@ export const createApp = ({
 
   app.use("/api/*", cors(corsOptions));
   app.use("/capture/*", cors(corsOptions));
+  app.use("/review/*", cors(corsOptions));
   app.use("/seeds/*", cors(corsOptions));
 
   app.on(["GET", "POST"], "/api/auth/*", (context) => auth.handler(context.req.raw));
@@ -99,6 +104,7 @@ export const createApp = ({
   registerHealthRoute(app, env);
   registerMeRoute(app, { auth, profileService });
   registerCaptureRoutes(app, { auth, seedService });
+  registerReviewRoutes(app, { auth, reviewService });
   registerSeedRoutes(app, { auth, enrichmentService, seedService });
 
   app.notFound((context) =>

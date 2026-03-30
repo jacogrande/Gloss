@@ -1,6 +1,10 @@
 import type {
   CreateSeedInput,
   ListSeedsQuery,
+  ReviewQueueSummary,
+  ReviewSessionDetail,
+  ReviewSubmissionInput,
+  ReviewSubmissionResult,
   SeedEnrichment,
 } from "@gloss/shared/types";
 import { requestJson } from "./http";
@@ -8,10 +12,14 @@ import {
   parseCreateSeedInput,
   parseCreateSeedResponse,
   parseListSeedsQuery,
+  parseReviewQueueResponse,
+  parseReviewSessionResponse,
+  parseReviewSubmissionInput,
   parseSeedDetailResponse,
   parseSeedEnrichmentResponse,
   parseSeedListResponse,
   parseSessionResponse,
+  parseSubmitReviewCardResponse,
 } from "./parsers";
 
 export const fetchSessionSnapshot = async (
@@ -103,4 +111,74 @@ export const requestSeedEnrichment = async (
     method: "POST",
     parseData: parseSeedEnrichmentResponse,
     pathname: `/seeds/${seedId}/enrich`,
+  });
+
+export const fetchReviewQueue = async (
+  apiBaseUrl: string,
+  signal?: AbortSignal,
+): Promise<ReviewQueueSummary> =>
+  requestJson(
+    signal
+      ? {
+          apiBaseUrl,
+          parseData: parseReviewQueueResponse,
+          pathname: "/review/queue",
+          signal,
+        }
+      : {
+          apiBaseUrl,
+          parseData: parseReviewQueueResponse,
+          pathname: "/review/queue",
+        },
+  );
+
+export const startReviewSession = async (
+  apiBaseUrl: string,
+  limit?: number,
+): Promise<ReviewSessionDetail> =>
+  requestJson({
+    apiBaseUrl,
+    body: limit === undefined ? {} : { limit },
+    method: "POST",
+    parseData: parseReviewSessionResponse,
+    pathname: "/review/sessions",
+  });
+
+export const fetchReviewSession = async (
+  apiBaseUrl: string,
+  sessionId: string,
+  signal?: AbortSignal,
+): Promise<ReviewSessionDetail> =>
+  requestJson(
+    signal
+      ? {
+          apiBaseUrl,
+          parseData: parseReviewSessionResponse,
+          pathname: `/review/sessions/${sessionId}`,
+          signal,
+        }
+      : {
+          apiBaseUrl,
+          parseData: parseReviewSessionResponse,
+          pathname: `/review/sessions/${sessionId}`,
+        },
+  );
+
+export const submitReviewCard = async (
+  apiBaseUrl: string,
+  input: {
+    cardId: string;
+    sessionId: string;
+    submission: ReviewSubmissionInput;
+  },
+): Promise<{
+  result: ReviewSubmissionResult;
+  session: ReviewSessionDetail;
+}> =>
+  requestJson({
+    apiBaseUrl,
+    body: parseReviewSubmissionInput(input.submission),
+    method: "POST",
+    parseData: parseSubmitReviewCardResponse,
+    pathname: `/review/sessions/${input.sessionId}/cards/${input.cardId}/submit`,
   });

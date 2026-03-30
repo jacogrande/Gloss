@@ -31,6 +31,7 @@ Use for:
 - `docs/evals/datasets/capture_journeys.jsonl`
 - `docs/evals/datasets/enrichment_journeys.jsonl`
 - `docs/evals/datasets/enrichment_journeys_live.jsonl`
+- `docs/evals/datasets/review_journeys.jsonl`
 - `docs/evals/datasets/mvp_seed_journeys.jsonl`
 
 Add a new dataset row whenever:
@@ -53,26 +54,30 @@ When you add a case:
 
 ## Current MVP Eval Set
 
-The current implemented eval set focuses on capture, enrichment, and boundary risks:
+The current implemented eval set focuses on capture, enrichment, review, and boundary risks:
 
 1. capture preserves context
 2. source metadata survives ingestion
 3. enrichment returns the expected compact payload for strong evidence
 4. weak evidence causes omission instead of fabrication
 5. failed enrichment persists a stable failed state
-6. product routes expose split-origin CORS correctly
-7. request ids, schema versions, and stable error codes survive boundary and trace checks
+6. review queues exclude failed enrichments
+7. review sessions persist typed cards and complete cleanly
+8. review submissions append durable events and update scheduler-versioned review state
+9. product routes expose split-origin CORS correctly
+10. request ids, schema versions, and stable error codes survive boundary and trace checks
 
 The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for later review-generation work. For the current implementation:
 
-- `bun run eval:journeys` should run both `capture_journeys.jsonl` and `enrichment_journeys.jsonl`
-- `bun run eval:traces` should run both HTTP boundary checks and persisted enrichment trace checks
+- `bun run eval:journeys` should run `capture_journeys.jsonl`, `enrichment_journeys.jsonl`, and `review_journeys.jsonl`
+- `bun run eval:traces` should run HTTP boundary checks, persisted enrichment trace checks, and persisted review trace checks
 
 When `ENRICHMENT_PROVIDER_MODE=live` is enabled for targeted vendor checks:
 
 - `bun run eval:journeys` should swap to `enrichment_journeys_live.jsonl`
 - live output evals should validate stable invariants, not exact fixture words
 - live trace evals should validate guardrails against the lexical evidence snapshot rather than fixture-specific omissions
+- review evals remain deterministic around persisted session/card/event/state behavior, even when live enrichment is enabled
 
 ## Pass Rules
 

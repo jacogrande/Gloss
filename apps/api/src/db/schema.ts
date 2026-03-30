@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  integer,
   index,
   jsonb,
   pgTable,
@@ -11,6 +13,14 @@ import {
 import type {
   ApiErrorCode,
   LexicalEvidenceSnapshot,
+  ReviewAnswerKey,
+  ReviewCardPromptPayload,
+  ReviewCardStatus,
+  ReviewDimension,
+  ReviewExerciseType,
+  ReviewGenerationSource,
+  ReviewOutcome,
+  ReviewSessionStatus,
   SeedContextKind,
   SeedEnrichmentGuardrailFlag,
   SeedEnrichmentPayload,
@@ -205,3 +215,225 @@ export const seedEnrichmentTracesTable = pgTable(
 );
 
 export type SeedEnrichmentTraceRow = typeof seedEnrichmentTracesTable.$inferSelect;
+
+type ReviewStateDelta = {
+  nextDueAt: string;
+  nextScore: number;
+  previousDueAt: string;
+  previousScore: number;
+};
+
+type ReviewTraceValidationResult = {
+  accepted: boolean;
+  issues: string[];
+};
+
+export const reviewStatesTable = pgTable(
+  "review_states",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    distinctionDueAt: timestamp("distinction_due_at", { withTimezone: true })
+      .notNull(),
+    distinctionScore: integer("distinction_score").notNull(),
+    id: text("id").primaryKey(),
+    lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
+    lastSessionId: text("last_session_id"),
+    recognitionDueAt: timestamp("recognition_due_at", { withTimezone: true })
+      .notNull(),
+    recognitionScore: integer("recognition_score").notNull(),
+    schedulerVersion: text("scheduler_version").notNull(),
+    seedId: text("seed_id")
+      .notNull()
+      .references(() => seedsTable.id, { onDelete: "cascade" }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    usageDueAt: timestamp("usage_due_at", { withTimezone: true }).notNull(),
+    usageScore: integer("usage_score").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsersTable.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    dueIndex: index("review_states_due_idx").on(
+      table.recognitionDueAt,
+      table.distinctionDueAt,
+      table.usageDueAt,
+    ),
+    seedUserUniqueIndex: uniqueIndex("review_states_seed_user_uidx").on(
+      table.seedId,
+      table.userId,
+    ),
+    userIdIndex: index("review_states_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ReviewStateRow = typeof reviewStatesTable.$inferSelect;
+
+export const reviewSessionsTable = pgTable(
+  "review_sessions",
+  {
+    cardCount: integer("card_count").notNull(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    id: text("id").primaryKey(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    status: text("status").$type<ReviewSessionStatus>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsersTable.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    activeUserUniqueIndex: uniqueIndex("review_sessions_active_user_uidx")
+      .on(table.userId)
+      .where(sql`${table.status} = 'active'`),
+    statusIndex: index("review_sessions_status_idx").on(table.status),
+    userIdIndex: index("review_sessions_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ReviewSessionRow = typeof reviewSessionsTable.$inferSelect;
+
+export const reviewCardsTable = pgTable(
+  "review_cards",
+  {
+    answerKey: jsonb("answer_key").$type<ReviewAnswerKey>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    dimension: text("dimension").$type<ReviewDimension>().notNull(),
+    exerciseType: text("exercise_type").$type<ReviewExerciseType>().notNull(),
+    generationSource: text("generation_source")
+      .$type<ReviewGenerationSource>()
+      .notNull(),
+    id: text("id").primaryKey(),
+    model: text("model"),
+    position: integer("position").notNull(),
+    promptPayload: jsonb("prompt_payload")
+      .$type<ReviewCardPromptPayload>()
+      .notNull(),
+    promptTemplateVersion: text("prompt_template_version").notNull(),
+    provider: text("provider"),
+    reviewSessionId: text("review_session_id")
+      .notNull()
+      .references(() => reviewSessionsTable.id, { onDelete: "cascade" }),
+    schemaVersion: text("schema_version").notNull(),
+    seedId: text("seed_id")
+      .notNull()
+      .references(() => seedsTable.id, { onDelete: "cascade" }),
+    status: text("status").$type<ReviewCardStatus>().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsersTable.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    sessionPositionUniqueIndex: uniqueIndex(
+      "review_cards_session_position_uidx",
+    ).on(table.reviewSessionId, table.position),
+    sessionIdIndex: index("review_cards_session_id_idx").on(table.reviewSessionId),
+    seedIdIndex: index("review_cards_seed_id_idx").on(table.seedId),
+    statusIndex: index("review_cards_status_idx").on(table.status),
+    userIdIndex: index("review_cards_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ReviewCardRow = typeof reviewCardsTable.$inferSelect;
+
+export const reviewEventsTable = pgTable(
+  "review_events",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    dimension: text("dimension").$type<ReviewDimension>().notNull(),
+    exerciseType: text("exercise_type").$type<ReviewExerciseType>().notNull(),
+    id: text("id").primaryKey(),
+    outcome: text("outcome").$type<ReviewOutcome>().notNull(),
+    responseLatencyMs: integer("response_latency_ms"),
+    responsePayload: jsonb("response_payload")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    reviewCardId: text("review_card_id")
+      .notNull()
+      .references(() => reviewCardsTable.id, { onDelete: "cascade" }),
+    reviewSessionId: text("review_session_id")
+      .notNull()
+      .references(() => reviewSessionsTable.id, { onDelete: "cascade" }),
+    seedId: text("seed_id")
+      .notNull()
+      .references(() => seedsTable.id, { onDelete: "cascade" }),
+    stateDelta: jsonb("state_delta").$type<ReviewStateDelta>().notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsersTable.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    cardUniqueIndex: uniqueIndex("review_events_card_uidx").on(table.reviewCardId),
+    cardIdIndex: index("review_events_card_id_idx").on(table.reviewCardId),
+    sessionIdIndex: index("review_events_session_id_idx").on(table.reviewSessionId),
+    seedIdIndex: index("review_events_seed_id_idx").on(table.seedId),
+    userIdIndex: index("review_events_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ReviewEventRow = typeof reviewEventsTable.$inferSelect;
+
+export const reviewCardTracesTable = pgTable(
+  "review_card_traces",
+  {
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    generationSource: text("generation_source")
+      .$type<ReviewGenerationSource>()
+      .notNull(),
+    id: text("id").primaryKey(),
+    inputRedacted: jsonb("input_redacted").$type<Record<string, unknown> | null>(),
+    model: text("model"),
+    outputRedacted: jsonb("output_redacted")
+      .$type<Record<string, unknown>>()
+      .notNull(),
+    promptTemplateVersion: text("prompt_template_version").notNull(),
+    provider: text("provider"),
+    reviewCardId: text("review_card_id")
+      .notNull()
+      .references(() => reviewCardsTable.id, { onDelete: "cascade" }),
+    reviewSessionId: text("review_session_id")
+      .notNull()
+      .references(() => reviewSessionsTable.id, { onDelete: "cascade" }),
+    schemaVersion: text("schema_version").notNull(),
+    seedId: text("seed_id")
+      .notNull()
+      .references(() => seedsTable.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => authUsersTable.id, { onDelete: "cascade" }),
+    validationResult: jsonb("validation_result")
+      .$type<ReviewTraceValidationResult>()
+      .notNull(),
+  },
+  (table) => ({
+    cardUniqueIndex: uniqueIndex("review_card_traces_card_uidx").on(
+      table.reviewCardId,
+    ),
+    seedIdIndex: index("review_card_traces_seed_id_idx").on(table.seedId),
+    sessionIdIndex: index("review_card_traces_session_id_idx").on(
+      table.reviewSessionId,
+    ),
+    userIdIndex: index("review_card_traces_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ReviewCardTraceRow = typeof reviewCardTracesTable.$inferSelect;

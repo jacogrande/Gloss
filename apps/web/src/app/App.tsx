@@ -6,6 +6,7 @@ import { CaptureRoute } from "../routes/capture-route";
 import { LibraryRoute } from "../routes/library-route";
 import { LoginRoute } from "../routes/login-route";
 import { ProtectedLayout } from "../routes/protected-layout";
+import { ReviewRoute } from "../routes/review-route";
 import { SeedDetailRoute } from "../routes/seed-detail-route";
 
 export const App = (): JSX.Element => (
@@ -18,6 +19,7 @@ export const App = (): JSX.Element => (
         <Route element={<ProtectedLayout />}>
           <Route element={<CaptureRoute />} path="/capture" />
           <Route element={<LibraryRoute />} path="/library" />
+          <Route element={<ReviewRoute />} path="/review" />
           <Route element={<SeedDetailRoute />} path="/seeds/:seedId" />
         </Route>
       </Routes>

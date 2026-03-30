@@ -2,6 +2,9 @@ import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 import {
   createSeedResponseSchema,
   requestSeedEnrichmentResponseSchema,
+  reviewQueueResponseSchema,
+  reviewSessionResponseSchema,
+  submitReviewCardResponseSchema,
 } from "@gloss/shared/contracts";
 
 import {
@@ -44,6 +47,47 @@ type EnrichmentTraceRow = {
   validation_result: {
     accepted?: boolean;
     issues?: string[];
+  };
+};
+
+type ReviewCardTraceRow = {
+  generation_source: string;
+  input_redacted: Record<string, unknown> | null;
+  model: string | null;
+  output_redacted: Record<string, unknown>;
+  provider: string | null;
+  prompt_template_version: string;
+  review_card_id: string;
+  schema_version: string;
+  validation_result: {
+    accepted?: boolean;
+    issues?: string[];
+  };
+};
+
+type PersistedReviewCardRow = {
+  answer_key: {
+    correctChoiceId?: string;
+  };
+  generation_source: string;
+  id: string;
+  prompt_payload: {
+    choices?: unknown[];
+    question?: string;
+  };
+  prompt_template_version: string;
+  schema_version: string;
+  status: string;
+};
+
+type ReviewEventTraceRow = {
+  outcome: string;
+  response_latency_ms: number | null;
+  state_delta: {
+    nextDueAt?: string;
+    nextScore?: number;
+    previousDueAt?: string;
+    previousScore?: number;
   };
 };
 
@@ -441,6 +485,416 @@ const runEnrichmentTraceChecks = async (): Promise<EvalFailure[]> => {
   return failures;
 };
 
+const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
+  const failures: EvalFailure[] = [];
+  const { env, runtime } = prepareLocalHarness();
+
+  try {
+    const cookie = await signUpHarnessUser({
+      app: runtime.app,
+      apiOrigin: env.API_ORIGIN,
+      email: "trace-review@gloss.local",
+      name: "Trace Review User",
+      webOrigin: env.WEB_ORIGIN,
+    });
+    const createResponse = await runtime.app.request(
+      new URL("/capture/seeds", `${env.API_ORIGIN}/`).toString(),
+      {
+        body: JSON.stringify({
+          sentence: "Her explanation was pellucid even under pressure.",
+          source: {
+            kind: "book",
+            title: "On Style",
+          },
+          word: "pellucid",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const enrichResponse = await runtime.app.request(
+      new URL(`/seeds/${createBody.data.id}/enrich`, `${env.API_ORIGIN}/`).toString(),
+      {
+        headers: {
+          cookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+
+    requestSeedEnrichmentResponseSchema.parse(
+      (await enrichResponse.json()) as unknown,
+    );
+
+    const startResponse = await runtime.app.request(
+      new URL("/review/sessions", `${env.API_ORIGIN}/`).toString(),
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const userResult = await runtime.database.pool.query<{ id: string }>(
+      'SELECT id FROM "user" WHERE email = $1 LIMIT 1',
+      ["trace-review@gloss.local"],
+    );
+    const userId = userResult.rows[0]?.id ?? "";
+    const reviewCardResult = await runtime.database.pool.query<PersistedReviewCardRow>(
+      `
+        SELECT
+          answer_key,
+          generation_source,
+          id,
+          prompt_payload,
+          prompt_template_version,
+          schema_version,
+          status
+        FROM review_cards
+        WHERE review_session_id = $1
+        ORDER BY position ASC
+      `,
+      [startBody.data.session.id],
+    );
+    const reviewCardTraceResult = await runtime.database.pool.query<ReviewCardTraceRow>(
+      `
+        SELECT
+          generation_source,
+          input_redacted,
+          model,
+          output_redacted,
+          prompt_template_version,
+          provider,
+          review_card_id,
+          schema_version,
+          validation_result
+        FROM review_card_traces
+        WHERE review_session_id = $1
+        ORDER BY created_at ASC
+      `,
+      [startBody.data.session.id],
+    );
+
+    if (
+      reviewCardResult.rows.length === 0 ||
+      reviewCardResult.rows.some(
+        (row) =>
+          row.prompt_template_version !== "review-card.v1" ||
+          row.schema_version !== "review-card-prompt.v1" ||
+          row.status !== "pending" ||
+          typeof row.answer_key.correctChoiceId !== "string" ||
+          typeof row.prompt_payload.question !== "string" ||
+          !Array.isArray(row.prompt_payload.choices) ||
+          row.prompt_payload.choices.length < 2,
+      )
+    ) {
+      failures.push({
+        caseId: "review_card_trace",
+        category: "review_card_persistence",
+        journey: "review.session",
+        message:
+          "Expected persisted review cards to include prompt/schema versions, pending status, choices, and answer keys.",
+        severity: "critical",
+      });
+    }
+
+    if (
+      reviewCardTraceResult.rows.length !== reviewCardResult.rows.length ||
+      reviewCardTraceResult.rows.some((row) => {
+        const matchingCard = reviewCardResult.rows.find(
+          (card) => card.id === row.review_card_id,
+        );
+
+        return (
+          !matchingCard ||
+          row.generation_source !== matchingCard.generation_source ||
+          row.prompt_template_version !== "review-card.v1" ||
+          row.schema_version !== "review-card-prompt.v1" ||
+          typeof row.output_redacted !== "object" ||
+          row.output_redacted === null ||
+          row.validation_result.accepted !== true ||
+          !Array.isArray(row.validation_result.issues) ||
+          (row.generation_source === "model" && row.input_redacted === null)
+        );
+      })
+    ) {
+      failures.push({
+        caseId: "review_generation_trace",
+        category: "review_trace_persistence",
+        journey: "review.session",
+        message:
+          "Expected review card traces to persist generation metadata, accepted validation results, and redacted model inputs for model-backed cards.",
+        severity: "critical",
+      });
+    }
+
+    for (const [index, row] of reviewCardResult.rows.entries()) {
+      const submitResponse = await runtime.app.request(
+        new URL(
+          `/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
+          `${env.API_ORIGIN}/`,
+        ).toString(),
+        {
+          body: JSON.stringify({
+            choiceId: row.answer_key.correctChoiceId,
+            latencyMs: 200 + index,
+          }),
+          headers: {
+            "content-type": "application/json",
+            cookie,
+            origin: env.WEB_ORIGIN,
+          },
+          method: "POST",
+        },
+      );
+
+      submitReviewCardResponseSchema.parse((await submitResponse.json()) as unknown);
+
+      if (index === 0) {
+        const duplicateSubmitResponse = await runtime.app.request(
+          new URL(
+            `/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
+            `${env.API_ORIGIN}/`,
+          ).toString(),
+          {
+            body: JSON.stringify({
+              choiceId: row.answer_key.correctChoiceId,
+              latencyMs: 250,
+            }),
+            headers: {
+              "content-type": "application/json",
+              cookie,
+              origin: env.WEB_ORIGIN,
+            },
+            method: "POST",
+          },
+        );
+        const duplicateSubmitBody = apiErrorResponseSchema.parse(
+          (await duplicateSubmitResponse.json()) as unknown,
+        );
+
+        if (
+          duplicateSubmitResponse.status !== 409 ||
+          duplicateSubmitBody.error.code !== "REVIEW_CONFLICT"
+        ) {
+          failures.push({
+            caseId: "review_duplicate_submit_conflict",
+            category: "review_conflict",
+            journey: "review.submit",
+            message:
+              "Expected duplicate review-card submissions to return REVIEW_CONFLICT.",
+            severity: "critical",
+          });
+        }
+      }
+    }
+
+    const reviewEventResult = await runtime.database.pool.query<ReviewEventTraceRow>(
+      `
+        SELECT outcome, response_latency_ms, state_delta
+        FROM review_events
+        WHERE review_session_id = $1
+        ORDER BY created_at ASC
+      `,
+      [startBody.data.session.id],
+    );
+    const reviewStateResult = await runtime.database.pool.query<{
+      distinction_score: number;
+      last_session_id: string | null;
+      recognition_score: number;
+      scheduler_version: string;
+      usage_score: number;
+    }>(
+      `
+        SELECT
+          recognition_score,
+          distinction_score,
+          usage_score,
+          last_session_id,
+          scheduler_version
+        FROM review_states
+        WHERE seed_id = $1 AND user_id = $2
+      `,
+      [createBody.data.id, userId],
+    );
+
+    if (
+      reviewEventResult.rows.length !== reviewCardResult.rows.length ||
+      reviewEventResult.rows.some(
+        (row) =>
+          typeof row.response_latency_ms !== "number" ||
+          row.response_latency_ms <= 0 ||
+          typeof row.state_delta.nextScore !== "number" ||
+          typeof row.state_delta.previousScore !== "number" ||
+          typeof row.state_delta.nextDueAt !== "string" ||
+          typeof row.state_delta.previousDueAt !== "string" ||
+          (row.outcome !== "correct" &&
+            row.outcome !== "incorrect" &&
+            row.outcome !== "partial" &&
+            row.outcome !== "skipped"),
+      ) ||
+      reviewStateResult.rows[0]?.scheduler_version !== "review-scheduler.v1" ||
+      reviewStateResult.rows[0]?.last_session_id !== startBody.data.session.id ||
+      ((reviewStateResult.rows[0]?.recognition_score ?? 0) <= 0 &&
+        (reviewStateResult.rows[0]?.distinction_score ?? 0) <= 0 &&
+        (reviewStateResult.rows[0]?.usage_score ?? 0) <= 0)
+    ) {
+      failures.push({
+        caseId: "review_event_state_trace",
+        category: "review_state_persistence",
+        journey: "review.submit",
+        message:
+          "Expected review submissions to append durable events and update scheduler-versioned review state.",
+        severity: "critical",
+      });
+    }
+
+    const futureDueCookie = await signUpHarnessUser({
+      app: runtime.app,
+      apiOrigin: env.API_ORIGIN,
+      email: "trace-review-future@gloss.local",
+      name: "Trace Future Review User",
+      webOrigin: env.WEB_ORIGIN,
+    });
+    const futureCreateResponse = await runtime.app.request(
+      new URL("/capture/seeds", `${env.API_ORIGIN}/`).toString(),
+      {
+        body: JSON.stringify({
+          sentence: "Her explanation was pellucid even under pressure.",
+          source: {
+            kind: "book",
+            title: "On Style",
+          },
+          word: "pellucid",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: futureDueCookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const futureCreateBody = createSeedResponseSchema.parse(
+      (await futureCreateResponse.json()) as unknown,
+    );
+    const futureEnrichResponse = await runtime.app.request(
+      new URL(
+        `/seeds/${futureCreateBody.data.id}/enrich`,
+        `${env.API_ORIGIN}/`,
+      ).toString(),
+      {
+        headers: {
+          cookie: futureDueCookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+
+    requestSeedEnrichmentResponseSchema.parse(
+      (await futureEnrichResponse.json()) as unknown,
+    );
+
+    const futureUserResult = await runtime.database.pool.query<{ id: string }>(
+      'SELECT id FROM "user" WHERE email = $1 LIMIT 1',
+      ["trace-review-future@gloss.local"],
+    );
+    const futureUserId = futureUserResult.rows[0]?.id ?? "";
+
+    await runtime.database.pool.query(
+      `
+        INSERT INTO review_states (
+          id,
+          seed_id,
+          user_id,
+          recognition_score,
+          distinction_score,
+          usage_score,
+          recognition_due_at,
+          distinction_due_at,
+          usage_due_at,
+          last_reviewed_at,
+          last_session_id,
+          scheduler_version
+        )
+        VALUES (
+          $1, $2, $3,
+          1, 1, 1,
+          NOW() + INTERVAL '2 days',
+          NOW() + INTERVAL '2 days',
+          NOW() + INTERVAL '2 days',
+          NOW(),
+          NULL,
+          'review-scheduler.v1'
+        )
+      `,
+      ["trace_future_state", futureCreateBody.data.id, futureUserId],
+    );
+
+    const futureQueueResponse = await runtime.app.request(
+      new URL("/review/queue", `${env.API_ORIGIN}/`).toString(),
+      {
+        headers: {
+          cookie: futureDueCookie,
+          origin: env.WEB_ORIGIN,
+        },
+      },
+    );
+    const futureQueueBody = reviewQueueResponseSchema.parse(
+      (await futureQueueResponse.json()) as unknown,
+    );
+    const futureStartResponse = await runtime.app.request(
+      new URL("/review/sessions", `${env.API_ORIGIN}/`).toString(),
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie: futureDueCookie,
+          origin: env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const futureStartBody = apiErrorResponseSchema.parse(
+      (await futureStartResponse.json()) as unknown,
+    );
+
+    if (
+      futureQueueBody.data.dueCount !== 0 ||
+      futureStartResponse.status !== 409 ||
+      futureStartBody.error.code !== "REVIEW_CONFLICT"
+    ) {
+      failures.push({
+        caseId: "review_future_due_filter",
+        category: "review_scheduler",
+        journey: "review.queue",
+        message:
+          "Expected future-due review state to stay out of the queue and block session start.",
+        severity: "critical",
+      });
+    }
+  } finally {
+    await runtime.close();
+  }
+
+  return failures;
+};
+
 export const runTraceEvaluations = async (): Promise<void> => {
   const httpFailures = await runHttpBoundaryChecks();
 
@@ -458,7 +912,19 @@ export const runTraceEvaluations = async (): Promise<void> => {
     total: 3,
   });
 
-  if (httpFailures.length > 0 || enrichmentFailures.length > 0) {
+  const reviewFailures = await runReviewTraceChecks();
+
+  logSummary({
+    dataset: "review_trace_checks",
+    failures: reviewFailures,
+    total: 4,
+  });
+
+  if (
+    httpFailures.length > 0 ||
+    enrichmentFailures.length > 0 ||
+    reviewFailures.length > 0
+  ) {
     throw new Error("Trace evals failed.");
   }
 };

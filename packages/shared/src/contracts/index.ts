@@ -2,6 +2,19 @@ import { z } from "zod";
 
 import { apiErrorCodeSchema } from "../errors/index";
 import { apiTimestampSchema, createApiSuccessSchema } from "../schemas/index";
+import {
+  reviewCardStatusValues,
+  reviewDimensionValues,
+  reviewExerciseTypeValues,
+  reviewGenerationSourceValues,
+  reviewOutcomeValues,
+  reviewSessionStatusValues,
+  seedContextKindValues,
+  seedEnrichmentGuardrailFlagValues,
+  seedEnrichmentStatusValues,
+  seedStageValues,
+  sourceKindValues,
+} from "../values/index";
 
 const wordSchema = z.string().trim().min(1).max(160);
 const optionalSentenceSchema = z.string().trim().min(1).max(2_000).optional();
@@ -45,21 +58,11 @@ export const sessionDataSchema = z.object({
 
 export const sessionResponseSchema = createApiSuccessSchema(sessionDataSchema);
 
-export const seedStageSchema = z.enum([
-  "new",
-  "stabilizing",
-  "deepening",
-  "mature",
-]);
+export const seedStageSchema = z.enum(seedStageValues);
 
-export const sourceKindSchema = z.enum([
-  "manual",
-  "article",
-  "book",
-  "other",
-]);
+export const sourceKindSchema = z.enum(sourceKindValues);
 
-export const seedContextKindSchema = z.enum(["sentence"]);
+export const seedContextKindSchema = z.enum(seedContextKindValues);
 
 export const sourceSummarySchema = z.object({
   author: z.string().min(1).nullable(),
@@ -77,18 +80,11 @@ export const seedContextSchema = z.object({
   text: z.string().min(1),
 });
 
-export const seedEnrichmentStatusSchema = z.enum([
-  "pending",
-  "ready",
-  "failed",
-]);
+export const seedEnrichmentStatusSchema = z.enum(seedEnrichmentStatusValues);
 
-export const seedEnrichmentGuardrailFlagSchema = z.enum([
-  "contrast_omitted_weak_evidence",
-  "morphology_omitted_weak_evidence",
-  "register_omitted_weak_evidence",
-  "related_omitted_weak_evidence",
-]);
+export const seedEnrichmentGuardrailFlagSchema = z.enum(
+  seedEnrichmentGuardrailFlagValues,
+);
 
 export const seedEnrichmentRelationSchema = z
   .object({
@@ -199,6 +195,199 @@ export const seedEnrichmentSchema = z
   })
   .strict();
 
+export const reviewDimensionSchema = z.enum(reviewDimensionValues);
+
+export const reviewExerciseTypeSchema = z.enum(reviewExerciseTypeValues);
+
+export const reviewCardStatusSchema = z.enum(reviewCardStatusValues);
+
+export const reviewSessionStatusSchema = z.enum(reviewSessionStatusValues);
+
+export const reviewGenerationSourceSchema = z.enum(reviewGenerationSourceValues);
+
+export const reviewOutcomeSchema = z.enum(reviewOutcomeValues);
+
+export const reviewCardPromptPayloadSchemaVersion = "review-card-prompt.v1";
+
+export const reviewChoiceSchema = z
+  .object({
+    detail: conciseNoteSchema.optional(),
+    id: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(320),
+  })
+  .strict();
+
+const reviewBaseCardPromptSchema = z
+  .object({
+    question: z.string().trim().min(1).max(320),
+    word: wordSchema,
+  })
+  .strict();
+
+export const reviewMeaningInContextCardPromptSchema = reviewBaseCardPromptSchema
+  .extend({
+    choices: z.array(reviewChoiceSchema).min(3).max(4),
+    sentence: z.string().trim().min(1).max(320),
+    type: z.literal("meaning_in_context"),
+  })
+  .strict();
+
+export const reviewRecognitionFreshSentenceCardPromptSchema =
+  reviewBaseCardPromptSchema
+    .extend({
+      choices: z.array(reviewChoiceSchema).min(3).max(4),
+      sentence: z.string().trim().min(1).max(320),
+      type: z.literal("recognition_in_fresh_sentence"),
+    })
+    .strict();
+
+export const reviewContrastiveChoiceCardPromptSchema =
+  reviewBaseCardPromptSchema
+    .extend({
+      choices: z.array(reviewChoiceSchema).length(2),
+      sentence: z.string().trim().min(1).max(320),
+      type: z.literal("contrastive_choice"),
+    })
+    .strict();
+
+export const reviewRegisterJudgmentCardPromptSchema = reviewBaseCardPromptSchema
+  .extend({
+    choices: z.array(reviewChoiceSchema).length(2),
+    type: z.literal("register_judgment"),
+  })
+  .strict();
+
+export const reviewCardPromptPayloadSchema = z.discriminatedUnion("type", [
+  reviewMeaningInContextCardPromptSchema,
+  reviewRecognitionFreshSentenceCardPromptSchema,
+  reviewContrastiveChoiceCardPromptSchema,
+  reviewRegisterJudgmentCardPromptSchema,
+]);
+
+export const reviewRecognitionFreshSentencePromptJsonSchema = z.toJSONSchema(
+  reviewRecognitionFreshSentenceCardPromptSchema,
+);
+
+export const reviewRecognitionFreshSentenceModelOutputSchema = z
+  .object({
+    correctChoiceId: z.string().trim().min(1).max(80),
+    promptPayload: reviewRecognitionFreshSentenceCardPromptSchema,
+  })
+  .superRefine((value, context) => {
+    const choiceIds = value.promptPayload.choices.map((choice) => choice.id);
+
+    if (!choiceIds.includes(value.correctChoiceId)) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "correctChoiceId must match one of the prompt payload choice ids.",
+        path: ["correctChoiceId"],
+      });
+    }
+
+    if (new Set(choiceIds).size !== choiceIds.length) {
+      context.addIssue({
+        code: "custom",
+        message: "Choice ids must be unique within a review card.",
+        path: ["promptPayload", "choices"],
+      });
+    }
+  })
+  .strict();
+
+export const reviewRecognitionFreshSentenceModelOutputJsonSchema =
+  z.toJSONSchema(reviewRecognitionFreshSentenceModelOutputSchema);
+
+export const reviewAnswerKeySchema = z
+  .object({
+    correctChoiceId: z.string().trim().min(1).max(80),
+  })
+  .strict();
+
+export const reviewStateDimensionSchema = z
+  .object({
+    dueAt: apiTimestampSchema,
+    score: z.number().int().min(0).max(3),
+  })
+  .strict();
+
+export const reviewStateSchema = z
+  .object({
+    createdAt: apiTimestampSchema,
+    distinction: reviewStateDimensionSchema,
+    id: z.string().min(1),
+    lastReviewedAt: apiTimestampSchema.nullable(),
+    lastSessionId: z.string().min(1).nullable(),
+    recognition: reviewStateDimensionSchema,
+    schedulerVersion: z.string().trim().min(1),
+    seedId: z.string().min(1),
+    updatedAt: apiTimestampSchema,
+    usage: reviewStateDimensionSchema,
+  })
+  .strict();
+
+export const reviewQueueSummarySchema = z
+  .object({
+    activeSessionId: z.string().min(1).nullable(),
+    availableCount: z.number().int().nonnegative(),
+    dueByDimension: z
+      .object({
+        distinction: z.number().int().nonnegative(),
+        recognition: z.number().int().nonnegative(),
+        usage: z.number().int().nonnegative(),
+      })
+      .strict(),
+    dueCount: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const reviewSessionSummarySchema = z
+  .object({
+    cardCount: z.number().int().nonnegative(),
+    completedAt: apiTimestampSchema.nullable(),
+    currentCardId: z.string().min(1).nullable(),
+    id: z.string().min(1),
+    remainingCount: z.number().int().nonnegative(),
+    startedAt: apiTimestampSchema,
+    status: reviewSessionStatusSchema,
+  })
+  .strict();
+
+export const reviewCardSchema = z
+  .object({
+    dimension: reviewDimensionSchema,
+    exerciseType: reviewExerciseTypeSchema,
+    generationSource: reviewGenerationSourceSchema,
+    id: z.string().min(1),
+    position: z.number().int().nonnegative(),
+    promptPayload: reviewCardPromptPayloadSchema,
+    status: reviewCardStatusSchema,
+  })
+  .strict();
+
+export const reviewSessionDetailSchema = z
+  .object({
+    cards: z.array(reviewCardSchema),
+    session: reviewSessionSummarySchema,
+  })
+  .strict();
+
+export const reviewSubmissionInputSchema = z
+  .object({
+    choiceId: z.string().trim().min(1).max(80),
+    latencyMs: z.number().int().min(0).max(600_000).optional(),
+  })
+  .strict();
+
+export const reviewSubmissionResultSchema = z
+  .object({
+    cardId: z.string().min(1),
+    correct: z.boolean(),
+    outcome: reviewOutcomeSchema,
+    seedStage: seedStageSchema,
+  })
+  .strict();
+
 export const seedSummarySchema = z.object({
   createdAt: apiTimestampSchema,
   id: z.string().min(1),
@@ -259,4 +448,27 @@ export const seedListResponseSchema = createApiSuccessSchema(listSeedsDataSchema
 
 export const requestSeedEnrichmentResponseSchema = createApiSuccessSchema(
   seedEnrichmentSchema,
+);
+
+export const reviewQueueResponseSchema = createApiSuccessSchema(
+  reviewQueueSummarySchema,
+);
+
+export const createReviewSessionInputSchema = z
+  .object({
+    limit: z.number().int().min(1).max(5).optional(),
+  })
+  .strict();
+
+export const reviewSessionResponseSchema = createApiSuccessSchema(
+  reviewSessionDetailSchema,
+);
+
+export const submitReviewCardResponseSchema = createApiSuccessSchema(
+  z
+    .object({
+      result: reviewSubmissionResultSchema,
+      session: reviewSessionDetailSchema,
+    })
+    .strict(),
 );

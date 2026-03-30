@@ -15,6 +15,9 @@ type ErrorBody = {
       | "ENRICHMENT_SCHEMA_INVALID"
       | "INTERNAL_ERROR"
       | "NOT_FOUND"
+      | "REVIEW_CONFLICT"
+      | "REVIEW_PROVIDER_ERROR"
+      | "REVIEW_SCHEMA_INVALID"
       | "VALIDATION_ERROR";
     message: string;
     requestId?: string;

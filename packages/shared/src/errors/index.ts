@@ -1,16 +1,8 @@
 import { z } from "zod";
 
-export const apiErrorCodeSchema = z.enum([
-  "AUTH_UNAUTHORIZED",
-  "CONFLICT",
-  "ENRICHMENT_CONFLICT",
-  "ENRICHMENT_EVIDENCE_UNAVAILABLE",
-  "ENRICHMENT_PROVIDER_ERROR",
-  "ENRICHMENT_SCHEMA_INVALID",
-  "INTERNAL_ERROR",
-  "NOT_FOUND",
-  "VALIDATION_ERROR",
-]);
+import { apiErrorCodeValues } from "../values/index";
+
+export const apiErrorCodeSchema = z.enum(apiErrorCodeValues);
 
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>;
 
@@ -124,6 +116,39 @@ export const enrichmentSchemaInvalidError = (
 ): AppError =>
   new AppError({
     code: "ENRICHMENT_SCHEMA_INVALID",
+    message,
+    status: 500,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const reviewConflictError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "REVIEW_CONFLICT",
+    message,
+    status: 409,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const reviewProviderError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "REVIEW_PROVIDER_ERROR",
+    message,
+    status: 500,
+    ...(requestId ? { requestId } : {}),
+  });
+
+export const reviewSchemaInvalidError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "REVIEW_SCHEMA_INVALID",
     message,
     status: 500,
     ...(requestId ? { requestId } : {}),

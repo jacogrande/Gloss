@@ -41,6 +41,16 @@ export const AppShell = ({
           >
             Library
           </NavLink>
+          <NavLink
+            className={({ isActive }) =>
+              isActive
+                ? "shell__nav-link shell__nav-link--active"
+                : "shell__nav-link"
+            }
+            to="/review"
+          >
+            Review
+          </NavLink>
         </nav>
 
         <div className="shell__account">

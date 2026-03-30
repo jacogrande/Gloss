@@ -8,6 +8,38 @@ type SeedResult = {
   demoEmail: string;
 };
 
+type DemoSeedDefinition = {
+  capture: Parameters<
+    ReturnType<typeof createAppRuntime>["seedService"]["createSeed"]
+  >[0]["capture"];
+  normalizedWord: string;
+};
+
+const demoSeedDefinitions: DemoSeedDefinition[] = [
+  {
+    capture: {
+      sentence: "The prose became unexpectedly lapidary by the final chapter.",
+      source: {
+        kind: "book",
+        title: "Collected Essays",
+      },
+      word: "lapidary",
+    },
+    normalizedWord: "lapidary",
+  },
+  {
+    capture: {
+      source: {
+        kind: "article",
+        title: "A Note on Serious Style",
+        url: "https://example.com/serious-style",
+      },
+      word: "fastidious",
+    },
+    normalizedWord: "fastidious",
+  },
+];
+
 export const seedDatabase = async (options: {
   database: DatabaseClient;
   env: ServerEnv;
@@ -33,37 +65,65 @@ export const seedDatabase = async (options: {
         },
       })
     ).user.id;
-  const existingSeedQuery = await options.database.pool.query<{ id: string }>(
-    "SELECT id FROM seeds WHERE user_id = $1 LIMIT 1",
-    [userId],
+  const existingSeedQuery = await options.database.pool.query<{
+    id: string;
+    normalized_word: string;
+  }>(
+    `
+      SELECT s.id, s.normalized_word
+      FROM seeds s
+      WHERE s.user_id = $1
+        AND s.normalized_word = ANY($2::text[])
+    `,
+    [
+      userId,
+      demoSeedDefinitions.map((definition) => definition.normalizedWord),
+    ],
   );
   let createdSeedCount = 0;
+  const seedIdByNormalizedWord = new Map(
+    existingSeedQuery.rows.map((row) => [row.normalized_word, row.id]),
+  );
 
-  if (existingSeedQuery.rows.length === 0) {
-    await runtime.seedService.createSeed({
-      capture: {
-        sentence:
-          "The prose became unexpectedly lapidary by the final chapter.",
-        source: {
-          kind: "book",
-          title: "Collected Essays",
-        },
-        word: "lapidary",
-      },
+  for (const definition of demoSeedDefinitions) {
+    if (seedIdByNormalizedWord.has(definition.normalizedWord)) {
+      continue;
+    }
+
+    const createdSeed = await runtime.seedService.createSeed({
+      capture: definition.capture,
       userId,
     });
-    await runtime.seedService.createSeed({
-      capture: {
-        source: {
-          kind: "article",
-          title: "A Note on Serious Style",
-          url: "https://example.com/serious-style",
-        },
-        word: "fastidious",
-      },
+
+    seedIdByNormalizedWord.set(definition.normalizedWord, createdSeed.id);
+    createdSeedCount += 1;
+  }
+
+  const enrichmentQuery = await options.database.pool.query<{
+    seed_id: string;
+    status: string;
+  }>(
+    `
+      SELECT seed_id, status
+      FROM seed_enrichments
+      WHERE user_id = $1
+        AND seed_id = ANY($2::text[])
+    `,
+    [userId, Array.from(seedIdByNormalizedWord.values())],
+  );
+  const enrichmentStatusBySeedId = new Map(
+    enrichmentQuery.rows.map((row) => [row.seed_id, row.status]),
+  );
+
+  for (const seedId of seedIdByNormalizedWord.values()) {
+    if (enrichmentStatusBySeedId.get(seedId) === "ready") {
+      continue;
+    }
+
+    await runtime.enrichmentService.requestSeedEnrichment({
+      seedId,
       userId,
     });
-    createdSeedCount = 2;
   }
 
   return {
