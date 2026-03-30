@@ -45,6 +45,7 @@
     "eval:traces": "bun run db:reset && bun run scripts/eval-traces.ts",
     "eval:add-case": "bun run scripts/add-eval-case.ts",
     "report:alpha": "bun run scripts/report-private-alpha.ts",
+    "deploy:check-env": "bun run scripts/check-deploy-env.ts",
     "db:start": "bun run scripts/db-start.ts",
     "db:stop": "bun run scripts/db-stop.ts",
     "db:migrate": "cd apps/api && bun run db:migrate",

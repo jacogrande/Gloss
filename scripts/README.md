@@ -30,3 +30,4 @@ The scripts layer now also owns:
 - structural boundary enforcement
 - append-only eval scaffolding from real failures
 - private-alpha reporting via `bun run report:alpha`
+- deployment env verification via `bun run deploy:check-env`

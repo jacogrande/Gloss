@@ -567,3 +567,4 @@ Private-alpha release gate:
 - 2026-03-29: observed `bun run smoke` failure caused by non-idempotent seeded auth state during repeated `db:reset` execution; treat this as the first Sprint 5 blocker
 - 2026-03-30: landed broader Playwright regression coverage for auth errors, forced re-auth, capture validation, isolation, and stale review-session recovery
 - 2026-03-30: upgraded the private-alpha report and documented preview, staging, and issue-intake workflows
+- 2026-03-30: added a typed deploy-environment checker for preview, staging, and private-alpha env alignment

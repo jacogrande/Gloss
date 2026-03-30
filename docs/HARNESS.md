@@ -145,6 +145,8 @@ These scripts are part of the harness and should be implemented as the repo is s
   Apply pending migrations.
 - `bun run db:seed`
   Load deterministic local fixture data.
+- `bun run deploy:check-env`
+  Validate preview, staging, or private-alpha environment alignment from the current shell env. Pass explicit flags such as `-- --environment staging --target combined` when needed.
 
 ### Agent and Eval
 

@@ -18,6 +18,7 @@ Private alpha is allowed only when:
 - preview and staging browser checks have been completed from the current deploy
 
 Use `bun run report:alpha --pretty` after seeding or after real alpha usage to inspect the current typed product-event snapshot.
+Use `bun run deploy:check-env -- --environment staging --target combined --pretty` from a preview, staging, or private-alpha shell to verify the environment wiring itself before promoting.
 
 ## Promotion Path
 
@@ -67,6 +68,7 @@ Run this against the stable staging environment before any new alpha rollout.
 5. Run the browser checklist in [docs/QA.md](/Users/jackson/Code/projects/gloss/docs/QA.md) against staging.
 6. Capture screenshots for `/login`, `/library`, `/capture`, `/seeds/:id`, and `/review`.
 7. Review the latest `bun run report:alpha --pretty` output if staging contains real alpha traffic.
+8. Run `bun run deploy:check-env -- --environment staging --target combined --pretty`.
 
 Staging is only green when auth, capture, enrichment, and review all behave correctly under the deployed origins and cookies.
 

@@ -58,6 +58,8 @@ The API and web services should each deploy from GitHub auto-deploys on the main
 | `staging` | stable staging web URL | stable staging API URL | same as staging API origin | set only when the staging domain strategy requires it | `fixture` for deterministic checks, `live` only when staged provider validation is deliberate | required promotion gate before private alpha |
 | `private-alpha` | stable invite-only web URL | stable invite-only API URL | same as invite-only API origin | set only when the deployed domain strategy requires it | `live` only if real providers are enabled for invited users | production-like environment for real cohort usage |
 
+Use `bun run deploy:check-env -- --environment preview --target combined --pretty` from the environment you are validating to confirm the shell wiring matches the documented split-origin contract.
+
 ## API Service
 
 Recommended Railway settings for the API service:
@@ -137,6 +139,7 @@ Minimum preview checks:
 2. sign-in, refresh, and sign-out work under the preview origins
 3. one split-origin API path succeeds from the browser
 4. the deployed API can read the migrated schema
+5. `bun run deploy:check-env -- --environment preview --target combined --pretty` passes from the preview-connected shell
 
 Preview is not the final promotion gate.
 
@@ -155,6 +158,7 @@ Minimum staging checks:
    - `BETTER_AUTH_URL`
    - `VITE_API_BASE_URL`
 5. capture the screenshot set and notes described in [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
+6. `bun run deploy:check-env -- --environment staging --target combined --pretty` passes from the staging-connected shell
 
 ## Release Checklist
 
@@ -165,6 +169,7 @@ Before promoting a deploy:
 3. `bun run test`
 4. `bun run smoke`
 5. `bun run report:alpha --pretty`
-6. confirm the target Railway environment variables are aligned
-7. confirm the API service ran `bun run db:migrate`
-8. confirm preview or staging verification notes are current for the commit being promoted
+6. `bun run deploy:check-env -- --environment <preview|staging|private-alpha> --target combined --pretty`
+7. confirm the target Railway environment variables are aligned
+8. confirm the API service ran `bun run db:migrate`
+9. confirm preview or staging verification notes are current for the commit being promoted
