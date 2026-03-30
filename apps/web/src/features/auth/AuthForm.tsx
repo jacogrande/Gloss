@@ -108,7 +108,11 @@ export const AuthForm = ({
           />
         </label>
 
-        {errorMessage ? <p className="auth-card__error">{errorMessage}</p> : null}
+        {errorMessage ? (
+          <p className="auth-card__error" role="alert">
+            {errorMessage}
+          </p>
+        ) : null}
 
         <button className="auth-card__submit" disabled={isPending} type="submit">
           {isPending

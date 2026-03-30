@@ -1,9 +1,11 @@
 import { defineConfig } from "@playwright/test";
 
 const repoRoot = process.cwd();
-const apiOrigin = "http://127.0.0.1:8878";
-const webOrigin = "http://127.0.0.1:4174";
 const databaseUrl = "postgresql://gloss:gloss@127.0.0.1:54329/gloss";
+const apiPort = Number(process.env.PLAYWRIGHT_API_PORT ?? "8878");
+const webPort = Number(process.env.PLAYWRIGHT_WEB_PORT ?? "4174");
+const apiOrigin = `http://127.0.0.1:${String(apiPort)}`;
+const webOrigin = `http://127.0.0.1:${String(webPort)}`;
 
 export default defineConfig({
   fullyParallel: false,
@@ -11,6 +13,7 @@ export default defineConfig({
   reporter: "line",
   testDir: "./e2e/specs",
   timeout: 30_000,
+  workers: 1,
   use: {
     baseURL: webOrigin,
     screenshot: "only-on-failure",
@@ -29,7 +32,7 @@ export default defineConfig({
         DATABASE_URL: databaseUrl,
         LOG_LEVEL: "error",
         NODE_ENV: "test",
-        PORT: "8878",
+        PORT: String(apiPort),
         WEB_ORIGIN: webOrigin,
       },
       reuseExistingServer: false,
@@ -38,7 +41,7 @@ export default defineConfig({
     },
     {
       command:
-        "bun run dev:web -- --host 127.0.0.1 --port 4174 --strictPort",
+        `bun run dev:web -- --host 127.0.0.1 --port ${String(webPort)} --strictPort`,
       cwd: repoRoot,
       env: {
         ...process.env,

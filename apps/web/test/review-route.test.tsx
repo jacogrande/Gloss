@@ -28,6 +28,7 @@ import type {
   startReviewSession as startReviewSessionType,
   submitReviewCard as submitReviewCardType,
 } from "../src/lib/api-client";
+import { ApiClientError } from "../src/lib/http";
 import { ReviewRoute } from "../src/routes/review-route";
 
 const {
@@ -35,9 +36,11 @@ const {
   fetchReviewSession,
   startReviewSession,
   submitReviewCard,
+  setSession,
 } = vi.hoisted(() => ({
   fetchReviewQueue: vi.fn<typeof fetchReviewQueueType>(),
   fetchReviewSession: vi.fn<typeof fetchReviewSessionType>(),
+  setSession: vi.fn(),
   startReviewSession: vi.fn<typeof startReviewSessionType>(),
   submitReviewCard: vi.fn<typeof submitReviewCardType>(),
 }));
@@ -54,6 +57,15 @@ vi.mock("../src/lib/env", () => ({
     MODE: "test",
     VITE_API_BASE_URL: "http://127.0.0.1:8787",
   },
+}));
+
+vi.mock("../src/features/auth/session-provider", () => ({
+  useSessionState: () => ({
+    refreshSession: vi.fn(),
+    session: null,
+    setSession,
+    status: "authenticated",
+  }),
 }));
 
 const createQueue = (): ReviewQueueSummary => ({
@@ -102,6 +114,76 @@ const createActiveSession = (): ReviewSessionDetail => ({
     cardCount: 1,
     completedAt: null,
     currentCardId: "card_1",
+    id: "session_1",
+    remainingCount: 1,
+    startedAt: "2026-03-29T00:00:00.000Z",
+    status: "active",
+  },
+});
+
+const createAdvancedSession = (): ReviewSessionDetail => ({
+  cards: [
+    {
+      dimension: "recognition",
+      exerciseType: "meaning_in_context",
+      generationSource: "template",
+      id: "card_1",
+      position: 0,
+      promptPayload: {
+        choices: [
+          {
+            id: "choice_1",
+            label: "Especially clear and easy to follow.",
+          },
+          {
+            id: "choice_2",
+            label: "Mostly careless and imprecise.",
+          },
+          {
+            id: "choice_3",
+            label: "Mainly casual or unserious.",
+          },
+        ],
+        question: "What does pellucid mean here?",
+        sentence: "Her explanation was pellucid even under pressure.",
+        type: "meaning_in_context",
+        word: "pellucid",
+      },
+      status: "answered",
+    },
+    {
+      dimension: "distinction",
+      exerciseType: "contrastive_choice",
+      generationSource: "template",
+      id: "card_2",
+      position: 1,
+      promptPayload: {
+        choices: [
+          {
+            id: "choice_4",
+            label: "verbose",
+          },
+          {
+            id: "choice_5",
+            label: "lucid",
+          },
+          {
+            id: "choice_6",
+            label: "casual",
+          },
+        ],
+        question: "Which contrast best fits pellucid here?",
+        sentence: "Her explanation was pellucid even under pressure.",
+        type: "contrastive_choice",
+        word: "pellucid",
+      },
+      status: "pending",
+    },
+  ],
+  session: {
+    cardCount: 2,
+    completedAt: null,
+    currentCardId: "card_2",
     id: "session_1",
     remainingCount: 1,
     startedAt: "2026-03-29T00:00:00.000Z",
@@ -171,5 +253,56 @@ describe("ReviewRoute", () => {
 
     expect(submitReviewCard).toHaveBeenCalledTimes(1);
     expect(fetchReviewQueue).toHaveBeenCalled();
+  });
+
+  it("refreshes the session after a stale-card conflict", async () => {
+    const activeSession = createActiveSession();
+    const advancedSession = createAdvancedSession();
+
+    fetchReviewQueue.mockImplementation(() => Promise.resolve(createQueue()));
+    startReviewSession.mockResolvedValue(activeSession);
+    submitReviewCard.mockRejectedValueOnce(
+      new ApiClientError(
+        "REVIEW_CONFLICT",
+        "Review card has already been answered.",
+      ),
+    );
+    fetchReviewSession.mockResolvedValueOnce(advancedSession);
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: "Review" });
+    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await screen.findByRole("heading", { name: "pellucid" });
+
+    await userEvent.click(
+      screen.getByRole("radio", {
+        name: /Especially clear and easy to follow/i,
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toBeVisible();
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This review changed elsewhere. The latest card is shown here.",
+    );
+    expect(fetchReviewSession).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787",
+      "session_1",
+    );
+    expect(
+      screen.getByRole("radio", {
+        name: /verbose/i,
+      }),
+    ).toBeVisible();
   });
 });

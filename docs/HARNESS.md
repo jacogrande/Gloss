@@ -127,11 +127,11 @@ These scripts are part of the harness and should be implemented as the repo is s
 - `bun run test:integration`
   API, DB, schema, and provider boundary tests.
 - `bun run test:e2e`
-  Full Playwright suite against local services.
+  Full Playwright suite against local services. The runner chooses isolated local web/API ports automatically to avoid stale-port collisions.
 - `bun run test:e2e:live`
   Full Playwright suite against local services with live enrichment providers.
 - `bun run smoke`
-  Short Playwright happy-path journey set.
+  Short Playwright happy-path journey set. Uses the same isolated local browser-test runner as `test:e2e`.
 - `bun run smoke:live`
   Short Playwright smoke set against local services with live enrichment providers.
 

@@ -54,18 +54,31 @@ export const parseResponseBody = async (response: Response): Promise<unknown> =>
 };
 
 const parseApiError = (value: unknown): ApiClientError | null => {
-  if (!isRecord(value) || value.ok !== false || !isRecord(value.error)) {
+  if (!isRecord(value)) {
     return null;
   }
 
-  const code = value.error.code;
-  const message = value.error.message;
+  if (value.ok === false && isRecord(value.error)) {
+    const code = value.error.code;
+    const message = value.error.message;
 
-  if (typeof code !== "string" || typeof message !== "string") {
-    return null;
+    if (typeof code === "string" && typeof message === "string") {
+      return new ApiClientError(code, message);
+    }
   }
 
-  return new ApiClientError(code, message);
+  if (typeof value.message === "string") {
+    const code =
+      typeof value.code === "string"
+        ? value.code
+        : typeof value.error === "string"
+          ? value.error
+          : "REQUEST_FAILED";
+
+    return new ApiClientError(code, value.message);
+  }
+
+  return null;
 };
 
 export const toApiClientError = (
@@ -85,16 +98,23 @@ type RequestDocumentInput = {
 export const requestDocument = async (
   input: RequestDocumentInput,
 ): Promise<unknown> => {
+  const method = input.method ?? "GET";
   const requestInit: RequestInit = {
     credentials: "include",
     headers: {
       accept: "application/json",
     },
-    method: input.method ?? "GET",
+    method,
   };
 
   if (input.body) {
     requestInit.body = JSON.stringify(input.body);
+    requestInit.headers = {
+      ...requestInit.headers,
+      "content-type": "application/json",
+    };
+  } else if (method === "POST") {
+    requestInit.body = JSON.stringify({});
     requestInit.headers = {
       ...requestInit.headers,
       "content-type": "application/json",

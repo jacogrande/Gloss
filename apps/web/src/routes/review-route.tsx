@@ -5,6 +5,7 @@ import {
   useState,
   type JSX,
 } from "react";
+import { useNavigate } from "react-router-dom";
 
 import type {
   ReviewCard,
@@ -12,6 +13,7 @@ import type {
   ReviewSessionDetail,
 } from "@gloss/shared/types";
 
+import { useSessionState } from "../features/auth/session-provider";
 import {
   fetchReviewQueue,
   fetchReviewSession,
@@ -19,6 +21,7 @@ import {
   submitReviewCard,
 } from "../lib/api-client";
 import { webEnv } from "../lib/env";
+import { ApiClientError } from "../lib/http";
 import { useAsyncResource } from "../lib/use-async-resource";
 
 const getCurrentCard = (
@@ -27,6 +30,8 @@ const getCurrentCard = (
   session?.cards.find((card) => card.status === "pending") ?? null;
 
 export const ReviewRoute = (): JSX.Element => {
+  const navigate = useNavigate();
+  const sessionState = useSessionState();
   const [session, setSession] = useState<ReviewSessionDetail | null>(null);
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
@@ -52,6 +57,48 @@ export const ReviewRoute = (): JSX.Element => {
     setRefreshKey((current) => current + 1);
   });
 
+  const handleUnauthorized = useEffectEvent(async (): Promise<void> => {
+    sessionState.setSession(null);
+    await navigate("/login", { replace: true });
+  });
+
+  const reconcileSessionConflict = useEffectEvent(
+    async (message: string): Promise<void> => {
+      if (!session?.session.id) {
+        setSession(null);
+        setSessionMessage(message);
+        refreshQueue();
+        return;
+      }
+
+      try {
+        const nextSession = await fetchReviewSession(
+          webEnv.VITE_API_BASE_URL,
+          session.session.id,
+        );
+
+        setSession(nextSession);
+        setSessionMessage(message);
+        setSelectedChoiceId(null);
+        cardStartedAt.current = Date.now();
+        lastLoadedSessionId.current = nextSession.session.id;
+        refreshQueue();
+      } catch (error) {
+        if (
+          error instanceof ApiClientError &&
+          error.code === "AUTH_UNAUTHORIZED"
+        ) {
+          await handleUnauthorized();
+          return;
+        }
+
+        setSession(null);
+        setSessionMessage(message);
+        refreshQueue();
+      }
+    },
+  );
+
   const loadSession = useEffectEvent(async (sessionId: string): Promise<void> => {
     try {
       const nextSession = await fetchReviewSession(
@@ -65,6 +112,14 @@ export const ReviewRoute = (): JSX.Element => {
       cardStartedAt.current = Date.now();
       lastLoadedSessionId.current = sessionId;
     } catch (error) {
+      if (
+        error instanceof ApiClientError &&
+        error.code === "AUTH_UNAUTHORIZED"
+      ) {
+        await handleUnauthorized();
+        return;
+      }
+
       setSessionMessage(
         error instanceof Error
           ? error.message
@@ -108,6 +163,14 @@ export const ReviewRoute = (): JSX.Element => {
       lastLoadedSessionId.current = nextSession.session.id;
       refreshQueue();
     } catch (error) {
+      if (
+        error instanceof ApiClientError &&
+        error.code === "AUTH_UNAUTHORIZED"
+      ) {
+        await handleUnauthorized();
+        return;
+      }
+
       setQueueMessage(
         error instanceof Error
           ? error.message
@@ -140,6 +203,24 @@ export const ReviewRoute = (): JSX.Element => {
       setSelectedChoiceId(null);
       refreshQueue();
     } catch (error) {
+      if (
+        error instanceof ApiClientError &&
+        error.code === "AUTH_UNAUTHORIZED"
+      ) {
+        await handleUnauthorized();
+        return;
+      }
+
+      if (
+        error instanceof ApiClientError &&
+        error.code === "REVIEW_CONFLICT"
+      ) {
+        await reconcileSessionConflict(
+          "This review changed elsewhere. The latest card is shown here.",
+        );
+        return;
+      }
+
       setSessionMessage(
         error instanceof Error
           ? error.message
@@ -217,7 +298,11 @@ export const ReviewRoute = (): JSX.Element => {
             })}
           </div>
 
-          {sessionMessage ? <p className="capture-form__error">{sessionMessage}</p> : null}
+          {sessionMessage ? (
+            <p className="capture-form__error" role="alert">
+              {sessionMessage}
+            </p>
+          ) : null}
 
           <div className="review-card__actions">
             <button

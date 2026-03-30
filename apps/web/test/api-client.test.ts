@@ -137,6 +137,19 @@ describe("fetchSessionSnapshot", () => {
     fetchMock.mockRestore();
   });
 
+  it("rejects empty trimmed seed words before issuing a request", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+
+    await expect(() =>
+      createSeed("http://127.0.0.1:8787", {
+        word: "   ",
+      }),
+    ).rejects.toThrow("Enter a word or phrase.");
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockRestore();
+  });
+
   it("loads a typed seed list", async () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(

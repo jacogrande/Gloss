@@ -54,11 +54,15 @@ const run = async (): Promise<void> => {
   const args = process.argv.slice(2);
   const mode = getMode(args);
   const child = spawn(
-    "bunx",
-    createPlaywrightArgs({
-      forwardedArgs: getForwardedArgs(args),
-      mode,
-    }),
+    "bun",
+    [
+      "run",
+      "scripts/run-playwright.ts",
+      ...createPlaywrightArgs({
+        forwardedArgs: getForwardedArgs(args),
+        mode,
+      }).slice(2),
+    ],
     {
       cwd: process.cwd(),
       env: createLiveEnv(process.env),

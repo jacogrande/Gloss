@@ -232,6 +232,20 @@ Current smoke scope:
 - review session start
 - review card submission
 
+### `bun run test:e2e`
+
+Use for:
+
+- browser-visible auth error states
+- session persistence and forced re-auth after cookie loss
+- capture validation and cross-user isolation
+- review stale-tab conflict recovery and completed-session behavior
+
+Current e2e runner behavior:
+
+- chooses isolated local web and API ports automatically before booting Playwright services
+- runs serially against one local database to reduce shared-state flake
+
 ### `bun run eval`
 
 Use for:

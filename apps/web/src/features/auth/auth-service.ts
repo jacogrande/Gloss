@@ -1,4 +1,4 @@
-import { requestDocument } from "../../lib/http";
+import { ApiClientError, requestDocument } from "../../lib/http";
 import { webEnv } from "../../lib/env";
 
 type AuthFormFields = {
@@ -9,7 +9,17 @@ type AuthFormFields = {
 
 const toErrorMessage = (value: unknown): string => {
   if (value instanceof Error && value.message.length > 0) {
-    return value.message;
+    const message = value.message.trim();
+
+    if (/user not found|invalid password|invalid email or password/i.test(message)) {
+      return "Incorrect email or password.";
+    }
+
+    if (value instanceof ApiClientError && value.code === "AUTH_UNAUTHORIZED") {
+      return "Your session expired. Sign in again.";
+    }
+
+    return message;
   }
 
   return "The request could not be completed.";

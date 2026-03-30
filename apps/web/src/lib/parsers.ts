@@ -492,13 +492,26 @@ export const parseListSeedsQuery = (value: ListSeedsQuery): ListSeedsQuery => {
 
 export const parseCreateSeedInput = (value: CreateSeedInput): CreateSeedInput => {
   const record = readRecord(value);
-  const word = readString(record.word);
+  const rawWord = record.word;
+
+  if (typeof rawWord !== "string") {
+    throw new Error("Enter a word or phrase.");
+  }
+
+  const word = rawWord.trim();
+
+  if (word.length === 0) {
+    throw new Error("Enter a word or phrase.");
+  }
 
   if (word.length > 160) {
     throw new Error("Word is too long.");
   }
 
-  return value;
+  return {
+    ...value,
+    word,
+  };
 };
 
 export const parseReviewSubmissionInput = (

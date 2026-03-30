@@ -1,0 +1,143 @@
+import {
+  expect,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
+
+export const createHarnessEmail = (prefix: string): string =>
+  `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@gloss.local`;
+
+export const signInThroughUi = async (input: {
+  email: string;
+  page: Page;
+  password?: string;
+}): Promise<void> => {
+  await input.page.goto("/login");
+  await input.page.getByLabel("Email").fill(input.email);
+  await input.page
+    .getByLabel("Password")
+    .fill(input.password ?? "password1234");
+  await input.page
+    .getByTestId("auth-form")
+    .getByRole("button", { name: "Sign in" })
+    .click();
+};
+
+export const signUpThroughUi = async (input: {
+  email: string;
+  name: string;
+  page: Page;
+  password?: string;
+}): Promise<void> => {
+  await input.page.goto("/login");
+  await input.page.getByRole("button", { name: "Create account" }).click();
+  await input.page.getByLabel("Name").fill(input.name);
+  await input.page.getByLabel("Email").fill(input.email);
+  await input.page
+    .getByLabel("Password")
+    .fill(input.password ?? "password1234");
+  await input.page
+    .getByTestId("auth-form")
+    .getByRole("button", { name: "Create account" })
+    .click();
+};
+
+export const signOutThroughUi = async (page: Page): Promise<void> => {
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+};
+
+export const captureSeedThroughUi = async (input: {
+  page: Page;
+  sentence?: string;
+  sourceAuthor?: string;
+  sourceKind?: "article" | "book" | "manual" | "other";
+  sourceTitle?: string;
+  sourceUrl?: string;
+  word: string;
+}): Promise<void> => {
+  await input.page.goto("/capture");
+  await input.page.getByLabel("Word or phrase").fill(input.word);
+
+  if (input.sentence !== undefined) {
+    await input.page.getByLabel("Sentence").fill(input.sentence);
+  }
+
+  if (input.sourceKind !== undefined) {
+    await input.page.getByLabel("Source type").selectOption(input.sourceKind);
+  }
+
+  if (input.sourceTitle !== undefined) {
+    await input.page.getByLabel("Source title").fill(input.sourceTitle);
+  }
+
+  if (input.sourceAuthor !== undefined) {
+    await input.page.getByLabel("Author").fill(input.sourceAuthor);
+  }
+
+  if (input.sourceUrl !== undefined) {
+    await input.page.getByLabel("URL").fill(input.sourceUrl);
+  }
+
+  await input.page.getByRole("button", { name: "Save seed" }).click();
+};
+
+export const clearCookiesAndReload = async (
+  context: BrowserContext,
+  page: Page,
+  pathname: string,
+): Promise<void> => {
+  await context.clearCookies();
+  await page.goto(pathname);
+};
+
+export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
+  const remaining = await page
+    .locator(".review__queue-summary")
+    .textContent()
+    .catch(() => null);
+
+  await page.getByRole("radio").first().click();
+  await page.getByRole("button", { name: "Submit" }).click();
+
+  await expect
+    .poll(async () => {
+      if (
+        await page
+          .getByRole("heading", { name: "Session finished" })
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return "completed";
+      }
+
+      const nextRemaining = await page
+        .locator(".review__queue-summary")
+        .textContent()
+        .catch(() => null);
+
+      if (remaining !== null && nextRemaining !== null && nextRemaining !== remaining) {
+        return "advanced";
+      }
+
+      return "pending";
+    }, {
+      timeout: 10_000,
+    })
+    .toMatch(/advanced|completed/);
+};
+
+export const openReviewSession = async (page: Page): Promise<void> => {
+  await page.goto("/review");
+
+  if (
+    await page
+      .getByRole("button", { name: "Start review" })
+      .isVisible()
+      .catch(() => false)
+  ) {
+    await page.getByRole("button", { name: "Start review" }).click();
+  }
+
+  await expect(page.locator(".review-card__question")).toBeVisible();
+};

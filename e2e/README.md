@@ -35,3 +35,14 @@ Current `bun run smoke` is the Playwright entrypoint for these flows. It should 
 - provider-specific internals
 
 Use unit, integration, and eval layers for those.
+
+## Regression Coverage
+
+`bun run test:e2e` should stay broader than smoke, but still small enough to be reliable with one shared local database.
+
+Current regression focus:
+
+1. sign-in and sign-up error or recovery states
+2. session persistence and forced re-auth after cookie loss
+3. capture validation and cross-user isolation
+4. review stale-tab conflict recovery and completed-session behavior
