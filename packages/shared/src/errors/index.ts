@@ -55,6 +55,17 @@ export const notFoundError = (
     ...(requestId ? { requestId } : {}),
   });
 
+export const rateLimitedError = (
+  message: string,
+  requestId?: string,
+): AppError =>
+  new AppError({
+    code: "RATE_LIMITED",
+    message,
+    status: 429,
+    ...(requestId ? { requestId } : {}),
+  });
+
 export const validationError = (
   message: string,
   requestId?: string,

@@ -1,6 +1,7 @@
 import { createDatabaseClient } from "../apps/api/src/lib/db";
 import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../apps/api/src/lib/local-postgres";
 import { applyMigrations } from "../apps/api/src/lib/migrations";
+import { withPostgresAdvisoryLock } from "../apps/api/src/lib/postgres-lock";
 import { resolveScriptEnv } from "./lib/env";
 import { seedDatabase } from "./lib/seed";
 
@@ -13,8 +14,16 @@ const run = async (): Promise<void> => {
   const database = createDatabaseClient(env.DATABASE_URL);
 
   try {
-    await applyMigrations({ pool: database.pool });
-    const result = await seedDatabase({ database, env });
+    const result = await withPostgresAdvisoryLock({
+      key: env.DATABASE_URL,
+      namespace: "gloss.local-database-admin",
+      pool: database.pool,
+      run: async () => {
+        await applyMigrations({ pool: database.pool });
+
+        return seedDatabase({ database, env });
+      },
+    });
 
     console.log(JSON.stringify(result));
   } finally {

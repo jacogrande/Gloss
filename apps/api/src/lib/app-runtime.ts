@@ -18,6 +18,10 @@ import {
   type ProfileService,
 } from "../services/profile-service";
 import {
+  createDefaultRequestRateLimitService,
+  type RequestRateLimitService,
+} from "../services/request-rate-limit-service";
+import {
   createDefaultReviewService,
   type ReviewService,
 } from "../services/review-service";
@@ -25,6 +29,7 @@ import {
   createSeedService,
   type SeedService,
 } from "../services/seed-service";
+import type { RequestRateLimitPolicies } from "./request-rate-limit-contracts";
 
 export type AppRuntime = {
   app: ReturnType<typeof createApp>;
@@ -35,6 +40,7 @@ export type AppRuntime = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  requestRateLimitService: RequestRateLimitService;
   reviewService: ReviewService;
   seedService: SeedService;
 };
@@ -44,6 +50,8 @@ export const createAppRuntime = (input: {
   enrichmentProviders?: EnrichmentProviders;
   env: ServerEnv;
   logger?: Logger;
+  requestRateLimitPolicies?: RequestRateLimitPolicies;
+  requestRateLimitService?: RequestRateLimitService;
 }): AppRuntime => {
   const database =
     input.database ?? createDatabaseClient(input.env.DATABASE_URL);
@@ -65,6 +73,17 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
   });
+  const requestRateLimitService =
+    input.requestRateLimitService ??
+    createDefaultRequestRateLimitService({
+      db: database.db,
+      logger,
+      ...(input.requestRateLimitPolicies
+        ? {
+            policies: input.requestRateLimitPolicies,
+          }
+        : {}),
+    });
   const auth = createAuth({
     env: input.env,
     logger,
@@ -77,6 +96,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    requestRateLimitService,
     reviewService,
     seedService,
   });
@@ -101,6 +121,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    requestRateLimitService,
     reviewService,
     seedService,
   };

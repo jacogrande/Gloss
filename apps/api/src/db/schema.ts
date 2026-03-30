@@ -228,6 +228,37 @@ type ReviewTraceValidationResult = {
   issues: string[];
 };
 
+export const requestRateLimitsTable = pgTable(
+  "request_rate_limits",
+  {
+    actorKey: text("actor_key").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    id: text("id").primaryKey(),
+    policyKey: text("policy_key").notNull(),
+    requestCount: integer("request_count").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    windowSeconds: integer("window_seconds").notNull(),
+    windowStartedAt: timestamp("window_started_at", { withTimezone: true })
+      .notNull(),
+  },
+  (table) => ({
+    actorPolicyWindowUniqueIndex: uniqueIndex(
+      "request_rate_limits_actor_policy_window_uidx",
+    ).on(table.actorKey, table.policyKey, table.windowStartedAt),
+    actorPolicyIndex: index("request_rate_limits_actor_policy_idx").on(
+      table.actorKey,
+      table.policyKey,
+    ),
+    updatedAtIndex: index("request_rate_limits_updated_at_idx").on(table.updatedAt),
+  }),
+);
+
+export type RequestRateLimitRow = typeof requestRateLimitsTable.$inferSelect;
+
 export const reviewStatesTable = pgTable(
   "review_states",
   {

@@ -4,6 +4,7 @@ import { loadServerEnv } from "../src/lib/env";
 import type { EnrichmentProviders } from "../src/lib/enrichment-providers";
 import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../src/lib/local-postgres";
 import { applyMigrations, resetDatabase } from "../src/lib/migrations";
+import type { RequestRateLimitPolicies } from "../src/lib/request-rate-limit-contracts";
 
 const defaultDatabaseUrl = "postgresql://gloss:gloss@127.0.0.1:54329/gloss";
 
@@ -25,6 +26,7 @@ export type TestContext = {
 
 export const createTestContext = async (input?: {
   enrichmentProviders?: EnrichmentProviders;
+  requestRateLimitPolicies?: RequestRateLimitPolicies;
 }): Promise<TestContext> => {
   const testDatabaseUrl = deriveTestDatabaseUrl(
     process.env.DATABASE_URL ?? defaultDatabaseUrl,
@@ -54,6 +56,11 @@ export const createTestContext = async (input?: {
     ...(input?.enrichmentProviders
       ? {
           enrichmentProviders: input.enrichmentProviders,
+        }
+      : {}),
+    ...(input?.requestRateLimitPolicies
+      ? {
+          requestRateLimitPolicies: input.requestRateLimitPolicies,
         }
       : {}),
   });

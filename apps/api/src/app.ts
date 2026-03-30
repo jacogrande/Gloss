@@ -15,6 +15,7 @@ import { registerReviewRoutes } from "./routes/review";
 import { registerSeedRoutes } from "./routes/seeds";
 import type { EnrichmentService } from "./services/enrichment-service";
 import type { ProfileService } from "./services/profile-service";
+import type { RequestRateLimitService } from "./services/request-rate-limit-service";
 import type { ReviewService } from "./services/review-service";
 import type { SeedService } from "./services/seed-service";
 
@@ -24,6 +25,7 @@ type AppDependencies = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  requestRateLimitService: RequestRateLimitService;
   reviewService: ReviewService;
   seedService: SeedService;
 };
@@ -52,6 +54,7 @@ export const createApp = ({
   env,
   logger,
   profileService,
+  requestRateLimitService,
   reviewService,
   seedService,
 }: AppDependencies): GlossApp => {
@@ -103,9 +106,14 @@ export const createApp = ({
 
   registerHealthRoute(app, env);
   registerMeRoute(app, { auth, profileService });
-  registerCaptureRoutes(app, { auth, seedService });
-  registerReviewRoutes(app, { auth, reviewService });
-  registerSeedRoutes(app, { auth, enrichmentService, seedService });
+  registerCaptureRoutes(app, { auth, requestRateLimitService, seedService });
+  registerReviewRoutes(app, { auth, requestRateLimitService, reviewService });
+  registerSeedRoutes(app, {
+    auth,
+    enrichmentService,
+    requestRateLimitService,
+    seedService,
+  });
 
   app.notFound((context) =>
     {
@@ -156,7 +164,7 @@ export const createApp = ({
 
     return context.json(
       response.body,
-      response.status as 400 | 401 | 404 | 409 | 500,
+      response.status as 400 | 401 | 404 | 409 | 429 | 500,
     );
   });
 

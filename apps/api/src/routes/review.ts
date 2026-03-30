@@ -10,10 +10,12 @@ import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
 import { jsonSuccess } from "../lib/http";
 import { requireSession } from "../lib/session";
+import type { RequestRateLimitService } from "../services/request-rate-limit-service";
 import type { ReviewService } from "../services/review-service";
 
 type ReviewRouteDependencies = {
   auth: GlossAuth;
+  requestRateLimitService: RequestRateLimitService;
   reviewService: ReviewService;
 };
 
@@ -52,6 +54,11 @@ export const registerReviewRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
+    await dependencies.requestRateLimitService.enforce({
+      actorKey: String(session.user.id),
+      policyKey: "review.session.start",
+      requestId: context.get("requestId"),
+    });
     const input = createReviewSessionInputSchema.parse(
       (await context.req.json().catch(() => ({}))) as unknown,
     );
@@ -107,6 +114,11 @@ export const registerReviewRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
+    await dependencies.requestRateLimitService.enforce({
+      actorKey: String(session.user.id),
+      policyKey: "review.session.submit",
+      requestId: context.get("requestId"),
+    });
     const input = reviewSubmissionInputSchema.parse(
       (await context.req.json()) as unknown,
     );

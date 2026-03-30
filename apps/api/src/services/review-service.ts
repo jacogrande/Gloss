@@ -14,6 +14,7 @@ import type { Pool } from "pg";
 
 import type { DatabaseClient, GlossDatabase } from "../lib/db";
 import type { Logger } from "../lib/logger";
+import { withPostgresAdvisoryLock } from "../lib/postgres-lock";
 import type {
   SeedContextRow,
   SeedEnrichmentRow,
@@ -68,46 +69,6 @@ export type ReviewService = {
 };
 
 const defaultSessionLimit = 4;
-
-const hashLockKey = (value: string): number => {
-  let hash = 0;
-
-  for (const character of value) {
-    hash = Math.imul(hash, 31) + character.charCodeAt(0);
-    hash |= 0;
-  }
-
-  return hash;
-};
-
-const withAdvisoryLock = async <TValue>(input: {
-  key: string;
-  namespace: string;
-  pool: Pool;
-  run: () => Promise<TValue>;
-}): Promise<TValue> => {
-  const client = await input.pool.connect();
-  const namespaceKey = hashLockKey(input.namespace);
-  const resourceKey = hashLockKey(input.key);
-
-  try {
-    await client.query("SELECT pg_advisory_lock($1, $2)", [
-      namespaceKey,
-      resourceKey,
-    ]);
-
-    return await input.run();
-  } finally {
-    try {
-      await client.query("SELECT pg_advisory_unlock($1, $2)", [
-        namespaceKey,
-        resourceKey,
-      ]);
-    } finally {
-      client.release();
-    }
-  }
-};
 
 const isUniqueViolation = (error: unknown): boolean =>
   typeof error === "object" &&
@@ -258,7 +219,7 @@ export const createReviewService = (input: {
       return toReviewSessionDetail(persisted);
     },
     async startOrResumeSession({ limit = defaultSessionLimit, requestId, userId }) {
-      return withAdvisoryLock({
+      return withPostgresAdvisoryLock({
         key: userId,
         namespace: "review.session.start",
         pool: input.pool,
@@ -355,7 +316,7 @@ export const createReviewService = (input: {
         );
       }
 
-      const submissionResult = await withAdvisoryLock({
+      const submissionResult = await withPostgresAdvisoryLock({
         key: card.seedId,
         namespace: "review.session.submit",
         pool: input.pool,

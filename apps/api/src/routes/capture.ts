@@ -7,10 +7,12 @@ import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
 import { jsonSuccess } from "../lib/http";
 import { requireSession } from "../lib/session";
+import type { RequestRateLimitService } from "../services/request-rate-limit-service";
 import type { SeedService } from "../services/seed-service";
 
 type CaptureRouteDependencies = {
   auth: GlossAuth;
+  requestRateLimitService: RequestRateLimitService;
   seedService: SeedService;
 };
 
@@ -27,6 +29,11 @@ export const registerCaptureRoutes = (
     });
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
+    await dependencies.requestRateLimitService.enforce({
+      actorKey: String(session.user.id),
+      policyKey: "capture.create",
+      requestId: context.get("requestId"),
+    });
     const body = createSeedInputSchema.parse(await context.req.json());
     const dbStartedAt = performance.now();
     const createdSeed = await dependencies.seedService.createSeed({

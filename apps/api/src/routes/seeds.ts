@@ -10,11 +10,13 @@ import type { GlossAuth } from "../lib/auth";
 import { jsonSuccess } from "../lib/http";
 import { requireSession } from "../lib/session";
 import type { EnrichmentService } from "../services/enrichment-service";
+import type { RequestRateLimitService } from "../services/request-rate-limit-service";
 import type { SeedService } from "../services/seed-service";
 
 type SeedsRouteDependencies = {
   auth: GlossAuth;
   enrichmentService: EnrichmentService;
+  requestRateLimitService: RequestRateLimitService;
   seedService: SeedService;
 };
 
@@ -89,6 +91,11 @@ export const registerSeedRoutes = (
     context.set("sessionId", String(session.session.id));
     const seedId = context.req.param("seedId");
     context.set("seedId", seedId);
+    await dependencies.requestRateLimitService.enforce({
+      actorKey: String(session.user.id),
+      policyKey: "seeds.enrich",
+      requestId: context.get("requestId"),
+    });
 
     const enrichment = await dependencies.enrichmentService.requestSeedEnrichment({
       requestId: context.get("requestId"),
