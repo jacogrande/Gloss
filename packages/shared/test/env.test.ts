@@ -31,6 +31,19 @@ describe("environment parsing", () => {
     ).toThrowError("Invalid server environment");
   });
 
+  it("rejects COOKIE_DOMAIN values that include a scheme or port", () => {
+    expect(() =>
+      parseServerEnv({
+        API_ORIGIN: "https://api.preview.gloss.test",
+        BETTER_AUTH_SECRET: "secret",
+        BETTER_AUTH_URL: "https://api.preview.gloss.test",
+        COOKIE_DOMAIN: "https://preview.gloss.test:443",
+        DATABASE_URL: "postgresql://gloss:gloss@127.0.0.1:54329/gloss",
+        WEB_ORIGIN: "https://app.preview.gloss.test",
+      }),
+    ).toThrowError("COOKIE_DOMAIN");
+  });
+
   it("parses the web environment contract", () => {
     const env = parseWebEnv({
       MODE: "development",

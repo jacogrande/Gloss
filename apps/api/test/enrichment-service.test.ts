@@ -17,6 +17,7 @@ import { createEnrichmentService } from "../src/services/enrichment-service";
 import type { SeedEnrichmentRepository } from "../src/repositories/seed-enrichment-repository";
 import type { SeedRepository } from "../src/repositories/seed-repository";
 import type { RequestRateLimitService } from "../src/services/request-rate-limit-service";
+import type { ProductEventService } from "../src/services/product-event-service";
 
 const createLogger = (): Logger => ({
   debug: vi.fn(),
@@ -154,6 +155,12 @@ const createRateLimitService = (): RequestRateLimitService => ({
   ),
 });
 
+const createProductEventService = (): ProductEventService => ({
+  listEvents: vi.fn(() => Promise.resolve([])),
+  listSeedSnapshots: vi.fn(() => Promise.resolve([])),
+  record: vi.fn(() => Promise.resolve()),
+});
+
 const createPool = (): {
   connect: () => Promise<{
     query: (sql: string) => Promise<{
@@ -197,6 +204,7 @@ describe("enrichment service", () => {
       logger,
       pool: createPool() as never,
       providers,
+      productEventService: createProductEventService(),
       requestRateLimitService: createRateLimitService(),
       repository,
       seedEnrichmentRepository,

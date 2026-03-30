@@ -9,10 +9,12 @@ import {
   notFoundError,
 } from "@gloss/shared/errors";
 import type {
+  ApiErrorCode,
   LexicalEvidenceSnapshot,
   SeedDetail,
   SeedEnrichment,
 } from "@gloss/shared/types";
+import { productEventSchemaVersion } from "@gloss/shared/contracts";
 
 import type { Logger } from "../lib/logger";
 import type { GlossDatabase } from "../lib/db";
@@ -40,6 +42,7 @@ import {
   type SeedRepository,
 } from "../repositories/seed-repository";
 import type { RequestRateLimitService } from "./request-rate-limit-service";
+import type { ProductEventService } from "./product-event-service";
 import type { Pool } from "pg";
 
 export type EnrichmentService = {
@@ -148,11 +151,76 @@ const measureAsync = async <TValue>(
   };
 };
 
+const recordProductEventSafely = async (input: {
+  event:
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          errorCode: ApiErrorCode;
+          model: string;
+          promptTemplateVersion: string;
+          provider: string;
+          schemaVersion: string;
+        };
+        schemaVersion: typeof productEventSchemaVersion;
+        seedId: string;
+        type: "seed.enrichment.failed";
+        userId: string;
+      }
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          guardrailFlagCount: number;
+          model: string;
+          promptTemplateVersion: string;
+          provider: string;
+          schemaVersion: string;
+        };
+        schemaVersion: typeof productEventSchemaVersion;
+        seedId: string;
+        type: "seed.enrichment.ready";
+        userId: string;
+      }
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          model: string;
+          promptTemplateVersion: string;
+          provider: string;
+          schemaVersion: string;
+        };
+        schemaVersion: typeof productEventSchemaVersion;
+        seedId: string;
+        type: "seed.enrichment.requested";
+        userId: string;
+      };
+  logger: Logger;
+  productEventService: ProductEventService;
+}): Promise<void> => {
+  try {
+    await input.productEventService.record(input.event);
+  } catch (error) {
+    input.logger.warn("product_event.record_failed", {
+      eventType: input.event.type,
+      seedId: input.event.seedId,
+      userId: input.event.userId,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unexpected non-error while recording product event.",
+    });
+  }
+};
+
 export const createEnrichmentService = (input: {
   db: GlossDatabase;
   logger: Logger;
   pool: Pool;
   providers: EnrichmentProviders;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
   repository?: SeedRepository;
   seedEnrichmentRepository?: SeedEnrichmentRepository;
@@ -224,6 +292,26 @@ export const createEnrichmentService = (input: {
         inputValue.failure.code === "ENRICHMENT_EVIDENCE_UNAVAILABLE" ? 2 : 3,
       userId: inputValue.userId,
       validationOutcome: "rejected",
+    });
+
+    await recordProductEventSafely({
+      event: {
+        actorTag: inputValue.userId,
+        occurredAt: (failedRow.failedAt ?? failedRow.updatedAt).toISOString(),
+        payload: {
+          errorCode: inputValue.failure.code,
+          model: input.providers.modelProvider.model,
+          promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
+          provider: input.providers.modelProvider.provider,
+          schemaVersion: failedRow.schemaVersion,
+        },
+        schemaVersion: productEventSchemaVersion,
+        seedId: inputValue.seedId,
+        type: "seed.enrichment.failed",
+        userId: inputValue.userId,
+      },
+      logger: input.logger,
+      productEventService: input.productEventService,
     });
 
     return toSeedEnrichment(failedRow);
@@ -329,6 +417,25 @@ export const createEnrichmentService = (input: {
       let lexicalEvidence = buildFallbackLexicalEvidence(seedDetail);
 
       input.logger.info("enrichment.started", logContext);
+
+      await recordProductEventSafely({
+        event: {
+          actorTag: userId,
+          occurredAt: pendingEnrichment.requestedAt.toISOString(),
+          payload: {
+            model: input.providers.modelProvider.model,
+            promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
+            provider: input.providers.modelProvider.provider,
+            schemaVersion: seedEnrichmentSchemaVersion,
+          },
+          schemaVersion: productEventSchemaVersion,
+          seedId,
+          type: "seed.enrichment.requested",
+          userId,
+        },
+        logger: input.logger,
+        productEventService: input.productEventService,
+      });
 
       try {
         const [relationCandidatesResult, dictionaryEntryResult] = await Promise.all([
@@ -440,6 +547,26 @@ export const createEnrichmentService = (input: {
           validationOutcome: "accepted",
         });
 
+        await recordProductEventSafely({
+          event: {
+            actorTag: userId,
+            occurredAt: (readyRow.completedAt ?? readyRow.updatedAt).toISOString(),
+            payload: {
+              guardrailFlagCount: guardedPayload.guardrailFlags.length,
+              model: input.providers.modelProvider.model,
+              promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
+              provider: input.providers.modelProvider.provider,
+              schemaVersion: readyRow.schemaVersion,
+            },
+            schemaVersion: productEventSchemaVersion,
+            seedId,
+            type: "seed.enrichment.ready",
+            userId,
+          },
+          logger: input.logger,
+          productEventService: input.productEventService,
+        });
+
         return toSeedEnrichment(readyRow);
       } catch (error) {
         const failure = toFailureError(error, requestId);
@@ -463,6 +590,7 @@ export const createDefaultEnrichmentService = (input: {
   logger: Logger;
   pool: Pool;
   providers?: EnrichmentProviders;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
 }): EnrichmentService =>
   createEnrichmentService({
@@ -470,5 +598,6 @@ export const createDefaultEnrichmentService = (input: {
     logger: input.logger,
     pool: input.pool,
     providers: input.providers ?? createEnrichmentProviders(input.env),
+    productEventService: input.productEventService,
     requestRateLimitService: input.requestRateLimitService,
   });

@@ -45,6 +45,7 @@ Default path:
 
 - use `bun run eval:add-case --print-template --dataset enrichment` to print a scaffold
 - append the new row with `bun run eval:add-case --dataset ... --category ... --id ... --journey ... --input ... --expected ... --note ...`
+- supported datasets are `capture`, `enrichment`, `enrichment-live`, `review`, and `mvp`
 
 When you add a case:
 

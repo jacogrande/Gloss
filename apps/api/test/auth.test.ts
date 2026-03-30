@@ -8,6 +8,7 @@ import {
   resolveAuthTrustedOrigins,
 } from "../src/lib/auth";
 import type { ProfileService } from "../src/services/profile-service";
+import type { ProductEventService } from "../src/services/product-event-service";
 
 const createEnv = (
   overrides?: Partial<Record<string, string>>,
@@ -67,17 +68,30 @@ describe("auth config", () => {
     });
     const pool = {} as Pool;
     const profileService = {
-      ensureProfile: async () => ({
+      ensureProfile: () =>
+        Promise.resolve({
         createdAt: new Date("2026-01-01T00:00:00.000Z"),
         updatedAt: new Date("2026-01-01T00:00:00.000Z"),
         userId: "test-user",
-      }),
-      getProfileByUserId: async () => null,
+        }),
+      getProfileByUserId: () => Promise.resolve(null),
     } as ProfileService;
+    const productEventService = {
+      listEvents: () => Promise.resolve([]),
+      listSeedSnapshots: () => Promise.resolve([]),
+      record: () => Promise.resolve(undefined),
+    } as ProductEventService;
 
     const options = createAuthOptions({
       env,
+      logger: {
+        debug: () => undefined,
+        error: () => undefined,
+        info: () => undefined,
+        warn: () => undefined,
+      },
       pool,
+      productEventService,
       profileService,
     });
 

@@ -1,4 +1,5 @@
 import type { ServerEnv } from "@gloss/shared/env";
+import { productEventSchemaVersion } from "@gloss/shared/contracts";
 import {
   notFoundError,
   reviewConflictError,
@@ -43,6 +44,7 @@ import {
   type ReviewRepository,
 } from "../repositories/review-repository";
 import type { RequestRateLimitService } from "./request-rate-limit-service";
+import type { ProductEventService } from "./product-event-service";
 import type { SourceSummaryRecord } from "../lib/seed-contracts";
 
 export type ReviewService = {
@@ -189,12 +191,77 @@ const buildCardDraft = async (input: {
   }
 };
 
+const recordReviewProductEventSafely = async (input: {
+  event:
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          cardCount: number;
+          seedIds: string[];
+        };
+        reviewSessionId: string;
+        schemaVersion: typeof productEventSchemaVersion;
+        type: "review.session.started";
+        userId: string;
+      }
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          answeredCount: number;
+          cardCount: number;
+        };
+        reviewSessionId: string;
+        schemaVersion: typeof productEventSchemaVersion;
+        type: "review.session.completed";
+        userId: string;
+      }
+    | {
+        actorTag: string;
+        occurredAt: string;
+        payload: {
+          dimension: "distinction" | "recognition" | "usage";
+          exerciseType:
+            | "contrastive_choice"
+            | "meaning_in_context"
+            | "recognition_in_fresh_sentence"
+            | "register_judgment";
+          outcome: "correct" | "incorrect" | "partial" | "skipped";
+          seedStage: "deepening" | "mature" | "new" | "stabilizing";
+        };
+        reviewSessionId: string;
+        schemaVersion: typeof productEventSchemaVersion;
+        seedId: string;
+        type: "review.card.submitted";
+        userId: string;
+      };
+  logger: Logger;
+  productEventService: ProductEventService;
+}): Promise<void> => {
+  try {
+    await input.productEventService.record(input.event);
+  } catch (error) {
+    input.logger.warn("product_event.record_failed", {
+      eventType: input.event.type,
+      reviewSessionId: input.event.reviewSessionId,
+      seedId: "seedId" in input.event ? input.event.seedId : null,
+      userId: input.event.userId,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Unexpected non-error while recording product event.",
+    });
+  }
+};
+
 export const createReviewService = (input: {
   db: GlossDatabase;
   env: ServerEnv;
   logger: Logger;
   modelProvider?: ReviewModelProvider;
   pool: Pool;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
   repository?: ReviewRepository;
 }): ReviewService => {
@@ -278,12 +345,31 @@ export const createReviewService = (input: {
           }
 
           try {
-            return toReviewSessionDetail(
-              await repository.createSessionWithCards({
-                cards,
+            const persistedSession = await repository.createSessionWithCards({
+              cards,
+              userId,
+            });
+
+            await recordReviewProductEventSafely({
+              event: {
+                actorTag: userId,
+                occurredAt: persistedSession.session.startedAt.toISOString(),
+                payload: {
+                  cardCount: persistedSession.session.cardCount,
+                  seedIds: Array.from(
+                    new Set(persistedSession.cards.map((card) => card.seedId)),
+                  ),
+                },
+                reviewSessionId: persistedSession.session.id,
+                schemaVersion: productEventSchemaVersion,
+                type: "review.session.started",
                 userId,
-              }),
-            );
+              },
+              logger: input.logger,
+              productEventService: input.productEventService,
+            });
+
+            return toReviewSessionDetail(persistedSession);
           } catch (error) {
             if (isUniqueViolation(error)) {
               const racedSession = await repository.getActiveSession({ userId });
@@ -428,6 +514,51 @@ export const createReviewService = (input: {
         },
       });
 
+      await recordReviewProductEventSafely({
+        event: {
+          actorTag: userId,
+          occurredAt: new Date().toISOString(),
+          payload: {
+            dimension: card.dimension,
+            exerciseType: card.exerciseType,
+            outcome: submissionResult.result.outcome,
+            seedStage: submissionResult.result.seedStage,
+          },
+          reviewSessionId: sessionId,
+          schemaVersion: productEventSchemaVersion,
+          seedId: card.seedId,
+          type: "review.card.submitted",
+          userId,
+        },
+        logger: input.logger,
+        productEventService: input.productEventService,
+      });
+
+      if (submissionResult.session.session.status === "completed") {
+        const answeredCount = submissionResult.session.cards.filter(
+          (value) => value.status !== "pending",
+        ).length;
+
+        await recordReviewProductEventSafely({
+          event: {
+            actorTag: userId,
+            occurredAt:
+              submissionResult.session.session.completedAt?.toISOString() ??
+              new Date().toISOString(),
+            payload: {
+              answeredCount,
+              cardCount: submissionResult.session.session.cardCount,
+            },
+            reviewSessionId: sessionId,
+            schemaVersion: productEventSchemaVersion,
+            type: "review.session.completed",
+            userId,
+          },
+          logger: input.logger,
+          productEventService: input.productEventService,
+        });
+      }
+
       return {
         result: submissionResult.result,
         session: toReviewSessionDetail(submissionResult.session),
@@ -440,6 +571,7 @@ export const createDefaultReviewService = (input: {
   database: DatabaseClient;
   env: ServerEnv;
   logger: Logger;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
 }): ReviewService =>
   createReviewService({
@@ -447,5 +579,6 @@ export const createDefaultReviewService = (input: {
     env: input.env,
     logger: input.logger,
     pool: input.database.pool,
+    productEventService: input.productEventService,
     requestRateLimitService: input.requestRateLimitService,
   });

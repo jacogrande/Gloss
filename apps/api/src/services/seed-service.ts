@@ -1,5 +1,6 @@
 import {
   listSeedsDataSchema,
+  productEventSchemaVersion,
 } from "@gloss/shared/contracts";
 import { notFoundError } from "@gloss/shared/errors";
 import type {
@@ -9,6 +10,7 @@ import type {
 } from "@gloss/shared/types";
 
 import type { GlossDatabase } from "../lib/db";
+import type { Logger } from "../lib/logger";
 import {
   normalizeCaptureInput,
   toSeedDetail,
@@ -22,6 +24,7 @@ import {
   createSeedEnrichmentRepository,
   type SeedEnrichmentRepository,
 } from "../repositories/seed-enrichment-repository";
+import type { ProductEventService } from "./product-event-service";
 
 export type SeedService = {
   createSeed: (input: { capture: CreateSeedInput; userId: string }) => Promise<SeedDetail>;
@@ -35,6 +38,10 @@ export const createSeedService = (
   enrichmentRepository: SeedEnrichmentRepository = createSeedEnrichmentRepository(
     db,
   ),
+  sideEffects?: {
+    logger: Logger;
+    productEventService: ProductEventService;
+  },
 ): SeedService => ({
   async createSeed(input) {
     const normalizedCapture = normalizeCaptureInput(input.capture);
@@ -42,13 +49,42 @@ export const createSeedService = (
       capture: normalizedCapture,
       userId: input.userId,
     });
+    const enrichment = await enrichmentRepository.getCurrentForSeed({
+      seedId: createdRecord.seed.id,
+      userId: input.userId,
+    });
+
+    if (sideEffects) {
+      try {
+        await sideEffects.productEventService.record({
+          actorTag: input.userId,
+          occurredAt: createdRecord.seed.createdAt.toISOString(),
+          payload: {
+            hasSentence: Boolean(normalizedCapture.sentence),
+            sourceKind: normalizedCapture.source?.kind ?? null,
+            stage: createdRecord.seed.stage,
+          },
+          schemaVersion: productEventSchemaVersion,
+          seedId: createdRecord.seed.id,
+          type: "seed.capture",
+          userId: input.userId,
+        });
+      } catch (error) {
+        sideEffects.logger.warn("product_event.record_failed", {
+          eventType: "seed.capture",
+          seedId: createdRecord.seed.id,
+          userId: input.userId,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unexpected non-error while recording product event.",
+        });
+      }
+    }
 
     return toSeedDetail({
       ...createdRecord,
-      enrichment: await enrichmentRepository.getCurrentForSeed({
-        seedId: createdRecord.seed.id,
-        userId: input.userId,
-      }),
+      enrichment,
     });
   },
   async getSeedDetail(input) {

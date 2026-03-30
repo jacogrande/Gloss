@@ -13,6 +13,8 @@ import {
 import type {
   ApiErrorCode,
   LexicalEvidenceSnapshot,
+  ProductEvent,
+  ProductEventType,
   ReviewAnswerKey,
   ReviewCardPromptPayload,
   ReviewCardStatus,
@@ -228,6 +230,8 @@ type ReviewTraceValidationResult = {
   issues: string[];
 };
 
+type ProductEventPayload = ProductEvent["payload"];
+
 export const requestRateLimitsTable = pgTable(
   "request_rate_limits",
   {
@@ -333,6 +337,42 @@ export const reviewSessionsTable = pgTable(
 );
 
 export type ReviewSessionRow = typeof reviewSessionsTable.$inferSelect;
+
+export const productEventsTable = pgTable(
+  "product_events",
+  {
+    actorTag: text("actor_tag").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    id: text("id").primaryKey(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    payload: jsonb("payload").$type<ProductEventPayload>().notNull(),
+    reviewSessionId: text("review_session_id").references(() => reviewSessionsTable.id, {
+      onDelete: "set null",
+    }),
+    schemaVersion: text("schema_version").notNull(),
+    seedId: text("seed_id").references(() => seedsTable.id, {
+      onDelete: "set null",
+    }),
+    sessionId: text("session_id"),
+    type: text("type").$type<ProductEventType>().notNull(),
+    userId: text("user_id").references(() => authUsersTable.id, {
+      onDelete: "set null",
+    }),
+  },
+  (table) => ({
+    occurredAtIndex: index("product_events_occurred_at_idx").on(table.occurredAt),
+    reviewSessionIdIndex: index("product_events_review_session_id_idx").on(
+      table.reviewSessionId,
+    ),
+    seedIdIndex: index("product_events_seed_id_idx").on(table.seedId),
+    typeIndex: index("product_events_type_idx").on(table.type),
+    userIdIndex: index("product_events_user_id_idx").on(table.userId),
+  }),
+);
+
+export type ProductEventRow = typeof productEventsTable.$inferSelect;
 
 export const reviewCardsTable = pgTable(
   "review_cards",

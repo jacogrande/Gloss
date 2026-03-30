@@ -3,9 +3,15 @@ import {
 } from "hono";
 import { cors } from "hono/cors";
 
+import { productEventSchemaVersion } from "@gloss/shared/contracts";
 import type { ServerEnv } from "@gloss/shared/env";
 
 import type { GlossAuth } from "./lib/auth";
+import {
+  extractEmailActorTag,
+  resolveAuthFailureErrorCode,
+  resolveAuthJourney,
+} from "./lib/auth-observability";
 import { toErrorResponse } from "./lib/http";
 import type { Logger } from "./lib/logger";
 import { registerCaptureRoutes } from "./routes/capture";
@@ -15,6 +21,7 @@ import { registerReviewRoutes } from "./routes/review";
 import { registerSeedRoutes } from "./routes/seeds";
 import type { EnrichmentService } from "./services/enrichment-service";
 import type { ProfileService } from "./services/profile-service";
+import type { ProductEventService } from "./services/product-event-service";
 import type { RequestRateLimitService } from "./services/request-rate-limit-service";
 import type { ReviewService } from "./services/review-service";
 import type { SeedService } from "./services/seed-service";
@@ -25,6 +32,7 @@ type AppDependencies = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
   reviewService: ReviewService;
   seedService: SeedService;
@@ -54,6 +62,7 @@ export const createApp = ({
   env,
   logger,
   profileService,
+  productEventService,
   requestRateLimitService,
   reviewService,
   seedService,
@@ -102,7 +111,58 @@ export const createApp = ({
   app.use("/review/*", cors(corsOptions));
   app.use("/seeds/*", cors(corsOptions));
 
-  app.on(["GET", "POST"], "/api/auth/*", (context) => auth.handler(context.req.raw));
+  app.on(["GET", "POST"], "/api/auth/*", async (context) => {
+    const journey = resolveAuthJourney(context.req.path);
+
+    if (journey) {
+      context.set("journey", journey);
+    }
+
+    const actorTag = await extractEmailActorTag(context.req.raw);
+
+    if (actorTag) {
+      context.set("actorTag", actorTag);
+    }
+
+    const response = await auth.handler(context.req.raw);
+    const errorCode = resolveAuthFailureErrorCode({
+      journey,
+      status: response.status,
+    });
+
+    if (errorCode) {
+      context.set("errorCode", errorCode);
+    }
+
+    if (journey === "auth.sign_in" && response.status >= 400) {
+      const failureActorTag = actorTag ?? "anonymous";
+
+      try {
+        await productEventService.record({
+          actorTag: failureActorTag,
+          occurredAt: new Date().toISOString(),
+          payload: {
+            method: "email_password",
+            status: response.status,
+          },
+          schemaVersion: productEventSchemaVersion,
+          type: "auth.sign_in_failed",
+        });
+      } catch (error) {
+        logger.warn("product_event.record_failed", {
+          actorTag: failureActorTag,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unexpected non-error while recording product event.",
+          eventType: "auth.sign_in_failed",
+          journey,
+        });
+      }
+    }
+
+    return response;
+  });
 
   registerHealthRoute(app, env);
   registerMeRoute(app, { auth, profileService });

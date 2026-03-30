@@ -3,12 +3,14 @@ import { z } from "zod";
 import { apiErrorCodeSchema } from "../errors/index";
 import { apiTimestampSchema, createApiSuccessSchema } from "../schemas/index";
 import {
+  authMethodValues,
   reviewCardStatusValues,
   reviewDimensionValues,
   reviewExerciseTypeValues,
   reviewGenerationSourceValues,
   reviewOutcomeValues,
   reviewSessionStatusValues,
+  productEventTypeValues,
   seedContextKindValues,
   seedEnrichmentGuardrailFlagValues,
   seedEnrichmentStatusValues,
@@ -472,3 +474,200 @@ export const submitReviewCardResponseSchema = createApiSuccessSchema(
     })
     .strict(),
 );
+
+export const authMethodSchema = z.enum(authMethodValues);
+
+export const productEventTypeSchema = z.enum(productEventTypeValues);
+
+export const productEventSchemaVersion = "product-event.v1" as const;
+
+const productEventActorTagSchema = z.string().trim().min(1).max(160);
+const productEventEntityIdSchema = z.string().trim().min(1).max(160);
+
+export const authSignInEventPayloadSchema = z
+  .object({
+    method: authMethodSchema,
+  })
+  .strict();
+
+export const authSignInFailedEventPayloadSchema = z
+  .object({
+    method: authMethodSchema,
+    status: z.number().int().min(400).max(599),
+  })
+  .strict();
+
+export const authSignUpEventPayloadSchema = z
+  .object({
+    method: authMethodSchema,
+  })
+  .strict();
+
+export const seedCaptureEventPayloadSchema = z
+  .object({
+    hasSentence: z.boolean(),
+    sourceKind: sourceKindSchema.nullable(),
+    stage: seedStageSchema,
+  })
+  .strict();
+
+export const seedEnrichmentRequestedEventPayloadSchema = z
+  .object({
+    model: z.string().trim().min(1),
+    promptTemplateVersion: z.string().trim().min(1),
+    provider: z.string().trim().min(1),
+    schemaVersion: z.string().trim().min(1),
+  })
+  .strict();
+
+export const seedEnrichmentReadyEventPayloadSchema = z
+  .object({
+    guardrailFlagCount: z.number().int().nonnegative(),
+    model: z.string().trim().min(1),
+    promptTemplateVersion: z.string().trim().min(1),
+    provider: z.string().trim().min(1),
+    schemaVersion: z.string().trim().min(1),
+  })
+  .strict();
+
+export const seedEnrichmentFailedEventPayloadSchema = z
+  .object({
+    errorCode: apiErrorCodeSchema,
+    model: z.string().trim().min(1),
+    promptTemplateVersion: z.string().trim().min(1),
+    provider: z.string().trim().min(1),
+    schemaVersion: z.string().trim().min(1),
+  })
+  .strict();
+
+export const reviewSessionStartedEventPayloadSchema = z
+  .object({
+    cardCount: z.number().int().nonnegative(),
+    seedIds: z.array(productEventEntityIdSchema).min(1),
+  })
+  .strict();
+
+export const reviewSessionCompletedEventPayloadSchema = z
+  .object({
+    answeredCount: z.number().int().nonnegative(),
+    cardCount: z.number().int().nonnegative(),
+  })
+  .strict();
+
+export const reviewCardSubmittedEventPayloadSchema = z
+  .object({
+    dimension: reviewDimensionSchema,
+    exerciseType: reviewExerciseTypeSchema,
+    outcome: reviewOutcomeSchema,
+    seedStage: seedStageSchema,
+  })
+  .strict();
+
+const productEventBaseSchema = z
+  .object({
+    actorTag: productEventActorTagSchema,
+    occurredAt: apiTimestampSchema,
+    schemaVersion: z.literal(productEventSchemaVersion),
+  })
+  .strict();
+
+export const authSignInEventSchema = productEventBaseSchema
+  .extend({
+    payload: authSignInEventPayloadSchema,
+    sessionId: productEventEntityIdSchema,
+    type: z.literal("auth.sign_in"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const authSignInFailedEventSchema = productEventBaseSchema
+  .extend({
+    payload: authSignInFailedEventPayloadSchema,
+    type: z.literal("auth.sign_in_failed"),
+  })
+  .strict();
+
+export const authSignUpEventSchema = productEventBaseSchema
+  .extend({
+    payload: authSignUpEventPayloadSchema,
+    type: z.literal("auth.sign_up"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const seedCaptureEventSchema = productEventBaseSchema
+  .extend({
+    payload: seedCaptureEventPayloadSchema,
+    seedId: productEventEntityIdSchema,
+    type: z.literal("seed.capture"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const seedEnrichmentRequestedEventSchema = productEventBaseSchema
+  .extend({
+    payload: seedEnrichmentRequestedEventPayloadSchema,
+    seedId: productEventEntityIdSchema,
+    type: z.literal("seed.enrichment.requested"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const seedEnrichmentReadyEventSchema = productEventBaseSchema
+  .extend({
+    payload: seedEnrichmentReadyEventPayloadSchema,
+    seedId: productEventEntityIdSchema,
+    type: z.literal("seed.enrichment.ready"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const seedEnrichmentFailedEventSchema = productEventBaseSchema
+  .extend({
+    payload: seedEnrichmentFailedEventPayloadSchema,
+    seedId: productEventEntityIdSchema,
+    type: z.literal("seed.enrichment.failed"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const reviewSessionStartedEventSchema = productEventBaseSchema
+  .extend({
+    payload: reviewSessionStartedEventPayloadSchema,
+    reviewSessionId: productEventEntityIdSchema,
+    type: z.literal("review.session.started"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const reviewSessionCompletedEventSchema = productEventBaseSchema
+  .extend({
+    payload: reviewSessionCompletedEventPayloadSchema,
+    reviewSessionId: productEventEntityIdSchema,
+    type: z.literal("review.session.completed"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const reviewCardSubmittedEventSchema = productEventBaseSchema
+  .extend({
+    payload: reviewCardSubmittedEventPayloadSchema,
+    reviewSessionId: productEventEntityIdSchema,
+    seedId: productEventEntityIdSchema,
+    type: z.literal("review.card.submitted"),
+    userId: productEventEntityIdSchema,
+  })
+  .strict();
+
+export const productEventSchema = z.discriminatedUnion("type", [
+  authSignInEventSchema,
+  authSignInFailedEventSchema,
+  authSignUpEventSchema,
+  reviewCardSubmittedEventSchema,
+  reviewSessionCompletedEventSchema,
+  reviewSessionStartedEventSchema,
+  seedCaptureEventSchema,
+  seedEnrichmentFailedEventSchema,
+  seedEnrichmentReadyEventSchema,
+  seedEnrichmentRequestedEventSchema,
+]);

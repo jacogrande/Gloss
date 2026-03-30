@@ -14,6 +14,8 @@ export const apiErrorCodeValues = [
   "VALIDATION_ERROR",
 ] as const;
 
+export const authMethodValues = ["email_password"] as const;
+
 export const seedStageValues = [
   "new",
   "stabilizing",
@@ -78,4 +80,17 @@ export const reviewOutcomeValues = [
   "incorrect",
   "partial",
   "skipped",
+] as const;
+
+export const productEventTypeValues = [
+  "auth.sign_in",
+  "auth.sign_in_failed",
+  "auth.sign_up",
+  "review.card.submitted",
+  "review.session.completed",
+  "review.session.started",
+  "seed.capture",
+  "seed.enrichment.failed",
+  "seed.enrichment.ready",
+  "seed.enrichment.requested",
 ] as const;

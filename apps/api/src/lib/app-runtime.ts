@@ -18,6 +18,10 @@ import {
   type ProfileService,
 } from "../services/profile-service";
 import {
+  createProductEventService,
+  type ProductEventService,
+} from "../services/product-event-service";
+import {
   createDefaultRequestRateLimitService,
   type RequestRateLimitService,
 } from "../services/request-rate-limit-service";
@@ -40,6 +44,7 @@ export type AppRuntime = {
   env: ServerEnv;
   logger: Logger;
   profileService: ProfileService;
+  productEventService: ProductEventService;
   requestRateLimitService: RequestRateLimitService;
   reviewService: ReviewService;
   seedService: SeedService;
@@ -68,12 +73,17 @@ export const createAppRuntime = (input: {
         : {}),
     });
   const profileService = createProfileService(database.db);
-  const seedService = createSeedService(database.db);
+  const productEventService = createProductEventService(database.db);
+  const seedService = createSeedService(database.db, undefined, undefined, {
+    logger,
+    productEventService,
+  });
   const enrichmentService = createDefaultEnrichmentService({
     db: database.db,
     env: input.env,
     logger,
     pool: database.pool,
+    productEventService,
     requestRateLimitService,
     ...(input.enrichmentProviders
       ? {
@@ -85,6 +95,7 @@ export const createAppRuntime = (input: {
     database,
     env: input.env,
     logger,
+    productEventService,
     requestRateLimitService,
   });
   const auth = createAuth({
@@ -92,6 +103,7 @@ export const createAppRuntime = (input: {
     logger,
     pool: database.pool,
     profileService,
+    productEventService,
   });
   const app = createApp({
     auth,
@@ -99,6 +111,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    productEventService,
     requestRateLimitService,
     reviewService,
     seedService,
@@ -124,6 +137,7 @@ export const createAppRuntime = (input: {
     env: input.env,
     logger,
     profileService,
+    productEventService,
     requestRateLimitService,
     reviewService,
     seedService,

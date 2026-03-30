@@ -367,8 +367,9 @@ Required API log and trace fields for Sprint 5:
 - provider, schema, and prompt-template versions where applicable
 - redacted trace metadata only; provider request payload logging stays disabled by default in production
 
-Authoritative server events:
+Minimum server-side product events:
 
+- `auth.sign_in_failed`
 - `auth.sign_in`
 - `auth.sign_up`
 - `seed.capture`
@@ -377,7 +378,6 @@ Authoritative server events:
 - `seed.enrichment.failed`
 - `review.session.started`
 - `review.session.completed`
-- `review.session.abandoned`
 - `review.card.submitted`
 
 Client UX telemetry:
@@ -392,7 +392,7 @@ Metric derivation table:
 | KPI | Source facts | Owner | Query path |
 | --- | --- | --- | --- |
 | capture-to-review conversion | `seed.capture`, `review.session.started`, `review.card.submitted` | server | SQL or typed report script |
-| 7-day and 30-day retention | `auth.sign_in`, first and repeat active dates | server | SQL or typed report script |
+| 7-day and 30-day retention | first and repeat active dates across typed user events | server | SQL or typed report script |
 | average reviews per saved word | `review.card.submitted` plus seed count | server | SQL or typed report script |
 | percentage reaching `deepening` | review state or seed stage transitions | server | SQL or typed report script |
 | repeat capture rate from ongoing reading | repeated `seed.capture` grouped by user and day window | server | SQL or typed report script |

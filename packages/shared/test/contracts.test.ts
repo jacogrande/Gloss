@@ -4,6 +4,8 @@ import {
   createSeedInputSchema,
   healthResponseSchema,
   normalizeSeedEnrichmentModelPayload,
+  productEventSchema,
+  productEventSchemaVersion,
   seedDetailResponseSchema,
   seedEnrichmentPayloadJsonSchema,
   seedListResponseSchema,
@@ -173,5 +175,34 @@ describe("shared contracts", () => {
         word: "lucid",
       },
     });
+  });
+
+  it("parses typed product events", () => {
+    const parsed = productEventSchema.parse({
+      actorTag: "user_123",
+      occurredAt: "2026-03-29T12:34:56.000Z",
+      payload: {
+        cardCount: 4,
+        seedIds: [
+          "seed_1",
+          "seed_2",
+        ],
+      },
+      reviewSessionId: "session_123",
+      schemaVersion: productEventSchemaVersion,
+      type: "review.session.started",
+      userId: "user_123",
+    });
+
+    expect(parsed.type).toBe("review.session.started");
+    if (parsed.type !== "review.session.started") {
+      throw new Error("Expected a review.session.started event.");
+    }
+
+    expect(parsed.payload.cardCount).toBe(4);
+    expect(parsed.payload.seedIds).toEqual([
+      "seed_1",
+      "seed_2",
+    ]);
   });
 });

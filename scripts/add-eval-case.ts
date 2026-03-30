@@ -6,6 +6,7 @@ type DatasetKey =
   | "capture"
   | "enrichment"
   | "enrichment-live"
+  | "review"
   | "mvp";
 
 type ParsedArgs = {
@@ -41,6 +42,13 @@ const datasetPathByKey: Record<DatasetKey, string> = {
     "evals",
     "datasets",
     "enrichment_journeys_live.jsonl",
+  ),
+  review: path.join(
+    repoRoot,
+    "docs",
+    "evals",
+    "datasets",
+    "review_journeys.jsonl",
   ),
   mvp: path.join(
     repoRoot,
@@ -93,6 +101,7 @@ const parseArgs = (argv: string[]): ParsedArgs => {
           value === "capture" ||
           value === "enrichment" ||
           value === "enrichment-live" ||
+          value === "review" ||
           value === "mvp"
             ? value
             : null;
@@ -138,9 +147,22 @@ const parseJson = (label: "expected" | "input", rawValue: string): unknown => {
 
 const printTemplate = (dataset: DatasetKey = "enrichment"): void => {
   const template = {
-    category: dataset === "capture" ? "capture_regression" : "enrichment_regression",
+    category:
+      dataset === "capture"
+        ? "capture_regression"
+        : dataset === "review"
+          ? "review_regression"
+          : "enrichment_regression",
     expected: {
-      status: dataset === "capture" ? "n/a" : "ready",
+      ...(dataset === "review"
+        ? {
+            due_count_at_least: 1,
+            error_code: null,
+            status: "reviewable",
+          }
+        : {
+            status: dataset === "capture" ? "n/a" : "ready",
+          }),
     },
     id: "replace_me",
     input: {

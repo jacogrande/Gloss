@@ -156,6 +156,8 @@ These scripts are part of the harness and should be implemented as the repo is s
   Run trace graders on stored API execution traces.
 - `bun run eval:add-case`
   Append a new eval dataset row from a concrete bug or regression.
+- `bun run report:alpha`
+  Derive the current private-alpha KPI snapshot from typed product events and seed state.
 - `bun run fixtures:seed`
   Load seed data for local smoke tests and evals.
 
@@ -194,6 +196,19 @@ Minimum observability for API requests and jobs:
 - `guardrail_flags`
 - `validation_outcome`
 - `seed_id` when relevant
+
+Minimum server-side product events for private alpha telemetry:
+
+- `auth.sign_in`
+- `auth.sign_in_failed`
+- `auth.sign_up`
+- `seed.capture`
+- `seed.enrichment.requested`
+- `seed.enrichment.ready`
+- `seed.enrichment.failed`
+- `review.session.started`
+- `review.session.completed`
+- `review.card.submitted`
 
 Minimum observability for the web app:
 

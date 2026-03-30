@@ -7,6 +7,8 @@ import {
   listSeedsDataSchema,
   listSeedsQuerySchema,
   profileSchema,
+  productEventSchema,
+  productEventTypeSchema,
   reviewAnswerKeySchema,
   reviewCardPromptPayloadSchema,
   reviewCardSchema,
@@ -60,6 +62,10 @@ export type LexicalEvidenceSnapshot = z.infer<
 >;
 
 export type Profile = z.infer<typeof profileSchema>;
+
+export type ProductEvent = z.infer<typeof productEventSchema>;
+
+export type ProductEventType = z.infer<typeof productEventTypeSchema>;
 
 export type ReviewAnswerKey = z.infer<typeof reviewAnswerKeySchema>;
 

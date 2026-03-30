@@ -60,10 +60,10 @@ Status as of `2026-03-29`:
 | Type And Schema Safety | 3 | Request, response, env, DB, and AI payload contracts are typed and schema-validated. |
 | Test Coverage | 2 | Unit, integration, and route-level web coverage exist for the shipped MVP flows. |
 | Smoke Coverage | 2 | Playwright smoke checks cover sign-in, capture, and seed-detail readback. |
-| Observability | 2 | Structured request logs, enrichment traces, stable error codes, and guardrail metadata are implemented. |
+| Observability | 3 | Structured request logs, auth journey tagging, persisted product events, AI traces, stable error codes, and a typed private-alpha report script are implemented. |
 | Security | 2 | Server-side auth, user ownership checks, schema validation, and untrusted-input rules are implemented for the MVP paths. |
 | AI Discipline | 2 | Enrichment is schema-first, evidence-gated, trace-backed, and eval-covered. |
-| Documentation Freshness | 2 | Core docs are current and now checked by `bun run harness:check`, though ongoing freshness still depends on discipline. |
+| Documentation Freshness | 2 | Core docs are current and checked by `bun run harness:check`, though ongoing freshness still depends on discipline. |
 
 ## MVP Merge Gate
 
