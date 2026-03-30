@@ -115,6 +115,7 @@ Guidelines:
 - Use a different `BETTER_AUTH_SECRET` per hosted environment.
 - Keep `WEB_ORIGIN`, `API_ORIGIN`, and `BETTER_AUTH_URL` aligned exactly per environment.
 - Only set `COOKIE_DOMAIN` when using a custom domain strategy that requires it.
+- `COOKIE_DOMAIN` must be a bare domain or subdomain such as `gloss.test` or `preview.gloss.test`, never a full URL or host with a port.
 - Keep fixture mode as the default for local harness work so smoke and eval stay deterministic.
 
 ## Release Checklist

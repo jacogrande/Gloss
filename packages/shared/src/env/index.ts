@@ -8,6 +8,21 @@ const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
 const enrichmentProviderModeSchema = z.enum(["fixture", "live"]);
 
+const cookieDomainSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .refine(
+    (value) =>
+      /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/i.test(
+        value,
+      ),
+    {
+      message:
+        "COOKIE_DOMAIN must be a bare registrable domain or subdomain such as gloss.test or preview.gloss.test.",
+    },
+  );
+
 const portSchema = z
   .string()
   .optional()
@@ -43,7 +58,7 @@ export const serverEnvSchema = z.object({
   API_ORIGIN: z.url(),
   BETTER_AUTH_SECRET: nonEmptyStringSchema,
   BETTER_AUTH_URL: z.url(),
-  COOKIE_DOMAIN: nonEmptyStringSchema.optional(),
+  COOKIE_DOMAIN: cookieDomainSchema.optional(),
   DATABASE_URL: nonEmptyStringSchema,
   ENRICHMENT_PROVIDER_MODE: enrichmentProviderModeSchema.default("fixture"),
   LOG_LEVEL: logLevelSchema.default("info"),

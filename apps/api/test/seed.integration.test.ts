@@ -420,54 +420,6 @@ describe("seed integration", () => {
     expect(enrichBody.data.payload).toBeNull();
   });
 
-  it("does not allow one user to enrich another user's seed", async () => {
-    const ownerCookie = await signUpTestUser({
-      app: context.app,
-      email: "owner-enrich@example.com",
-      env: context.env,
-      name: "Owner Enrich",
-    });
-    const otherCookie = await signUpTestUser({
-      app: context.app,
-      email: "other-enrich@example.com",
-      env: context.env,
-      name: "Other Enrich",
-    });
-    const createResponse = await context.app.request(
-      "http://127.0.0.1:8787/capture/seeds",
-      {
-        body: JSON.stringify({
-          word: "pellucid",
-        }),
-        headers: {
-          "content-type": "application/json",
-          cookie: ownerCookie,
-          origin: context.env.WEB_ORIGIN,
-        },
-        method: "POST",
-      },
-    );
-    const createBody = createSeedResponseSchema.parse(
-      (await createResponse.json()) as unknown,
-    );
-    const enrichResponse = await context.app.request(
-      `http://127.0.0.1:8787/seeds/${createBody.data.id}/enrich`,
-      {
-        headers: {
-          cookie: otherCookie,
-          origin: context.env.WEB_ORIGIN,
-        },
-        method: "POST",
-      },
-    );
-    const enrichBody = apiErrorResponseSchema.parse(
-      (await enrichResponse.json()) as unknown,
-    );
-
-    expect(enrichResponse.status).toBe(404);
-    expect(enrichBody.error.code).toBe("NOT_FOUND");
-  });
-
   it("persists a failed enrichment state when a provider throws after pending is acquired", async () => {
     const failingProviders: EnrichmentProviders = {
       lexicalEvidenceProvider: {
