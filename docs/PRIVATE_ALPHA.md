@@ -73,6 +73,7 @@ Run this against the stable staging environment before any new alpha rollout.
 9. Run `bun run smoke:hosted -- --web-origin <staging-web-url> --api-origin <staging-api-url>`.
 
 Staging is only green when auth, capture, enrichment, and review all behave correctly under the deployed origins and cookies.
+Hosted browser verification creates synthetic `@gloss.local` users. The private-alpha report excludes those users automatically so repeated preview or staging checks do not pollute KPI totals.
 
 ## Issue Intake
 

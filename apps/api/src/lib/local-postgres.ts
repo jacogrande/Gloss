@@ -2,15 +2,23 @@ import { spawn } from "node:child_process";
 import {
   access,
   mkdir,
+  rm,
+  stat,
   unlink,
 } from "node:fs/promises";
 import { constants } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { Client } from "pg";
 
 const repoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const localPostgresDirectory = path.join(repoRoot, ".local", "postgres");
 const localPostgresLogPath = path.join(localPostgresDirectory, "postgres.log");
+const localPostgresStartLockDirectory = path.join(
+  repoRoot,
+  ".local",
+  "postgres-start.lock",
+);
 const postmasterPidFileName = "postmaster.pid";
 
 type LocalPostgresConfig = {
@@ -102,6 +110,9 @@ const resolveBinary = async (binaryName: string): Promise<string> => {
   );
 };
 
+const sleep = async (milliseconds: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
 const parseDatabaseUrl = (databaseUrl: string): {
   databaseName: string;
   host: string;
@@ -152,6 +163,13 @@ const clearStalePostmasterPid = async (dataDirectory: string): Promise<void> => 
   await unlink(postmasterPidPath);
 };
 
+const clearLocalClusterDirectory = async (dataDirectory: string): Promise<void> => {
+  await rm(dataDirectory, {
+    force: true,
+    recursive: true,
+  });
+};
+
 const isServerRunning = async (dataDirectory: string): Promise<boolean> => {
   const pgCtl = await resolveBinary("pg_ctl");
   const result = await runCommand(pgCtl, ["-D", dataDirectory, "status"], {
@@ -161,37 +179,32 @@ const isServerRunning = async (dataDirectory: string): Promise<boolean> => {
   return result.code === 0;
 };
 
-const canConnectToServer = async (config: {
+const isServerAcceptingConnections = async (config: {
   host: string;
   port: number;
   username: string;
-}): Promise<boolean> => {
-  const psql = await resolveBinary("psql");
-  const result = await runCommand(
-    psql,
-    [
-      "-h",
-      config.host,
-      "-p",
-      String(config.port),
-      "-U",
-      config.username,
-      "-d",
-      "postgres",
-      "-tAc",
-      "SELECT 1",
-    ],
-    {
-      allowFailure: true,
-      env: {
-        ...process.env,
-        PGCONNECT_TIMEOUT: "2",
-      },
-    },
-  );
+}): Promise<boolean> =>
+  (async () => {
+    const client = new Client({
+      connectionTimeoutMillis: 2_000,
+      database: "postgres",
+      host: config.host,
+      password: undefined,
+      port: config.port,
+      user: config.username,
+    });
 
-  return result.code === 0 && result.stdout.includes("1");
-};
+    try {
+      await client.connect();
+      await client.query("SELECT 1");
+
+      return true;
+    } catch {
+      return false;
+    } finally {
+      await client.end().catch(() => undefined);
+    }
+  })();
 
 const waitForServer = async (config: {
   host: string;
@@ -199,7 +212,7 @@ const waitForServer = async (config: {
   username: string;
 }): Promise<void> => {
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if (await canConnectToServer(config)) {
+    if (await isServerAcceptingConnections(config)) {
       return;
     }
 
@@ -209,84 +222,181 @@ const waitForServer = async (config: {
   throw new Error("Timed out waiting for local PostgreSQL to accept connections.");
 };
 
+const isStaleStartupLock = async (lockDirectory: string): Promise<boolean> => {
+  try {
+    const metadata = await stat(lockDirectory);
+
+    return Date.now() - metadata.mtimeMs > 60_000;
+  } catch {
+    return false;
+  }
+};
+
+const acquireStartupLock = async (config: {
+  host: string;
+  lockDirectory: string;
+  port: number;
+  username: string;
+}): Promise<(() => Promise<void>) | null> => {
+  await mkdir(path.dirname(config.lockDirectory), { recursive: true });
+
+  for (let attempt = 0; attempt < 240; attempt += 1) {
+    try {
+      await mkdir(config.lockDirectory);
+
+      return async (): Promise<void> => {
+        await rm(config.lockDirectory, {
+          force: true,
+          recursive: true,
+        });
+      };
+    } catch (error) {
+      if (!(error instanceof Error) || !("code" in error) || error.code !== "EEXIST") {
+        throw error;
+      }
+    }
+
+    if (
+      await isServerAcceptingConnections({
+        host: config.host,
+        port: config.port,
+        username: config.username,
+      })
+    ) {
+      return null;
+    }
+
+    if (await isStaleStartupLock(config.lockDirectory)) {
+      await rm(config.lockDirectory, {
+        force: true,
+        recursive: true,
+      }).catch(() => undefined);
+      continue;
+    }
+
+    await sleep(250);
+  }
+
+  throw new Error("Timed out waiting for the local PostgreSQL startup lock.");
+};
+
 export const ensureLocalPostgresStarted = async (
   config: LocalPostgresConfig,
 ): Promise<void> => {
   const connection = parseDatabaseUrl(config.databaseUrl);
   const dataDirectory = config.dataDirectory ?? localPostgresDirectory;
 
-  await initClusterIfNeeded({
-    dataDirectory,
-    username: connection.username,
-  });
-
-  if (
-    (await isServerRunning(dataDirectory)) ||
-    (await canConnectToServer(connection))
-  ) {
+  if (await isServerAcceptingConnections(connection)) {
     return;
   }
 
-  const pgCtl = await resolveBinary("pg_ctl");
-  const startServer = async (): Promise<CommandResult> =>
-    runCommand(
-      pgCtl,
-      [
-        "-D",
-        dataDirectory,
-        "-l",
-        localPostgresLogPath,
-        "-o",
-        `-h ${connection.host} -p ${connection.port} -c shared_memory_type=mmap -c dynamic_shared_memory_type=posix`,
-        "start",
-      ],
-      { allowFailure: true },
-    );
+  const releaseStartupLock = await acquireStartupLock({
+    host: connection.host,
+    lockDirectory: localPostgresStartLockDirectory,
+    port: connection.port,
+    username: connection.username,
+  });
 
-  let startResult = await startServer();
+  if (!releaseStartupLock) {
+    return;
+  }
 
   try {
-    await waitForServer(connection);
-  } catch (error) {
-    const alreadyRunningMessage = `${startResult.stderr}\n${startResult.stdout}`.includes(
-      "another server might be running",
-    );
-
-    if (
-      alreadyRunningMessage &&
-      !(await isServerRunning(dataDirectory)) &&
-      !(await canConnectToServer(connection))
-    ) {
-      await clearStalePostmasterPid(dataDirectory);
-      startResult = await startServer();
-
-      try {
-        await waitForServer(connection);
-        return;
-      } catch (retryError) {
-        if (startResult.code !== 0) {
-          throw new Error(startResult.stderr || startResult.stdout, {
-            cause: retryError,
-          });
-        }
-
-        throw retryError;
-      }
-    }
-
-    if (
-      alreadyRunningMessage &&
-      ((await isServerRunning(dataDirectory)) ||
-        (await canConnectToServer(connection)))
-    ) {
+    if (await isServerAcceptingConnections(connection)) {
       return;
     }
 
-    if (startResult.code !== 0) {
-      throw new Error(startResult.stderr || startResult.stdout, { cause: error });
-    }
+    await initClusterIfNeeded({
+      dataDirectory,
+      username: connection.username,
+    });
 
-    throw error;
+    const pgCtl = await resolveBinary("pg_ctl");
+    const startServer = async (): Promise<CommandResult> =>
+      runCommand(
+        pgCtl,
+        [
+          "-D",
+          dataDirectory,
+          "-l",
+          localPostgresLogPath,
+          "-o",
+          `-h ${connection.host} -p ${connection.port} -c shared_memory_type=mmap -c dynamic_shared_memory_type=posix`,
+        "start",
+        ],
+        { allowFailure: true },
+      );
+    const isRecoverableLocalClusterFailure = (message: string): boolean =>
+      dataDirectory === localPostgresDirectory &&
+      (message.includes("pre-existing shared memory block") ||
+        message.includes("data directory lock file is invalid") ||
+        message.includes("could not create shared memory segment") ||
+        message.includes("Operation not permitted"));
+    const recoverCorruptedLocalCluster = async (): Promise<void> => {
+      await clearStalePostmasterPid(dataDirectory).catch(() => undefined);
+      await clearLocalClusterDirectory(dataDirectory);
+      await initClusterIfNeeded({
+        dataDirectory,
+        username: connection.username,
+      });
+    };
+
+    let startResult = await startServer();
+
+    try {
+      await waitForServer(connection);
+    } catch (error) {
+      const alreadyRunningMessage = `${startResult.stderr}\n${startResult.stdout}`.includes(
+        "another server might be running",
+      );
+
+      if (
+        alreadyRunningMessage &&
+        !(await isServerAcceptingConnections(connection))
+      ) {
+        try {
+          await waitForServer(connection);
+          return;
+        } catch (retryError) {
+          if (startResult.code !== 0) {
+            throw new Error(startResult.stderr || startResult.stdout, {
+              cause: retryError,
+            });
+          }
+
+          throw retryError;
+        }
+      }
+
+      if (alreadyRunningMessage && (await isServerAcceptingConnections(connection))) {
+        return;
+      }
+
+      const startupMessage = `${startResult.stderr}\n${startResult.stdout}`;
+
+      if (
+        !(await isServerAcceptingConnections(connection)) &&
+        isRecoverableLocalClusterFailure(startupMessage)
+      ) {
+        await recoverCorruptedLocalCluster();
+        startResult = await startServer();
+
+        if (startResult.code !== 0) {
+          throw new Error(startResult.stderr || startResult.stdout, { cause: error });
+        }
+
+        await waitForServer(connection);
+        return;
+      }
+
+      if (startResult.code !== 0) {
+        throw new Error(startupMessage, { cause: error });
+      }
+
+      throw error;
+    }
+  } finally {
+    await releaseStartupLock();
   }
 };
 

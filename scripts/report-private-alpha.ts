@@ -17,6 +17,17 @@ const isLocalDatabaseUrl = (databaseUrl: string): boolean => {
 const formatRate = (value: number | null): string =>
   value === null ? "n/a" : `${(value * 100).toFixed(1)}%`;
 
+const listSyntheticUserIds = async (
+  database: ReturnType<typeof createDatabaseClient>,
+): Promise<string[]> => {
+  const result = await database.pool.query<{ id: string }>(
+    'SELECT id FROM "user" WHERE email LIKE $1',
+    ["%@gloss.local"],
+  );
+
+  return result.rows.map((row) => row.id);
+};
+
 const renderPrettyReport = (
   report: ReturnType<typeof derivePrivateAlphaReport>,
 ): string => {
@@ -81,11 +92,13 @@ const run = async (): Promise<void> => {
   const productEventService = createProductEventService(database.db);
 
   try {
-    const [events, seeds] = await Promise.all([
+    const [events, seeds, excludedUserIds] = await Promise.all([
       productEventService.listEvents(),
       productEventService.listSeedSnapshots(),
+      listSyntheticUserIds(database),
     ]);
     const report = derivePrivateAlphaReport({
+      excludedUserIds,
       events,
       generatedAt: new Date().toISOString(),
       seeds,

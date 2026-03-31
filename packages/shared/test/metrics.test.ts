@@ -260,4 +260,69 @@ describe("private alpha report metrics", () => {
       type: "review.card.submitted",
     });
   });
+
+  it("excludes synthetic verification users when requested", () => {
+    const report = derivePrivateAlphaReport({
+      events: [
+        createEvent({
+          actorTag: "synthetic_user",
+          occurredAt: "2026-02-01T09:00:00.000Z",
+          payload: {
+            method: "email_password",
+          },
+          schemaVersion: "product-event.v1",
+          type: "auth.sign_up",
+          userId: "synthetic_user",
+        }),
+        createEvent({
+          actorTag: "synthetic_user",
+          occurredAt: "2026-02-01T09:01:00.000Z",
+          payload: {
+            hasSentence: true,
+            sourceKind: "article",
+            stage: "new",
+          },
+          schemaVersion: "product-event.v1",
+          seedId: "seed_synthetic",
+          type: "seed.capture",
+          userId: "synthetic_user",
+        }),
+        createEvent({
+          actorTag: "real_user",
+          occurredAt: "2026-02-02T09:00:00.000Z",
+          payload: {
+            method: "email_password",
+          },
+          schemaVersion: "product-event.v1",
+          type: "auth.sign_up",
+          userId: "real_user",
+        }),
+      ],
+      excludedUserIds: ["synthetic_user"],
+      generatedAt: "2026-02-15T12:00:00.000Z",
+      seeds: [
+        createSeed({
+          createdAt: "2026-02-01T09:01:00.000Z",
+          id: "seed_synthetic",
+          stage: "new",
+          userId: "synthetic_user",
+        }),
+        createSeed({
+          createdAt: "2026-02-02T09:00:00.000Z",
+          id: "seed_real",
+          stage: "new",
+          userId: "real_user",
+        }),
+      ],
+    });
+
+    expect(report.totals.seeds).toBe(1);
+    expect(report.totals.captures).toBe(0);
+    expect(
+      report.eventCounts.find((eventCount) => eventCount.type === "auth.sign_up"),
+    ).toEqual({
+      count: 1,
+      type: "auth.sign_up",
+    });
+  });
 });

@@ -6,9 +6,15 @@ import {
 import {
   captureSeedThroughUi,
   createHarnessEmail,
+  createNetworkOriginTracker,
   signOutThroughUi,
   signUpThroughUi,
 } from "../support/gloss";
+
+test.skip(
+  !process.env.PLAYWRIGHT_HOSTED,
+  "Hosted verification only runs in the hosted Playwright harness.",
+);
 
 test("@hosted unauthenticated direct library access redirects to login", async ({
   page,
@@ -19,10 +25,11 @@ test("@hosted unauthenticated direct library access redirects to login", async (
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
-test("@hosted hosted auth and capture flow survives refresh and sign-out", async ({
+test("@hosted @hosted-smoke hosted auth and capture flow survives refresh and sign-out", async ({
   page,
 }) => {
   const email = createHarnessEmail("hosted-alpha");
+  const network = createNetworkOriginTracker(page);
 
   await signUpThroughUi({
     email,
@@ -50,7 +57,9 @@ test("@hosted hosted auth and capture flow survives refresh and sign-out", async
   await expect(page).toHaveURL(new RegExp(`${detailPath}$`));
   await expect(page.getByRole("heading", { name: "pellucid" })).toBeVisible();
 
+  const libraryCheckpoint = network.checkpoint();
   await page.goto("/library");
+  await network.expectOnlyApiOriginUsedSince(libraryCheckpoint);
   await expect(page.getByRole("heading", { name: "Your words" })).toBeVisible();
   await expect(page.getByRole("link", { name: "pellucid" })).toBeVisible();
 

@@ -2,10 +2,68 @@ import {
   expect,
   type BrowserContext,
   type Page,
+  type Request,
 } from "@playwright/test";
 
 export const createHarnessEmail = (prefix: string): string =>
   `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@gloss.local`;
+
+export const createNetworkOriginTracker = (page: Page) => {
+  const crossOriginRequests: string[] = [];
+  const onRequest = (request: Request) => {
+    if (request.resourceType() !== "fetch" && request.resourceType() !== "xhr") {
+      return;
+    }
+
+    crossOriginRequests.push(request.url());
+  };
+
+  page.on("request", onRequest);
+
+  return {
+    checkpoint: (): number => crossOriginRequests.length,
+    expectOnlyApiOriginUsedSince: async (checkpoint: number): Promise<void> => {
+      const webOrigin = process.env.PLAYWRIGHT_BASE_URL
+        ? new URL(process.env.PLAYWRIGHT_BASE_URL).origin
+        : process.env.PLAYWRIGHT_WEB_PORT
+          ? `http://127.0.0.1:${process.env.PLAYWRIGHT_WEB_PORT}`
+          : new URL(page.url()).origin;
+      const apiOrigin = process.env.PLAYWRIGHT_API_ORIGIN
+        ? new URL(process.env.PLAYWRIGHT_API_ORIGIN).origin
+        : process.env.PLAYWRIGHT_API_PORT
+          ? `http://127.0.0.1:${process.env.PLAYWRIGHT_API_PORT}`
+          : null;
+
+      if (!apiOrigin) {
+        throw new Error(
+          "PLAYWRIGHT_API_ORIGIN or PLAYWRIGHT_API_PORT must be configured for API-origin verification.",
+        );
+      }
+
+      const relevantRequests = crossOriginRequests.slice(checkpoint).filter((requestUrl) => {
+        const requestOrigin = new URL(requestUrl).origin;
+
+        return requestOrigin !== webOrigin;
+      });
+
+      await expect
+        .poll(() => relevantRequests.length, {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(0);
+
+      const origins = Array.from(
+        new Set(
+          relevantRequests.map(
+            (requestUrl) => new URL(requestUrl).origin,
+          ),
+        ),
+      );
+
+      expect(origins).toEqual([apiOrigin]);
+    },
+  };
+};
 
 export const signInThroughUi = async (input: {
   email: string;

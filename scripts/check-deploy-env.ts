@@ -90,7 +90,7 @@ const renderPrettyReport = (
   return lines.join("\n");
 };
 
-const run = async (): Promise<void> => {
+const run = (): void => {
   const environment = parseEnvironment();
   const target = parseTarget();
   const pretty = process.argv.includes("--pretty");
@@ -114,4 +114,4 @@ const run = async (): Promise<void> => {
   }
 };
 
-void run();
+run();

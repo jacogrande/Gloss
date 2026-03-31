@@ -1,9 +1,9 @@
+import { seedDatabase } from "../apps/api/src/lib/demo-seed";
 import { createDatabaseClient } from "../apps/api/src/lib/db";
 import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../apps/api/src/lib/local-postgres";
 import { applyMigrations } from "../apps/api/src/lib/migrations";
 import { withPostgresAdvisoryLock } from "../apps/api/src/lib/postgres-lock";
 import { resolveScriptEnv } from "./lib/env";
-import { seedDatabase } from "./lib/seed";
 
 const run = async (): Promise<void> => {
   const env = resolveScriptEnv();

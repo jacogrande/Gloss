@@ -146,27 +146,35 @@ const hasUserId = (
 } => "userId" in event && typeof event.userId === "string" && event.userId.length > 0;
 
 export const derivePrivateAlphaReport = (input: {
+  excludedUserIds?: string[];
   events: ProductEvent[];
   generatedAt: string;
   seeds: PrivateAlphaSeedSnapshot[];
 }): PrivateAlphaReport => {
-  const authoritativeSeedIds = new Set(input.seeds.map((seed) => seed.id));
-  const signUpEvents = input.events.filter((event) => event.type === "auth.sign_up");
-  const captureEvents = input.events.filter((event) => event.type === "seed.capture");
-  const signInEvents = input.events.filter((event) => event.type === "auth.sign_in");
-  const signInFailureEvents = input.events.filter(
+  const excludedUserIds = new Set(input.excludedUserIds ?? []);
+  const filteredEvents = input.events.filter(
+    (event) => !("userId" in event) || !excludedUserIds.has(event.userId),
+  );
+  const filteredSeeds = input.seeds.filter(
+    (seed) => !excludedUserIds.has(seed.userId),
+  );
+  const authoritativeSeedIds = new Set(filteredSeeds.map((seed) => seed.id));
+  const signUpEvents = filteredEvents.filter((event) => event.type === "auth.sign_up");
+  const captureEvents = filteredEvents.filter((event) => event.type === "seed.capture");
+  const signInEvents = filteredEvents.filter((event) => event.type === "auth.sign_in");
+  const signInFailureEvents = filteredEvents.filter(
     (event) => event.type === "auth.sign_in_failed",
   );
-  const enrichmentRequestedEvents = input.events.filter(
+  const enrichmentRequestedEvents = filteredEvents.filter(
     (event) => event.type === "seed.enrichment.requested",
   );
-  const enrichmentReadyEvents = input.events.filter(
+  const enrichmentReadyEvents = filteredEvents.filter(
     (event) => event.type === "seed.enrichment.ready",
   );
-  const enrichmentFailedEvents = input.events.filter(
+  const enrichmentFailedEvents = filteredEvents.filter(
     (event) => event.type === "seed.enrichment.failed",
   );
-  const reviewCardEvents = input.events.filter((event) => {
+  const reviewCardEvents = filteredEvents.filter((event) => {
     if (event.type !== "review.card.submitted") {
       return false;
     }
@@ -174,16 +182,16 @@ export const derivePrivateAlphaReport = (input: {
     return "seedId" in event && authoritativeSeedIds.has(event.seedId);
   });
   const reviewStartedSeedIds = new Set(
-    input.events
+    filteredEvents
       .filter((event) => event.type === "review.session.started")
       .flatMap((event) =>
         event.payload.seedIds.filter((seedId) => authoritativeSeedIds.has(seedId)),
       ),
   );
-  const reviewSessionStartedEvents = input.events.filter(
+  const reviewSessionStartedEvents = filteredEvents.filter(
     (event) => event.type === "review.session.started",
   );
-  const reviewSessionCompletedEvents = input.events.filter(
+  const reviewSessionCompletedEvents = filteredEvents.filter(
     (event) => event.type === "review.session.completed",
   );
   const reviewedSeedIds = new Set(
@@ -212,11 +220,11 @@ export const derivePrivateAlphaReport = (input: {
   const usersWithRepeatCapture = Array.from(captureDaySetsByUser.values()).filter(
     (daySet) => daySet.size >= 2,
   ).length;
-  const deepeningSeedCount = input.seeds.filter(
+  const deepeningSeedCount = filteredSeeds.filter(
     (seed) => seed.stage === "deepening" || seed.stage === "mature",
   ).length;
   const usersWithReviewActivity = new Set(
-    input.events
+    filteredEvents
       .filter(
         (event) =>
           (event.type === "review.session.started" ||
@@ -225,17 +233,19 @@ export const derivePrivateAlphaReport = (input: {
       )
       .map((event) => event.userId),
   );
-  const activityDayKeys = new Set(input.events.map((event) => toDayKey(event.occurredAt)));
-  const sortedOccurredAt = input.events
+  const activityDayKeys = new Set(
+    filteredEvents.map((event) => toDayKey(event.occurredAt)),
+  );
+  const sortedOccurredAt = filteredEvents
     .map((event) => event.occurredAt)
     .slice()
     .sort((left, right) => left.localeCompare(right));
   const usersWithActivity = new Set(
-    input.events
+    filteredEvents
       .filter(hasUserId)
       .map((event) => event.userId),
   );
-  const eventCounts = buildEventCounts(input.events);
+  const eventCounts = buildEventCounts(filteredEvents);
   const settledEnrichmentCount =
     enrichmentReadyEvents.length + enrichmentFailedEvents.length;
   const signals: PrivateAlphaReport["signals"] = [
@@ -310,27 +320,27 @@ export const derivePrivateAlphaReport = (input: {
     metrics: {
       averageReviewsPerSavedWord: toRate(
         reviewCardEvents.length,
-        input.seeds.length,
+        filteredSeeds.length,
       ),
       captureToReviewConversion: toRate(
         reviewTouchedSeedIds.size,
-        input.seeds.length,
+        filteredSeeds.length,
       ),
       percentageReachingDeepening: toRate(
         deepeningSeedCount,
-        input.seeds.length,
+        filteredSeeds.length,
       ),
       repeatCaptureRate: toRate(
         usersWithRepeatCapture,
         captureDaySetsByUser.size,
       ),
       retention30Day: computeRetentionRate({
-        events: input.events,
+        events: filteredEvents,
         now: new Date(input.generatedAt),
         windowDays: 30,
       }),
       retention7Day: computeRetentionRate({
-        events: input.events,
+        events: filteredEvents,
         now: new Date(input.generatedAt),
         windowDays: 7,
       }),
@@ -343,7 +353,7 @@ export const derivePrivateAlphaReport = (input: {
       reviewCardsSubmitted: reviewCardEvents.length,
       reviewSessionsCompleted: reviewSessionCompletedEvents.length,
       reviewSessionsStarted: reviewSessionStartedEvents.length,
-      seeds: input.seeds.length,
+      seeds: filteredSeeds.length,
       usersWithCaptures: captureDaySetsByUser.size,
       usersWithReviewActivity: usersWithReviewActivity.size,
       usersWithSignIns: new Set(

@@ -1,8 +1,9 @@
-import { createAppRuntime } from "../../apps/api/src/lib/app-runtime";
-import type { DatabaseClient } from "../../apps/api/src/lib/db";
 import type { ServerEnv } from "@gloss/shared/env";
 
-type SeedResult = {
+import { createAppRuntime } from "./app-runtime";
+import type { DatabaseClient } from "./db";
+
+export type SeedResult = {
   createdDemoUser: boolean;
   createdSeedCount: number;
   demoEmail: string;
@@ -39,6 +40,8 @@ const demoSeedDefinitions: DemoSeedDefinition[] = [
     normalizedWord: "fastidious",
   },
 ];
+
+export const demoSeedCount = demoSeedDefinitions.length;
 
 export const seedDatabase = async (options: {
   database: DatabaseClient;

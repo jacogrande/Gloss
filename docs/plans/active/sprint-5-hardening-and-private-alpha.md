@@ -569,4 +569,19 @@ Private-alpha release gate:
 - 2026-03-30: upgraded the private-alpha report and documented preview, staging, and issue-intake workflows
 - 2026-03-30: added a typed deploy-environment checker for preview, staging, and private-alpha env alignment
 - 2026-03-30: added hosted Playwright verification so preview and staging browser checks are executable from the repo
-- 2026-03-30: added integration coverage for repeated local reset and fixture seeding so demo auth and seed state stay deterministic across repeated `db:reset`-style cycles
+- 2026-03-30: moved demo seeding into app-owned runtime code, added idempotent demo-seed integration coverage, and verified the real `db:reset` path succeeds across consecutive runs
+- 2026-03-30: refined hosted verification so API-origin assertions are scoped to the library transition and hosted-only browser checks stay out of the default local Playwright run
+- 2026-03-30: excluded synthetic `@gloss.local` verification users from private-alpha metrics so preview and staging browser checks do not pollute KPI totals
+- 2026-03-30: reran the Sprint 5 local gate with the real harness:
+  - `bun run db:reset` twice
+  - `bun run harness:check`
+  - `bun run lint:boundaries`
+  - `bun run lint`
+  - `bun run typecheck`
+  - `bun run build`
+  - `bun run test`
+  - `bun run test:integration`
+  - `bun run smoke`
+  - `bun run test:e2e`
+  - `bun run eval`
+- 2026-03-30: captured final Playwright MCP screenshots for `/library`, `/seeds/:id`, and `/review` on the live local dev stack

@@ -2,7 +2,6 @@ import { createAppRuntime } from "../src/lib/app-runtime";
 import { createDatabaseClient } from "../src/lib/db";
 import { loadServerEnv } from "../src/lib/env";
 import type { EnrichmentProviders } from "../src/lib/enrichment-providers";
-import { ensureLocalDatabaseExists, ensureLocalPostgresStarted } from "../src/lib/local-postgres";
 import { applyMigrations, resetDatabase } from "../src/lib/migrations";
 import type { RequestRateLimitPolicies } from "../src/lib/request-rate-limit-contracts";
 
@@ -31,9 +30,6 @@ export const createTestContext = async (input?: {
   const testDatabaseUrl = deriveTestDatabaseUrl(
     process.env.DATABASE_URL ?? defaultDatabaseUrl,
   );
-
-  await ensureLocalPostgresStarted({ databaseUrl: testDatabaseUrl });
-  await ensureLocalDatabaseExists(testDatabaseUrl);
 
   const env = loadServerEnv({
     API_ORIGIN: "http://127.0.0.1:8787",
