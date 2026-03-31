@@ -332,6 +332,7 @@ export const reviewQueueSummarySchema = z
   .object({
     activeSessionId: z.string().min(1).nullable(),
     availableCount: z.number().int().nonnegative(),
+    capturedCount: z.number().int().nonnegative(),
     dueByDimension: z
       .object({
         distinction: z.number().int().nonnegative(),

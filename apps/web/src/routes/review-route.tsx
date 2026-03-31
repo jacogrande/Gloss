@@ -5,7 +5,7 @@ import {
   useState,
   type JSX,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import type {
   ReviewCard,
@@ -13,6 +13,7 @@ import type {
   ReviewSessionDetail,
 } from "@gloss/shared/types";
 
+import { getReviewQueueDisplayState } from "../features/review/review-presenters";
 import { useSessionState } from "../features/auth/session-provider";
 import {
   fetchReviewQueue,
@@ -150,6 +151,7 @@ export const ReviewRoute = (): JSX.Element => {
   }, [session?.session.currentCardId]);
 
   const currentCard = getCurrentCard(session);
+  const queueDisplayState = queue ? getReviewQueueDisplayState(queue) : null;
 
   const startSession = async (): Promise<void> => {
     setIsStarting(true);
@@ -349,6 +351,31 @@ export const ReviewRoute = (): JSX.Element => {
     );
   }
 
+  if (errorMessage && !queue) {
+    return (
+      <section className="review">
+        <section className="panel review__queue-panel">
+          <div className="review__queue-header">
+            <div>
+              <p className="panel__eyebrow">Queue</p>
+              <h2>Review</h2>
+            </div>
+          </div>
+
+          <p className="capture-form__error" role="alert">
+            {errorMessage}
+          </p>
+
+          <div className="capture-form__actions">
+            <Link className="capture-form__secondary-link" to="/library">
+              Browse your words
+            </Link>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
   return (
     <section className="review">
       <section className="panel review__queue-panel">
@@ -377,26 +404,32 @@ export const ReviewRoute = (): JSX.Element => {
           </div>
         </div>
 
-        <p className="panel__copy">
-          {queue?.availableCount
-            ? "Short sessions focus on the weakest due dimension first."
-            : "Ready enrichments will appear here once there is something worth reviewing."}
-        </p>
+        <p className="panel__copy">{queueDisplayState?.message ?? "Loading review..."}</p>
 
         {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
         {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
 
         <div className="capture-form__actions">
-          <button
-            className="capture-form__submit"
-            disabled={!queue?.availableCount || isStarting}
-            onClick={() => {
-              void startSession();
-            }}
-            type="button"
-          >
-            {isStarting ? "Starting..." : queue?.activeSessionId ? "Resume session" : "Start review"}
-          </button>
+          {queueDisplayState?.canStart && queueDisplayState.actionLabel ? (
+            <button
+              className="capture-form__submit"
+              disabled={isStarting}
+              onClick={() => {
+                void startSession();
+              }}
+              type="button"
+            >
+              {isStarting ? "Starting..." : queueDisplayState.actionLabel}
+            </button>
+          ) : null}
+          {queueDisplayState?.secondaryAction ? (
+            <Link
+              className="capture-form__secondary-link"
+              to={queueDisplayState.secondaryAction.href}
+            >
+              {queueDisplayState.secondaryAction.label}
+            </Link>
+          ) : null}
         </div>
       </section>
     </section>

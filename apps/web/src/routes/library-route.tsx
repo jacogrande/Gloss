@@ -1,10 +1,19 @@
-import { useState, type JSX } from "react";
+import {
+  useEffect,
+  useState,
+  type JSX,
+} from "react";
+import { Link } from "react-router-dom";
 
 import type {
   SeedStage,
   SeedSummary,
 } from "@gloss/shared/types";
 
+import {
+  formatStageFilterLabel,
+  getLibraryEmptyState,
+} from "../features/seeds/library-presenters";
 import { SeedCard } from "../features/seeds/SeedCard";
 import { fetchSeedList } from "../lib/api-client";
 import { webEnv } from "../lib/env";
@@ -22,6 +31,7 @@ const stageOptions: StageFilter[] = [
 
 export const LibraryRoute = (): JSX.Element => {
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
+  const [allStageTotal, setAllStageTotal] = useState<number>(0);
   const {
     data,
     errorMessage,
@@ -45,6 +55,17 @@ export const LibraryRoute = (): JSX.Element => {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
 
+  useEffect(() => {
+    if (stageFilter === "all" && data) {
+      setAllStageTotal(data.total);
+    }
+  }, [data, stageFilter]);
+
+  const emptyState = getLibraryEmptyState({
+    hasAnyWords: stageFilter === "all" ? total > 0 : allStageTotal > 0,
+    stage: stageFilter,
+  });
+
   return (
     <section className="library">
       <div className="panel panel--compact">
@@ -64,7 +85,7 @@ export const LibraryRoute = (): JSX.Element => {
               >
                 {stageOptions.map((option) => (
                   <option key={option} value={option}>
-                    {option}
+                    {formatStageFilterLabel(option)}
                   </option>
                 ))}
               </select>
@@ -85,8 +106,44 @@ export const LibraryRoute = (): JSX.Element => {
         </section>
       ) : items.length === 0 ? (
         <section className="panel">
-          <h3>No words yet.</h3>
-          <p className="panel__copy">Save a word to see it here.</p>
+          <h3>{emptyState.title}</h3>
+          <p className="panel__copy">{emptyState.message}</p>
+          <div className="panel__actions">
+            {emptyState.primaryAction.kind === "link" ? (
+              <Link className="capture-form__submit" to={emptyState.primaryAction.href}>
+                {emptyState.primaryAction.label}
+              </Link>
+            ) : (
+              <button
+                className="capture-form__submit"
+                onClick={() => {
+                  setStageFilter("all");
+                }}
+                type="button"
+              >
+                {emptyState.primaryAction.label}
+              </button>
+            )}
+
+            {emptyState.secondaryAction?.kind === "link" ? (
+              <Link
+                className="capture-form__secondary-link"
+                to={emptyState.secondaryAction.href}
+              >
+                {emptyState.secondaryAction.label}
+              </Link>
+            ) : emptyState.secondaryAction?.kind === "reset-filter" ? (
+              <button
+                className="capture-form__secondary-link"
+                onClick={() => {
+                  setStageFilter("all");
+                }}
+                type="button"
+              >
+                {emptyState.secondaryAction.label}
+              </button>
+            ) : null}
+          </div>
         </section>
       ) : (
         <section className="library__grid">

@@ -97,8 +97,9 @@ const buildQueueSummary = async (input: {
   repository: ReviewRepository;
   userId: string;
 }): Promise<ReviewQueueSummary> => {
-  const [activeSession, candidates] = await Promise.all([
+  const [activeSession, capturedCount, reviewCandidates] = await Promise.all([
     input.repository.getActiveSession({ userId: input.userId }),
+    input.repository.countCapturedSeedsForUser({ userId: input.userId }),
     input.repository.listReviewCandidates({ userId: input.userId }),
   ]);
   const now = new Date();
@@ -109,7 +110,7 @@ const buildQueueSummary = async (input: {
   };
   let dueCount = 0;
 
-  for (const candidate of candidates) {
+  for (const candidate of reviewCandidates) {
     const targets = selectDueReviewTargets({
       candidates: [
         {
@@ -137,7 +138,8 @@ const buildQueueSummary = async (input: {
 
   return toReviewQueueSummary({
     activeSessionId: activeSession?.session.id ?? null,
-    availableCount: candidates.length,
+    availableCount: reviewCandidates.length,
+    capturedCount,
     dueByDimension,
     dueCount,
   });

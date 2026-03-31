@@ -17,13 +17,13 @@ describe("AuthForm", () => {
       />,
     );
 
-    fireEvent.change(screen.getByLabelText("Name"), {
+    fireEvent.change(screen.getByRole("textbox", { name: /^Name/ }), {
       target: { value: "Gloss Reader" },
     });
-    fireEvent.change(screen.getByLabelText("Email"), {
+    fireEvent.change(screen.getByRole("textbox", { name: /^Email/ }), {
       target: { value: "reader@example.com" },
     });
-    fireEvent.change(screen.getByLabelText("Password"), {
+    fireEvent.change(screen.getByPlaceholderText("At least 8 characters"), {
       target: { value: "password1234" },
     });
     fireEvent.submit(screen.getByTestId("auth-form"));

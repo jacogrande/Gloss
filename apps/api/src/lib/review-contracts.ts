@@ -920,12 +920,14 @@ export const toReviewSessionDetail = (input: {
 export const toReviewQueueSummary = (input: {
   activeSessionId: string | null;
   availableCount: number;
+  capturedCount: number;
   dueByDimension: Record<ReviewDimension, number>;
   dueCount: number;
 }): ReviewQueueSummary =>
   reviewQueueSummarySchema.parse({
     activeSessionId: input.activeSessionId,
     availableCount: input.availableCount,
+    capturedCount: input.capturedCount,
     dueByDimension: input.dueByDimension,
     dueCount: input.dueCount,
   });

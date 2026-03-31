@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import type { CreateSeedInput } from "@gloss/shared/types";
 
+import { clearCaptureOnboardingPending } from "../features/auth/post-auth";
 import { CaptureForm } from "../features/seeds/CaptureForm";
 import { createSeed } from "../lib/api-client";
 import { webEnv } from "../lib/env";
@@ -27,6 +28,7 @@ export const CaptureRoute = (): JSX.Element => {
             try {
               const seed = await createSeed(webEnv.VITE_API_BASE_URL, value);
 
+              clearCaptureOnboardingPending();
               await navigate(`/seeds/${seed.id}`);
             } catch (error) {
               setErrorMessage(toErrorMessage(error));

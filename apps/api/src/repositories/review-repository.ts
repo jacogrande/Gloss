@@ -1,5 +1,6 @@
 import {
   and,
+  count,
   desc,
   eq,
 } from "drizzle-orm";
@@ -77,6 +78,7 @@ type CreateReviewCardRecordInput = {
 };
 
 export type ReviewRepository = {
+  countCapturedSeedsForUser: (input: { userId: string }) => Promise<number>;
   createSessionWithCards: (input: {
     cards: CreateReviewCardRecordInput[];
     userId: string;
@@ -164,6 +166,14 @@ const loadCardsForSession = async (
 export const createReviewRepository = (
   db: GlossDatabase,
 ): ReviewRepository => ({
+  async countCapturedSeedsForUser(input) {
+    const [row] = await db
+      .select({ value: count() })
+      .from(seedsTable)
+      .where(eq(seedsTable.userId, input.userId));
+
+    return row?.value ?? 0;
+  },
   async createSessionWithCards(input) {
     return db.transaction(async (transaction) => {
       const createdSession = requireRow(

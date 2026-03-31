@@ -446,6 +446,7 @@ export const parseReviewQueueResponse = (value: unknown): ReviewQueueSummary =>
     return {
       activeSessionId: readNullableString(record.activeSessionId),
       availableCount: readNonNegativeInteger(record.availableCount),
+      capturedCount: readNonNegativeInteger(record.capturedCount),
       dueByDimension: {
         distinction: readNonNegativeInteger(dueByDimension.distinction),
         recognition: readNonNegativeInteger(dueByDimension.recognition),

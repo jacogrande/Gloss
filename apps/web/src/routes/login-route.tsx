@@ -7,6 +7,10 @@ import {
   signInWithPassword,
   signUpWithPassword,
 } from "../features/auth/auth-service";
+import {
+  getPostAuthPath,
+  markCaptureOnboardingPending,
+} from "../features/auth/post-auth";
 import { useSessionState } from "../features/auth/session-provider";
 
 type AuthMode = "sign-in" | "sign-up";
@@ -23,7 +27,7 @@ export const LoginRoute = (): JSX.Element => {
   }
 
   if (session.session) {
-    return <Navigate replace to="/library" />;
+    return <Navigate replace to={getPostAuthPath()} />;
   }
 
   return (
@@ -46,10 +50,13 @@ export const LoginRoute = (): JSX.Element => {
                   await signInWithPassword(fields);
                 } else {
                   await signUpWithPassword(fields);
+                  markCaptureOnboardingPending();
                 }
 
                 await session.refreshSession();
-                await navigate("/library", { replace: true });
+                await navigate(getPostAuthPath(), {
+                  replace: true,
+                });
               } catch (error) {
                 setErrorMessage(getAuthErrorMessage(error));
               }

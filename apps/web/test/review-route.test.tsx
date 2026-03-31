@@ -1,4 +1,5 @@
 import {
+  cleanup,
   render,
   screen,
   waitFor,
@@ -68,15 +69,19 @@ vi.mock("../src/features/auth/session-provider", () => ({
   }),
 }));
 
-const createQueue = (): ReviewQueueSummary => ({
+const createQueue = (
+  overrides: Partial<ReviewQueueSummary> = {},
+): ReviewQueueSummary => ({
   activeSessionId: null,
   availableCount: 1,
+  capturedCount: 1,
   dueByDimension: {
     distinction: 1,
     recognition: 1,
     usage: 1,
   },
   dueCount: 1,
+  ...overrides,
 });
 
 const createActiveSession = (): ReviewSessionDetail => ({
@@ -193,6 +198,7 @@ const createAdvancedSession = (): ReviewSessionDetail => ({
 
 describe("ReviewRoute", () => {
   afterEach(() => {
+    cleanup();
     vi.resetAllMocks();
   });
 
@@ -304,5 +310,121 @@ describe("ReviewRoute", () => {
         name: /verbose/i,
       }),
     ).toBeVisible();
+  });
+
+  it("shows a capture CTA instead of a dead-end button when nothing is reviewable", async () => {
+    fetchReviewQueue.mockResolvedValue({
+      activeSessionId: null,
+      availableCount: 0,
+      capturedCount: 0,
+      dueByDimension: {
+        distinction: 0,
+        recognition: 0,
+        usage: 0,
+      },
+      dueCount: 0,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /start review|resume session/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Capture your first word" })).toHaveAttribute(
+      "href",
+      "/capture",
+    );
+  });
+
+  it("does not offer a start button when nothing is due yet", async () => {
+    fetchReviewQueue.mockResolvedValue({
+      activeSessionId: null,
+      availableCount: 3,
+      capturedCount: 3,
+      dueByDimension: {
+        distinction: 0,
+        recognition: 0,
+        usage: 0,
+      },
+      dueCount: 0,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: /start review|resume session/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Browse your words" })).toHaveAttribute(
+      "href",
+      "/library",
+    );
+  });
+
+  it("explains when words exist but none are ready to review yet", async () => {
+    fetchReviewQueue.mockResolvedValue(
+      createQueue({
+        availableCount: 0,
+        capturedCount: 2,
+        dueByDimension: {
+          distinction: 0,
+          recognition: 0,
+          usage: 0,
+        },
+        dueCount: 0,
+      }),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+    expect(
+      screen.getByText("Nothing is ready to review yet. Give your saved words a moment, or browse your library in the meantime."),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Browse your words" })).toHaveAttribute(
+      "href",
+      "/library",
+    );
+  });
+
+  it("shows a load error instead of the empty queue copy when queue fetch fails", async () => {
+    fetchReviewQueue.mockRejectedValue(new Error("Queue offline."));
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("Queue offline.");
+    expect(
+      screen.queryByRole("link", { name: "Capture your first word" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Browse your words" })).toHaveAttribute(
+      "href",
+      "/library",
+    );
   });
 });

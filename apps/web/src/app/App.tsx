@@ -1,6 +1,7 @@
 import type { JSX } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+import { getPostAuthPath } from "../features/auth/post-auth";
 import { SessionProvider } from "../features/auth/session-provider";
 import { CaptureRoute } from "../routes/capture-route";
 import { LibraryRoute } from "../routes/library-route";
@@ -13,8 +14,8 @@ export const App = (): JSX.Element => (
   <SessionProvider>
     <BrowserRouter>
       <Routes>
-        <Route element={<Navigate replace to="/library" />} path="/" />
-        <Route element={<Navigate replace to="/library" />} path="/app" />
+        <Route element={<Navigate replace to={getPostAuthPath()} />} path="/" />
+        <Route element={<Navigate replace to={getPostAuthPath()} />} path="/app" />
         <Route element={<LoginRoute />} path="/login" />
         <Route element={<ProtectedLayout />}>
           <Route element={<CaptureRoute />} path="/capture" />

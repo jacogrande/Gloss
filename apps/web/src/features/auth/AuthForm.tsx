@@ -24,13 +24,17 @@ export const AuthForm = ({
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const helperCopy =
+    mode === "sign-in"
+      ? "Return to your words and reviews."
+      : "Create an account to start saving words from real reading.";
 
   return (
     <section className="auth-card" data-mode={mode}>
       <header className="auth-card__header">
         <p className="auth-card__eyebrow">Gloss</p>
         <h1>{mode === "sign-in" ? "Sign in" : "Create your account"}</h1>
-        <p className="auth-card__copy">Save words from real reading and return to them later.</p>
+        <p className="auth-card__copy">{helperCopy}</p>
       </header>
 
       <div className="auth-card__mode-switch" role="tablist" aria-label="Auth mode">
@@ -79,6 +83,7 @@ export const AuthForm = ({
                 type="text"
                 value={name}
               />
+              <small className="auth-card__hint">This is how your account appears inside Gloss.</small>
             </label>
           </div>
         </div>
@@ -106,6 +111,7 @@ export const AuthForm = ({
             type="password"
             value={password}
           />
+          <small className="auth-card__hint">Use at least 8 characters.</small>
         </label>
 
         {errorMessage ? (

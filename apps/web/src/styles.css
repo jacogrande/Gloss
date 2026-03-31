@@ -233,12 +233,17 @@ button {
 .auth-card__copy,
 .panel__copy,
 .capture-form__hint,
+.auth-card__hint,
 .seed-enrichment__state-copy,
 .seed-card__sentence,
 .seed-detail__copy,
 .shell__copy {
   margin: 0;
   color: var(--ink-700);
+}
+
+.auth-card__hint {
+  font-size: 0.85rem;
 }
 
 .auth-card__mode-switch {
@@ -371,6 +376,9 @@ button {
 .capture-form__submit,
 .seed-enrichment__retry {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-height: 44px;
   padding: 0 18px;
   border: 0;
@@ -378,6 +386,7 @@ button {
   background: var(--ink-950);
   color: var(--surface-elevated);
   font-weight: 600;
+  text-decoration: none;
 }
 
 .auth-card__submit:disabled,
@@ -401,13 +410,36 @@ button {
 .capture-form__actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+.panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .capture-form__hint {
   max-width: 40ch;
+}
+
+.capture-form__secondary-link {
+  appearance: none;
+  background: none;
+  border: none;
+  color: var(--accent-700);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: none;
+}
+
+.capture-form__secondary-link:hover {
+  color: var(--ink-950);
 }
 
 .library__header {
