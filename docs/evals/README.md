@@ -50,6 +50,12 @@ The source of truth for browser journey coverage lives in:
 - `e2e/support/journey-fuzz.ts`
 - `e2e/specs/journey-fuzzy.eval.spec.ts`
 
+Default behavior:
+
+- `bun run eval` and `bun run eval:browser` use live enrichment vendors by default
+- browser assertions must stay invariant-based so they survive live-provider variability
+- fixture mode remains available only as an explicit override via `ENRICHMENT_PROVIDER_MODE=fixture`
+
 ## Dataset Files
 
 - `docs/evals/datasets/capture_journeys.jsonl`
@@ -92,21 +98,20 @@ The current implemented eval set focuses on capture, enrichment, review, and bou
 9. wrong review answers return a stable feedback contract with the correct choice id
 10. product routes expose split-origin CORS correctly
 11. request ids, schema versions, and stable error codes survive boundary and trace checks
-12. every documented user journey survives deterministic browser fuzz coverage
+12. every documented user journey survives browser fuzz coverage against the live local stack
 
 The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for later review-generation work. For the current implementation:
 
-- `bun run eval:journeys` should run `capture_journeys.jsonl`, `enrichment_journeys.jsonl`, and `review_journeys.jsonl`
+- `bun run eval:journeys` should run `capture_journeys.jsonl`, `enrichment_journeys_live.jsonl`, and `review_journeys.jsonl` by default
 - `bun run eval:traces` should run HTTP boundary checks, persisted enrichment trace checks, and persisted review trace checks
 - `bun run eval:browser` should run the `@journey-fuzz` Playwright inventory from `e2e/specs/journey-fuzzy.eval.spec.ts`
 - `review_journeys.jsonl` should protect both happy-path review completion and the wrong-answer feedback contract used by the Sprint 6 teaching loop
 
-When `ENRICHMENT_PROVIDER_MODE=live` is enabled for targeted vendor checks:
+When the harness is forced into fixture mode:
 
-- `bun run eval:journeys` should swap to `enrichment_journeys_live.jsonl`
-- live output evals should validate stable invariants, not exact fixture words
-- live trace evals should validate guardrails against the lexical evidence snapshot rather than fixture-specific omissions
-- review evals remain deterministic around persisted session/card/event/state behavior, even when live enrichment is enabled
+- `bun run eval:journeys` should swap back to `enrichment_journeys.jsonl`
+- browser fuzz and smoke assertions should still validate stable invariants, not fixture-specific prose, unless a fixture-only test explicitly needs that precision
+- review evals remain deterministic around persisted session/card/event/state behavior in either provider mode
 
 ## Pass Rules
 
@@ -122,5 +127,6 @@ For MVP workflows:
 - run targeted evals before merge for any AI-sensitive change
 - run the full MVP eval set in CI
 - run browser fuzz evals whenever a user-visible journey changes
+- treat missing live-provider credentials as a harness misconfiguration, not as a reason to silently downgrade to fixtures
 - review failures by category, not as a flat list
 - treat every escaped AI bug as incomplete until it exists in a dataset file

@@ -132,16 +132,16 @@ const knownWordFixtures: FuzzWordFixture[] = [
 
 const unknownWordFixtures: FuzzWordFixture[] = [
   {
-    sentence: "The room felt austere but calm.",
-    word: "austere",
+    sentence: "The room felt zorvalic but calm.",
+    word: "zorvalic",
   },
   {
-    sentence: "His reply stayed laconic even under pressure.",
-    word: "laconic",
+    sentence: "His reply stayed quenlithic even under pressure.",
+    word: "quenlithic",
   },
   {
-    sentence: "The policy sounded recondite to most readers.",
-    word: "recondite",
+    sentence: "The policy sounded dravonel to most readers.",
+    word: "dravonel",
   },
 ];
 

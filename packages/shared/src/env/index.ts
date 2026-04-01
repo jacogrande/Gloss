@@ -60,7 +60,7 @@ export const serverEnvSchema = z.object({
   BETTER_AUTH_URL: z.url(),
   COOKIE_DOMAIN: cookieDomainSchema.optional(),
   DATABASE_URL: nonEmptyStringSchema,
-  ENRICHMENT_PROVIDER_MODE: enrichmentProviderModeSchema.default("fixture"),
+  ENRICHMENT_PROVIDER_MODE: enrichmentProviderModeSchema.default("live"),
   LOG_LEVEL: logLevelSchema.default("info"),
   MERRIAM_WEBSTER_DICTIONARY_API_KEY: nonEmptyStringSchema.optional(),
   MERRIAM_WEBSTER_THESAURUS_API_KEY: nonEmptyStringSchema.optional(),

@@ -127,19 +127,25 @@ These scripts are part of the harness and should be implemented as the repo is s
 - `bun run test:integration`
   API, DB, schema, and provider boundary tests.
 - `bun run test:e2e`
-  Full Playwright suite against local services. The runner chooses isolated local web/API ports automatically to avoid stale-port collisions.
+  Full Playwright suite against local services with live enrichment providers by default. The runner chooses isolated local web/API ports automatically to avoid stale-port collisions.
 - `bun run test:e2e:fuzzy`
-  Manifest-driven Playwright journey fuzz suite. Covers every documented user journey with deterministic browser-level variants against local services.
+  Manifest-driven Playwright journey fuzz suite. Covers every documented user journey with deterministic inputs and live-provider browser execution by default.
+- `bun run test:e2e:fixture`
+  Explicit fixture override for the full local Playwright suite.
+- `bun run test:e2e:fuzzy:fixture`
+  Explicit fixture override for the journey-fuzz Playwright suite.
 - `bun run test:e2e:hosted`
   Hosted Playwright verification against explicit preview or staging origins.
 - `bun run test:e2e:live`
-  Full Playwright suite against local services with live enrichment providers.
+  Compatibility alias for the live-provider local Playwright suite.
 - `bun run smoke`
-  Short Playwright happy-path journey set. Uses the same isolated local browser-test runner as `test:e2e`.
+  Short Playwright happy-path journey set. Uses the same isolated local browser-test runner as `test:e2e` and live enrichment providers by default.
+- `bun run smoke:fixture`
+  Explicit fixture override for the smoke suite.
 - `bun run smoke:hosted`
   Short hosted Playwright verification against explicit preview or staging origins.
 - `bun run smoke:live`
-  Short Playwright smoke set against local services with live enrichment providers.
+  Compatibility alias for the live-provider smoke suite.
 
 ### Data and Infra
 
@@ -157,9 +163,11 @@ These scripts are part of the harness and should be implemented as the repo is s
 ### Agent and Eval
 
 - `bun run eval`
-  Run the MVP eval set and summarize failures by category.
+  Run the MVP eval set with live enrichment providers by default and summarize failures by category.
 - `bun run eval:browser`
   Run the manifest-driven Playwright journey fuzz suite as part of the eval harness.
+- `bun run eval:fixture`
+  Explicit fixture override for the full eval harness.
 - `bun run eval:journeys`
   Run output-level evals for capture, enrichment, and review generation.
 - `bun run eval:traces`

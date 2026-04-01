@@ -125,6 +125,6 @@ Use:
 
 ## Operator Notes
 
-- keep fixture-mode smoke and evals as the default merge gate
-- use live-provider browser checks only when a provider-path change justifies them
+- keep live-provider smoke and evals as the default merge gate
+- use fixture mode only as an explicit fallback when offline debugging or provider isolation is required
 - if alpha onboarding does not require password reset or email verification, keep email infrastructure deferred

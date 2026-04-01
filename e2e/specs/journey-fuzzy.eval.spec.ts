@@ -200,13 +200,16 @@ const runJourney = async (input: {
       ).toBe("failed");
 
       await expect(
-        input.page.getByText("Add a sentence or source details, then try enrichment again."),
+        input.page.getByRole("heading", { name: "Add context" }),
       ).toBeVisible();
       await expect(
         input.page.getByRole("textbox", { name: "Sentence (optional)" }),
       ).toHaveValue(
         "",
       );
+      await expect(
+        input.page.getByRole("button", { name: "Save context" }),
+      ).toBeVisible();
       return;
     }
 
@@ -335,9 +338,14 @@ const runJourney = async (input: {
   }
 };
 
+const browserJourneyTimeoutMs =
+  process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 90_000 : 30_000;
+
 test.describe("browser journey fuzz evals", () => {
   for (const journey of browserJourneyDefinitions) {
     test(`@journey-fuzz ${journey.title}`, async ({ page }) => {
+      test.setTimeout(browserJourneyTimeoutMs);
+
       await runJourney({
         journeyId: journey.id,
         page,

@@ -10,6 +10,11 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      ENRICHMENT_PROVIDER_MODE: live
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      MERRIAM_WEBSTER_DICTIONARY_API_KEY: ${{ secrets.MERRIAM_WEBSTER_DICTIONARY_API_KEY }}
+      MERRIAM_WEBSTER_THESAURUS_API_KEY: ${{ secrets.MERRIAM_WEBSTER_THESAURUS_API_KEY }}
 
     steps:
       - name: Checkout
@@ -38,6 +43,12 @@ jobs:
 
       - name: Prepare local env
         run: cp .env.example .env
+
+      - name: Verify live provider env
+        run: |
+          test -n "$OPENAI_API_KEY"
+          test -n "$MERRIAM_WEBSTER_DICTIONARY_API_KEY"
+          test -n "$MERRIAM_WEBSTER_THESAURUS_API_KEY"
 
       - name: Harness checks
         run: bun run harness:check

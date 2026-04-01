@@ -19,11 +19,16 @@ export const loadServerEnv = (
   input: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env,
 ): ServerEnv => parseServerEnv(toEnvInput(input));
 
-export const loadServerEnvFromDotenv = (): ServerEnv => {
+export const loadServerEnvFromDotenv = (
+  defaults: Record<string, string | undefined> = {},
+): ServerEnv => {
   config({
     path: [repoEnvLocalPath, repoEnvPath],
     quiet: true,
   });
 
-  return loadServerEnv(process.env);
+  return loadServerEnv({
+    ...defaults,
+    ...toEnvInput(process.env),
+  });
 };

@@ -57,6 +57,7 @@ const run = async (): Promise<void> => {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      ENRICHMENT_PROVIDER_MODE: process.env.ENRICHMENT_PROVIDER_MODE ?? "live",
       PLAYWRIGHT_API_ORIGIN: apiOrigin,
       PLAYWRIGHT_BASE_URL: webOrigin,
       PLAYWRIGHT_HOSTED: "1",

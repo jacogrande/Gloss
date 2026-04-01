@@ -71,6 +71,7 @@ const run = async (): Promise<void> => {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      ENRICHMENT_PROVIDER_MODE: process.env.ENRICHMENT_PROVIDER_MODE ?? "live",
       PLAYWRIGHT_API_PORT: String(apiPort),
       PLAYWRIGHT_WEB_PORT: String(webPort),
     },

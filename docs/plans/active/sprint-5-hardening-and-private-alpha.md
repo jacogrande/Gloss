@@ -43,8 +43,8 @@ Important product and harness constraints that carry into this sprint:
 - the MVP remains a structured capture, enrichment, and review product, not a chat product
 - all privileged logic stays in `apps/api`
 - Railway remains the default hosting model
-- fixture-mode smoke and evals remain the default merge gates
-- live-provider validation remains opt-in and separate
+- live-provider smoke and evals remain the default merge gates
+- fixture mode is a fallback, not the normal release path
 - every meaningful escaped failure should become a smoke, test, or eval artifact
 
 ## Current Baseline
@@ -52,7 +52,7 @@ Important product and harness constraints that carry into this sprint:
 The current repo already has:
 
 - typed capture, enrichment, and review flows
-- fixture-mode journey evals and trace evals
+- journey evals and trace evals with live providers by default
 - Playwright smoke coverage for sign-in, capture, enrichment, library, and review
 - CI gates for harness checks, linting, typecheck, tests, smoke, and evals
 
@@ -85,8 +85,8 @@ Concrete product outcomes:
 - Do not introduce SSR, React Router framework mode, or browser-side privileged data access.
 - Do not add third-party analytics or observability products unless the hosted primitive is clearly insufficient.
 - Do not add new end-user-facing product surface area unless it directly closes a hardening or private-alpha gap.
-- Keep fixture-mode smoke and evals deterministic enough to run in CI.
-- Any live-provider checks must remain explicitly opt-in.
+- Keep smoke and eval stable enough to run in CI with live-provider secrets configured.
+- Fixture-mode checks remain explicit opt-in overrides.
 - Preserve the current UI direction:
   - minimal
   - content-first
@@ -102,7 +102,7 @@ Sprint 5 should stay Railway-oriented and operationally conservative.
 Recommended environment model:
 
 1. `local`
-   native local Postgres, fixture-mode smoke/evals, optional live-provider validation
+   native local Postgres, live-provider smoke/evals by default, fixture mode only as an explicit fallback
 2. `preview`
    Railway GitHub preview deploys for both web and API with attached preview database
 3. `staging`

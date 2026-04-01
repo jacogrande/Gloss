@@ -2,7 +2,7 @@
 
 ## Goal
 
-Extend the Gloss harness so every documented user journey has deterministic browser-level fuzz coverage in the default eval path.
+Extend the Gloss harness so every documented user journey has browser-level fuzz coverage in the default eval path.
 
 ## Context
 
@@ -23,7 +23,7 @@ The gap is that the browser layer is still example-driven instead of inventory-d
 ## Constraints
 
 - keep the current stack and Railway-oriented split-origin assumptions
-- keep default browser fuzz runs deterministic and fixture-backed
+- keep journey inputs deterministic while running the default browser fuzz path against live providers
 - avoid cross-test state leakage by using per-journey users instead of mutating the shared demo account where possible
 - keep the suite serial and stable
 
@@ -61,4 +61,4 @@ The browser fuzz layer should cover:
 ## Status Log
 
 - 2026-04-01: created to close the gap between documented journey inventory and automated browser-level harness coverage.
-- 2026-04-01: implemented typed browser journey inventory, manifest-driven `@journey-fuzz` Playwright coverage, and wired `bun run eval` to include `bun run eval:browser`.
+- 2026-04-01: implemented typed browser journey inventory, manifest-driven `@journey-fuzz` Playwright coverage, wired `bun run eval` to include `bun run eval:browser`, and later promoted live providers to the default browser/eval mode.

@@ -72,6 +72,7 @@ export const waitForSeedDetailState = async (input: {
   expectRecovery?: boolean;
   page: Page;
 }): Promise<"failed" | "ready"> => {
+  const timeoutMs = process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 60_000 : 15_000;
   const enrichmentPanel = input.page.locator(".seed-enrichment");
   const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
   let outcome: "failed" | "pending" | "ready" = "pending";
@@ -105,7 +106,7 @@ export const waitForSeedDetailState = async (input: {
       outcome = "pending";
       return outcome;
     }, {
-      timeout: 15_000,
+      timeout: timeoutMs,
     })
     .not.toBe("pending");
 

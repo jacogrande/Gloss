@@ -6,7 +6,7 @@ Use it for three different goals:
 
 - quick local confidence after a change
 - a full manual pass before calling the current MVP healthy
-- optional live-vendor validation against real OpenAI and Merriam-Webster keys
+- default live-vendor validation against real OpenAI and Merriam-Webster keys
 
 This is a local-development guide. Railway deployment setup lives in [docs/DEPLOYMENT.md](/Users/jackson/Code/projects/gloss/docs/DEPLOYMENT.md).
 
@@ -75,6 +75,12 @@ cp .env.example .env
 bun run db:reset
 ```
 
+Before the default live harness will run successfully, fill these in inside `.env`:
+
+- `OPENAI_API_KEY`
+- `MERRIAM_WEBSTER_DICTIONARY_API_KEY`
+- `MERRIAM_WEBSTER_THESAURUS_API_KEY`
+
 What `bun run db:reset` does:
 
 - starts the repo-local PostgreSQL cluster under `.local/postgres`
@@ -98,7 +104,7 @@ bun run dev
 Important notes:
 
 - `bun run dev` prints the chosen `webOrigin` and `apiOrigin`
-- when `ENRICHMENT_PROVIDER_MODE` is unset, `bun run dev` auto-selects `live` if `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are all present
+- when `ENRICHMENT_PROVIDER_MODE` is unset, `bun run dev` defaults to `live`
 - if `5173` or `8787` is already occupied, the dev runner chooses the next free local port
 - use the printed origins for browser and `curl` checks
 
@@ -125,7 +131,7 @@ bun run db:stop
 
 Choose the smallest profile that answers your question.
 
-### 1. Fixture Regression
+### 1. Default Live Regression
 
 Use this for normal development and pre-merge confidence.
 
@@ -143,14 +149,15 @@ Expected result:
 
 - every command exits `0`
 - the harness/doc checks pass before app-level validation starts
-- fixture-mode smoke passes in a real browser
-- fixture-mode eval prints passing summaries for:
+- live-provider smoke passes in a real browser
+- live-provider eval prints passing summaries for:
   - capture journeys
-  - enrichment journeys
+  - live enrichment journeys
   - review journeys
   - HTTP boundary checks
   - enrichment trace checks
   - review trace checks
+  - browser journey fuzz coverage
 
 ### 2. Full Manual Pass
 
@@ -166,9 +173,9 @@ Recommended order:
 6. complete the API checklist in this document
 7. finish with `bun run smoke` and `bun run eval`
 
-### 3. Live Vendor Validation
+### 3. Explicit Fixture Override
 
-Use this only when you want to verify the real provider path, not everyday regressions.
+Use this only when you need an offline or deterministic fallback.
 
 Required env vars in your shell or repo-root `.env`:
 
@@ -183,15 +190,15 @@ Optional:
 Run:
 
 ```bash
-bun run smoke:live
-set -a; source .env; set +a; ENRICHMENT_PROVIDER_MODE=live bun run eval
+ENRICHMENT_PROVIDER_MODE=fixture bun run smoke
+ENRICHMENT_PROVIDER_MODE=fixture bun run eval
 ```
 
 Expected result:
 
-- live smoke passes without assuming fixture-specific words
-- live eval passes the live enrichment dataset
-- live trace eval passes evidence-driven guardrail checks
+- fixture smoke passes with deterministic provider behavior
+- fixture eval swaps to the fixture enrichment dataset
+- fixture mode is treated as a deliberate override, not the normal harness path
 
 ## Test Matrix
 
@@ -231,6 +238,7 @@ Use for:
 
 - real browser validation across split local web and API origins
 - cookies, CORS, routing, capture, library, and enrichment working together
+- live OpenAI + Merriam-backed enrichment by default
 
 Current smoke scope:
 
@@ -277,6 +285,7 @@ Current eval scope:
 - review submissions append durable events and update review state
 - split-origin HTTP boundaries expose the right headers and error codes
 - traces persist versions, validation state, and guardrail decisions
+- browser journey fuzz coverage stays green under the live local stack
 
 ## Recommended Closeout Order
 

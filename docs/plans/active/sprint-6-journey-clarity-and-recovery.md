@@ -75,7 +75,7 @@ Concrete user-facing outcomes:
 - Do not add new AI product surface area. This sprint is about clarity, recovery, and product legibility.
 - Preserve the minimal, content-first visual direction. Fix hierarchy and grouping without regressing into noisy UI.
 - Keep all privileged mutation paths in `apps/api`.
-- Keep deterministic fixture-mode `smoke` and `eval` as the default merge gates.
+- Keep live-provider `smoke` and `eval` as the default merge gates. Use fixture mode only as an explicit fallback.
 - Any new escaped failure discovered during implementation must become a test, smoke case, or eval artifact before the sprint closes.
 
 ## Railway-Oriented Implementation Rules

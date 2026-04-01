@@ -15,12 +15,6 @@ type SpawnedService = {
 };
 
 const apiBindHost = "0.0.0.0";
-const requiredLiveEnvNames = [
-  "OPENAI_API_KEY",
-  "MERRIAM_WEBSTER_DICTIONARY_API_KEY",
-  "MERRIAM_WEBSTER_THESAURUS_API_KEY",
-] as const;
-
 const isRecoverablePortError = (error: unknown): boolean =>
   error instanceof Error &&
   "code" in error &&
@@ -79,15 +73,6 @@ const formatOrigin = (input: URL, port: number): string => {
   return next.origin;
 };
 
-const hasCompleteLiveCredentials = (
-  env: NodeJS.ProcessEnv,
-): boolean =>
-  requiredLiveEnvNames.every((name) => {
-    const value = env[name];
-
-    return typeof value === "string" && value.trim().length > 0;
-  });
-
 const resolveLocalEnrichmentProviderMode = (
   env: NodeJS.ProcessEnv,
 ): "fixture" | "live" => {
@@ -97,7 +82,7 @@ const resolveLocalEnrichmentProviderMode = (
     return configuredMode;
   }
 
-  return hasCompleteLiveCredentials(env) ? "live" : "fixture";
+  return "live";
 };
 
 const spawnService = (options: {

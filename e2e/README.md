@@ -19,11 +19,12 @@ Current `bun run smoke` is the Playwright entrypoint for these flows. It should 
 - cookie-based auth
 - the actual Vite + Hono boundary
 - the detail-page enrichment trigger
+- live enrichment providers by default
 
 Use `bun run smoke:hosted -- --web-origin <url> --api-origin <url>` when you need the fastest hosted auth/cookie check against preview or staging without starting local services.
 Use `bun run test:e2e:hosted -- --web-origin <url> --api-origin <url>` for the broader hosted verification slice.
 
-`bun run smoke:live` is the opt-in browser validation path for the same flow shape with live enrichment providers. It should only be used when `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are configured.
+`bun run smoke` and `bun run test:e2e` now expect `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` to be configured. `bun run smoke:live` remains as a compatibility alias, and `bun run smoke:fixture` is the explicit fallback when you deliberately need fixtures.
 
 ## Journey Fuzz
 
@@ -43,7 +44,7 @@ The source of truth lives in:
 Keep the suite deterministic:
 
 - per-journey users, not shared mutable demo state, for browser-mutation coverage
-- fixture-mode enrichment by default
+- deterministic inputs with invariant assertions, even though provider execution is live by default
 - invariant assertions, not brittle exact prose checks
 
 ## Test Data Principles

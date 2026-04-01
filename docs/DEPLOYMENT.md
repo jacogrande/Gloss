@@ -53,10 +53,10 @@ The API and web services should each deploy from GitHub auto-deploys on the main
 
 | Environment | Web origin | API origin | Auth URL | Cookie domain | Provider mode | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `local` | `http://127.0.0.1:<web-port>` | `http://127.0.0.1:<api-port>` | same as API origin | unset | `fixture` by default, `live` only when keys are present | local `bun run dev` can auto-select free web/API ports |
-| `preview` | Railway preview web URL | Railway preview API URL | same as preview API origin | unset unless using preview subdomains on one shared parent domain | `fixture` unless doing explicit live validation | use for fast browser verification, not final promotion |
-| `staging` | stable staging web URL | stable staging API URL | same as staging API origin | set only when the staging domain strategy requires it | `fixture` for deterministic checks, `live` only when staged provider validation is deliberate | required promotion gate before private alpha |
-| `private-alpha` | stable invite-only web URL | stable invite-only API URL | same as invite-only API origin | set only when the deployed domain strategy requires it | `live` only if real providers are enabled for invited users | production-like environment for real cohort usage |
+| `local` | `http://127.0.0.1:<web-port>` | `http://127.0.0.1:<api-port>` | same as API origin | unset | `live` by default | local `bun run dev` can auto-select free web/API ports |
+| `preview` | Railway preview web URL | Railway preview API URL | same as preview API origin | unset unless using preview subdomains on one shared parent domain | `live` by default | use for fast browser verification with real providers |
+| `staging` | stable staging web URL | stable staging API URL | same as staging API origin | set only when the staging domain strategy requires it | `live` | required promotion gate before private alpha |
+| `private-alpha` | stable invite-only web URL | stable invite-only API URL | same as invite-only API origin | set only when the deployed domain strategy requires it | `live` | production-like environment for real cohort usage |
 
 Use `bun run deploy:check-env -- --environment preview --target combined --pretty` from the environment you are validating to confirm the shell wiring matches the documented split-origin contract.
 
@@ -76,10 +76,10 @@ Runtime notes:
 - `BETTER_AUTH_URL` must match the public API origin for that environment.
 - `WEB_ORIGIN` must match the public SPA origin for that environment.
 - `API_ORIGIN` should match `BETTER_AUTH_URL`.
-- `ENRICHMENT_PROVIDER_MODE` should be `fixture` for local smoke/eval and explicit `live` only when provider keys are configured.
-- `bun run dev` will auto-select `live` for local interactive development when `ENRICHMENT_PROVIDER_MODE` is unset and all required live provider keys are present. Test and browser-validation scripts keep their own deterministic mode settings.
-- `OPENAI_API_KEY`, `OPENAI_MODEL`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are only required when `ENRICHMENT_PROVIDER_MODE=live`.
-- `bun run smoke:live` and `bun run test:e2e:live` are the dedicated local browser entrypoints for that live-provider path.
+- `ENRICHMENT_PROVIDER_MODE` now defaults to `live` across local dev, smoke, e2e, and eval paths.
+- `OPENAI_API_KEY`, `OPENAI_MODEL`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are required for the default harness path.
+- Use `ENRICHMENT_PROVIDER_MODE=fixture` only as an explicit fallback for offline or fixture-specific debugging.
+- `bun run smoke:live` and `bun run test:e2e:live` remain as compatibility aliases for the default live-provider browser path.
 
 ## Web Service
 
@@ -112,9 +112,6 @@ Required API environment variables:
 Optional API environment variables:
 
 - `COOKIE_DOMAIN`
-- `OPENAI_API_KEY`
-- `MERRIAM_WEBSTER_DICTIONARY_API_KEY`
-- `MERRIAM_WEBSTER_THESAURUS_API_KEY`
 - `POSTGRES_BIN_DIR` for local development only
 
 Required web environment variables:
@@ -127,7 +124,7 @@ Guidelines:
 - Keep `WEB_ORIGIN`, `API_ORIGIN`, and `BETTER_AUTH_URL` aligned exactly per environment.
 - Only set `COOKIE_DOMAIN` when using a custom domain strategy that requires it.
 - `COOKIE_DOMAIN` must be a bare domain or subdomain such as `gloss.test` or `preview.gloss.test`, never a full URL or host with a port.
-- Keep fixture mode as the default for local harness work so smoke and eval stay deterministic.
+- Keep fixture mode as an explicit override only. The default harness should exercise the real provider path.
 
 ## Preview Verification
 

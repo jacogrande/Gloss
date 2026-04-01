@@ -34,6 +34,8 @@ export default defineConfig({
             BETTER_AUTH_SECRET: "development-secret-value-at-least-32-chars",
             BETTER_AUTH_URL: apiOrigin,
             DATABASE_URL: databaseUrl,
+            ENRICHMENT_PROVIDER_MODE:
+              process.env.ENRICHMENT_PROVIDER_MODE ?? "live",
             LOG_LEVEL: "error",
             NODE_ENV: "test",
             PORT: String(apiPort),

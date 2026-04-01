@@ -377,8 +377,8 @@ Expected Sprint 3 additions:
 
 Rules:
 
-- local and CI-like validation should default to fixture mode
-- live mode should be explicit and deliberate
+- local and CI-like validation should default to live mode when provider credentials are configured
+- fixture mode should remain an explicit override for deterministic fallback coverage
 - no secret should be required by the web app
 
 ## Prompt Assembly Rules
