@@ -26,11 +26,28 @@ export const formatSeedStageLabel = (value: SeedStage): string => startCase(valu
 
 export const formatSourceKindLabel = (value: SourceKind): string => startCase(value);
 
+export const formatSourceEvidence = (
+  source: Pick<NonNullable<SeedDetail["source"]>, "author" | "kind" | "title"> | null,
+): string | null => {
+  if (!source) {
+    return null;
+  }
+
+  const parts = [
+    source.title,
+    source.author,
+    formatSourceKindLabel(source.kind),
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.length > 0 ? parts.join(" · ") : null;
+};
+
 const capitalizeFirstLetter = (value: string): string =>
   value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 
 const contextualGlossPatterns = [
   /^in this (?:sentence|context|passage|usage),?\s*(?:it\s+)?means\s+/iu,
+  /^in this kind of (?:sentence|context|passage|usage),?\s*(?:it\s+)?(?:means|describes|refers to)\s+/iu,
   /^in this case,?\s*(?:it\s+)?means\s+/iu,
   /^here,?\s*(?:it\s+)?means\s+/iu,
   /^here,?\s*/iu,
@@ -74,6 +91,17 @@ export type SeedCaptureNotice = {
 export type SeedRecoveryState = {
   message: string;
   title: string;
+};
+
+export type SeedActionState = {
+  primary: {
+    href: string;
+    label: string;
+  };
+  secondary?: {
+    href: string;
+    label: string;
+  };
 };
 
 const hasWeakEnrichmentFailure = (
@@ -126,6 +154,42 @@ export const getSeedRecoveryState = (
     return {
       message: "Add a sentence if you want a stronger definition and better review prompts.",
       title: "Add context",
+    };
+  }
+
+  return null;
+};
+
+export const getSeedActionState = (input: {
+  recoveryState: SeedRecoveryState | null;
+  seed: Pick<SeedDetail, "enrichment">;
+}): SeedActionState | null => {
+  if (input.recoveryState) {
+    return null;
+  }
+
+  if (input.seed.enrichment?.status === "ready") {
+    return {
+      primary: {
+        href: "/review",
+        label: "Start review",
+      },
+      secondary: {
+        href: "/capture",
+        label: "Save another word",
+      },
+    };
+  }
+
+  if (
+    input.seed.enrichment?.status === "pending" ||
+    input.seed.enrichment?.status === "failed"
+  ) {
+    return {
+      primary: {
+        href: "/capture",
+        label: "Save another word",
+      },
     };
   }
 

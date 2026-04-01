@@ -8,8 +8,9 @@ import { SeedContextEditor } from "./SeedContextEditor";
 import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
 import {
   formatAnnotationDate,
+  formatSourceEvidence,
+  getSeedActionState,
   formatSeedStageLabel,
-  formatSourceKindLabel,
   getAdditionalContexts,
   type SeedCaptureNotice,
   type SeedRecoveryState,
@@ -43,6 +44,11 @@ export const SeedDetailPanel = ({
   const payload =
     seed.enrichment?.status === "ready" ? seed.enrichment.payload : null;
   const additionalContexts = getAdditionalContexts(seed);
+  const actionState = getSeedActionState({
+    recoveryState,
+    seed,
+  });
+  const sourceEvidence = formatSourceEvidence(seed.source);
   const showCompare =
     Boolean(payload?.registerNote) ||
     Boolean(payload?.relatedWord) ||
@@ -72,21 +78,42 @@ export const SeedDetailPanel = ({
         </section>
       ) : null}
 
-      <section className="seed-detail__reading-block">
+      {seed.primarySentence || seed.source ? (
+        <section className="seed-detail__evidence">
+          <p className="seed-detail__eyebrow">Context</p>
+          {seed.primarySentence ? (
+            <p className="seed-detail__sentence">{seed.primarySentence}</p>
+          ) : null}
+          {sourceEvidence ? (
+            <p className="seed-detail__source-evidence">{sourceEvidence}</p>
+          ) : null}
+        </section>
+      ) : null}
+
+      <section className="seed-detail__definition-panel">
         <SeedEnrichmentPanel
           enrichment={seed.enrichment}
           errorMessage={enrichmentErrorMessage}
           isEnriching={isEnriching}
           onRetry={onRetryEnrichment}
         />
-
-        {seed.primarySentence ? (
-          <article className="seed-detail__example">
-            <h2 className="seed-detail__section-title">Example</h2>
-            <p className="seed-detail__sentence">{seed.primarySentence}</p>
-          </article>
-        ) : null}
       </section>
+
+      {actionState ? (
+        <section className="seed-detail__actions">
+          <Link className="seed-detail__action-primary" to={actionState.primary.href}>
+            {actionState.primary.label}
+          </Link>
+          {actionState.secondary ? (
+            <Link
+              className="seed-detail__action-secondary"
+              to={actionState.secondary.href}
+            >
+              {actionState.secondary.label}
+            </Link>
+          ) : null}
+        </section>
+      ) : null}
 
       {recoveryState ? (
         <SeedContextEditor
@@ -144,27 +171,11 @@ export const SeedDetailPanel = ({
           </details>
         ) : null}
 
-        {seed.source ? (
+        {seed.primarySentence || seed.source ? (
           <details className="seed-detail__details">
-            <summary>Source details</summary>
+            <summary>Details</summary>
             <dl className="seed-detail__meta">
-              <div>
-                <dt>Type</dt>
-                <dd>{formatSourceKindLabel(seed.source.kind)}</dd>
-              </div>
-              {seed.source.title ? (
-                <div>
-                  <dt>Title</dt>
-                  <dd>{seed.source.title}</dd>
-                </div>
-              ) : null}
-              {seed.source.author ? (
-                <div>
-                  <dt>Author</dt>
-                  <dd>{seed.source.author}</dd>
-                </div>
-              ) : null}
-              {seed.source.url ? (
+              {seed.source?.url ? (
                 <div>
                   <dt>Link</dt>
                   <dd>

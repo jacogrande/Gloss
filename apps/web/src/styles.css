@@ -605,14 +605,14 @@ button {
   letter-spacing: -0.02em;
 }
 
-.seed-detail__reading-block,
+.seed-detail__evidence,
+.seed-detail__definition-panel,
 .seed-detail__compare-panel {
   display: grid;
-  gap: 20px;
-  padding: 26px 28px;
-  border-radius: 22px;
+  gap: 16px;
+  padding: 22px 24px;
+  border-radius: 20px;
   background: var(--surface-elevated);
-  box-shadow: 0 1px 0 rgba(20, 20, 20, 0.04);
 }
 
 .seed-detail__compare-panel {
@@ -624,21 +624,65 @@ button {
   gap: 14px;
 }
 
-.seed-detail__example {
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px;
-  border-radius: 16px;
-  background: var(--surface-muted);
-}
-
 .seed-detail__sentence {
   margin: 0;
   color: var(--ink-700);
   font-family: "Iowan Old Style", "Source Serif 4", Georgia, serif;
   font-size: 1.22rem;
-  line-height: 1.85;
+  line-height: 1.8;
   font-style: italic;
+}
+
+.seed-detail__eyebrow {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.84rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+}
+
+.seed-detail__source-evidence {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.95rem;
+}
+
+.seed-detail__actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.seed-detail__action-primary,
+.seed-detail__action-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.seed-detail__action-primary {
+  background: var(--ink-950);
+  color: white;
+}
+
+.seed-detail__action-primary:hover {
+  opacity: 0.88;
+}
+
+.seed-detail__action-secondary {
+  background: var(--surface-muted);
+  color: var(--accent-700);
+}
+
+.seed-detail__action-secondary:hover {
+  color: var(--ink-950);
 }
 
 .seed-detail__stack {
@@ -724,10 +768,11 @@ button {
 
 .seed-enrichment__kicker {
   margin: 0;
-  color: var(--accent-700);
+  color: var(--ink-500);
   font-size: 0.88rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
 }
 
 .seed-enrichment__gloss {
@@ -742,7 +787,7 @@ button {
 .seed-enrichment__contextual {
   display: grid;
   gap: 8px;
-  max-width: 42ch;
+  max-width: 44ch;
   padding-top: 2px;
 }
 
@@ -768,7 +813,9 @@ button {
 }
 
 .seed-enrichment__state-copy {
+  margin: 0;
   max-width: 42ch;
+  color: var(--ink-500);
 }
 
 .review {
@@ -988,7 +1035,8 @@ button {
     gap: 10px;
   }
 
-  .seed-detail__reading-block,
+  .seed-detail__evidence,
+  .seed-detail__definition-panel,
   .seed-detail__compare-panel {
     padding: 22px;
   }

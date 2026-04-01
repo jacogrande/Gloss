@@ -31,6 +31,12 @@ const getFailedMessage = (enrichment: SeedEnrichment | null | undefined): string
   }
 };
 
+const canRetryFailedEnrichment = (
+  enrichment: SeedEnrichment | null | undefined,
+): boolean =>
+  enrichment?.status === "failed" &&
+  enrichment.errorCode !== "ENRICHMENT_EVIDENCE_UNAVAILABLE";
+
 export const SeedEnrichmentPanel = ({
   enrichment,
   errorMessage,
@@ -40,7 +46,7 @@ export const SeedEnrichmentPanel = ({
   if (errorMessage && !isEnriching && !enrichment) {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__kicker">Meaning</p>
+        <p className="seed-enrichment__kicker">Definition</p>
         <p className="seed-enrichment__state-copy">{errorMessage}</p>
         <button
           className="seed-enrichment__retry"
@@ -56,8 +62,8 @@ export const SeedEnrichmentPanel = ({
   if (isEnriching || enrichment?.status === "pending" || !enrichment) {
     return (
       <section className="seed-enrichment seed-enrichment--pending">
-        <p className="seed-enrichment__kicker">Meaning</p>
-        <p className="seed-enrichment__state-copy">Loading definition...</p>
+        <p className="seed-enrichment__kicker">Definition</p>
+        <p className="seed-enrichment__state-copy">Building a definition...</p>
         {enrichment?.status === "pending" ? (
           <button
             className="seed-enrichment__retry"
@@ -74,17 +80,19 @@ export const SeedEnrichmentPanel = ({
   if (enrichment.status === "failed") {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__kicker">Meaning</p>
+        <p className="seed-enrichment__kicker">Definition</p>
         <p className="seed-enrichment__state-copy">
           {errorMessage ?? getFailedMessage(enrichment)}
         </p>
-        <button
-          className="seed-enrichment__retry"
-          onClick={onRetry}
-          type="button"
-        >
-          Try again
-        </button>
+        {canRetryFailedEnrichment(enrichment) ? (
+          <button
+            className="seed-enrichment__retry"
+            onClick={onRetry}
+            type="button"
+          >
+            Try again
+          </button>
+        ) : null}
       </section>
     );
   }
@@ -92,7 +100,7 @@ export const SeedEnrichmentPanel = ({
   if (!enrichment.payload) {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
-        <p className="seed-enrichment__kicker">Meaning</p>
+        <p className="seed-enrichment__kicker">Definition</p>
         <p className="seed-enrichment__state-copy">
           No definition available.
         </p>
@@ -109,11 +117,11 @@ export const SeedEnrichmentPanel = ({
 
   return (
     <section className="seed-enrichment seed-enrichment--ready">
-      <p className="seed-enrichment__kicker">Meaning</p>
+      <p className="seed-enrichment__kicker">Definition</p>
       <p className="seed-enrichment__gloss">{dictionaryDefinition}</p>
       {showContextualGloss ? (
         <article className="seed-enrichment__item seed-enrichment__contextual">
-          <h2 className="seed-detail__section-title">Meaning here</h2>
+          <h2 className="seed-detail__section-title">In context</h2>
           <p>{payload.gloss}</p>
         </article>
       ) : null}

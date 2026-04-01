@@ -45,10 +45,12 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
 
   await expect(page).toHaveURL(/\/seeds\/.+/);
   await expect(page.getByRole("heading", { name: "pellucid" })).toBeVisible();
+  await expect(page.locator(".seed-detail__evidence .seed-detail__eyebrow")).toHaveText(
+    "Context",
+  );
   await expect(page.locator(".seed-detail__sentence")).toHaveText(
     "Her explanation was pellucid even under pressure.",
   );
-  await page.getByText("Source details").click();
   await expect(page.getByText("On Style")).toBeVisible();
   await expect(page.getByText("A. Reader")).toBeVisible();
   const enrichmentPanel = page.locator(".seed-enrichment");

@@ -161,7 +161,7 @@ describe("SeedDetailRoute", () => {
     );
     await flushPromises();
 
-    expect(screen.getByText("Meaning")).toBeVisible();
+    expect(screen.getByText("Definition")).toBeVisible();
   });
 
   it("polls seed detail while enrichment remains pending", async () => {
@@ -244,10 +244,11 @@ describe("SeedDetailRoute", () => {
         "The explanation was especially clear and easy to follow.",
       ),
     ).toBeVisible();
-    expect(screen.getByText("Example")).toBeVisible();
-    expect(screen.getByText("Meaning here")).toBeVisible();
+    expect(screen.getByText("Context")).toBeVisible();
+    expect(screen.getByText("In context")).toBeVisible();
     expect(screen.getByText("Compare")).toBeVisible();
     expect(screen.getByText("Similar")).toBeVisible();
+    expect(screen.getByText("Start review")).toBeVisible();
     expect(screen.getByText("lucid")).toBeVisible();
     expect(screen.getByText("Roots")).toBeVisible();
   });

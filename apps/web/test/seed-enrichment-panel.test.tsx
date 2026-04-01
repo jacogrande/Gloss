@@ -1,9 +1,11 @@
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
 } from "@testing-library/react";
 import {
+  afterEach,
   describe,
   expect,
   it,
@@ -11,6 +13,10 @@ import {
 } from "vitest";
 
 import { SeedEnrichmentPanel } from "../src/features/seeds/SeedEnrichmentPanel";
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("SeedEnrichmentPanel", () => {
   it("renders the accepted enrichment payload", () => {
@@ -58,7 +64,8 @@ describe("SeedEnrichmentPanel", () => {
     expect(
       screen.getByText("The explanation was strikingly clear and easy to follow."),
     ).toBeVisible();
-    expect(screen.getByText("Meaning here")).toBeVisible();
+    expect(screen.getByText("Definition")).toBeVisible();
+    expect(screen.getByText("In context")).toBeVisible();
     expect(
       screen.getByText(
         "In this sentence, it means the explanation was strikingly clear and easy to follow.",
@@ -66,7 +73,7 @@ describe("SeedEnrichmentPanel", () => {
     ).toBeVisible();
   });
 
-  it("surfaces the failed state and retry affordance", () => {
+  it("surfaces the failed state and retry affordance for retriable failures", () => {
     const onRetry = vi.fn();
 
     render(
@@ -74,7 +81,7 @@ describe("SeedEnrichmentPanel", () => {
         enrichment={{
           completedAt: null,
           createdAt: "2026-03-26T12:34:56.000Z",
-          errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+          errorCode: "ENRICHMENT_PROVIDER_ERROR",
           failedAt: "2026-03-26T12:35:10.000Z",
           guardrailFlags: [],
           id: "enrichment_124",
@@ -97,9 +104,39 @@ describe("SeedEnrichmentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
     expect(
-      screen.getByText(/not enough context yet/i),
+      screen.getByText(/provider did not return a usable result/i),
     ).toBeVisible();
     expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps weak-evidence failures visibly passive", () => {
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: null,
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+          failedAt: "2026-03-26T12:35:10.000Z",
+          guardrailFlags: [],
+          id: "enrichment_126",
+          model: "fixture-seed-enrichment-v1",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: null,
+          status: "failed",
+          updatedAt: "2026-03-26T12:35:10.000Z",
+        }}
+        errorMessage={null}
+        isEnriching={false}
+        onRetry={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/not enough context yet/i)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("surfaces a refresh affordance while enrichment is pending", () => {
@@ -132,7 +169,7 @@ describe("SeedEnrichmentPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
-    expect(screen.getByText(/loading definition/i)).toBeVisible();
+    expect(screen.getByText(/building a definition/i)).toBeVisible();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 });
