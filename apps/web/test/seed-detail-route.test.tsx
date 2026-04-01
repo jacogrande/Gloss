@@ -2,6 +2,7 @@ import {
   cleanup,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
@@ -15,6 +16,7 @@ import {
   MemoryRouter,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import type { SeedDetail } from "@gloss/shared/types";
@@ -24,6 +26,7 @@ import type {
   requestSeedEnrichment as requestSeedEnrichmentType,
   updateSeed as updateSeedType,
 } from "../src/lib/api-client";
+import { ApiClientError } from "../src/lib/http";
 import { SeedDetailRoute } from "../src/routes/seed-detail-route";
 
 const {
@@ -128,6 +131,12 @@ const flushPromises = async (): Promise<void> => {
 };
 
 describe("SeedDetailRoute", () => {
+  const LoginProbe = () => {
+    const location = useLocation();
+
+    return <p>{`Login ${location.search}`}</p>;
+  };
+
   afterEach(() => {
     vi.resetAllMocks();
     cleanup();
@@ -527,5 +536,30 @@ describe("SeedDetailRoute", () => {
         force: true,
       },
     );
+  });
+
+  it("redirects unauthorized seed loads through login with returnTo", async () => {
+    fetchSeedDetail.mockRejectedValue(
+      new ApiClientError("AUTH_UNAUTHORIZED", "Session expired."),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/seeds/seed_1"]}>
+        <Routes>
+          <Route element={<SeedDetailRoute />} path="/seeds/:seedId" />
+          <Route element={<LoginProbe />} path="/login" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByText("Loading...");
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Login ?returnTo=%2Fseeds%2Fseed_1"),
+      ).toBeVisible();
+    });
+
+    expect(sessionState.setSession).toHaveBeenCalledWith(null);
   });
 });

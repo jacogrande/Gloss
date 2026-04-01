@@ -65,13 +65,15 @@ The current implemented eval set focuses on capture, enrichment, review, and bou
 6. review queues exclude failed enrichments
 7. review sessions persist typed cards and complete cleanly
 8. review submissions append durable events and update scheduler-versioned review state
-9. product routes expose split-origin CORS correctly
-10. request ids, schema versions, and stable error codes survive boundary and trace checks
+9. wrong review answers return a stable feedback contract with the correct choice id
+10. product routes expose split-origin CORS correctly
+11. request ids, schema versions, and stable error codes survive boundary and trace checks
 
 The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for later review-generation work. For the current implementation:
 
 - `bun run eval:journeys` should run `capture_journeys.jsonl`, `enrichment_journeys.jsonl`, and `review_journeys.jsonl`
 - `bun run eval:traces` should run HTTP boundary checks, persisted enrichment trace checks, and persisted review trace checks
+- `review_journeys.jsonl` should protect both happy-path review completion and the wrong-answer feedback contract used by the Sprint 6 teaching loop
 
 When `ENRICHMENT_PROVIDER_MODE=live` is enabled for targeted vendor checks:
 

@@ -1,6 +1,6 @@
 # Manual QA
 
-This document explains how to validate the current Gloss MVP across Sprint 1, Sprint 2, Sprint 3, and Sprint 4.
+This document explains how to validate the current Gloss MVP across Sprints 1 through 6.
 
 Use it for three different goals:
 
@@ -36,6 +36,17 @@ The current QA surface spans:
   - short review session creation
   - card submission and durable review events
   - review-state updates and stage advancement
+- Sprint 5 hardening and private alpha
+  - private-alpha auth recovery
+  - hosted-verification parity assumptions
+  - idempotent demo seeding and local reset behavior
+- Sprint 6 journey clarity and recovery
+  - first-run capture onboarding
+  - empty-state recovery
+  - thin-context seed recovery
+  - evidence-first seed detail
+  - review answer feedback
+  - deep-link and forced re-auth recovery
 
 ## Prerequisites
 
@@ -224,6 +235,7 @@ Use for:
 Current smoke scope:
 
 - sign in
+- deep-link redirect through login
 - capture
 - seed detail
 - enrichment
@@ -231,6 +243,7 @@ Current smoke scope:
 - review queue
 - review session start
 - review card submission
+- wrong-answer feedback or direct completion handling
 
 ### `bun run test:e2e`
 
@@ -304,10 +317,11 @@ Expected result:
 
 Expected result:
 
-- you are redirected to `/library`
+- you are redirected to `/capture`
 - the authenticated shell loads
 - the shell shows the signed-in user email
-- the library empty state renders
+- the capture form renders immediately
+- a brand-new user is not dropped into an empty dead-end screen
 
 #### 3. Sign Out
 
@@ -333,7 +347,7 @@ Expected result:
 
 #### 5. Reload Stability
 
-1. While signed in on `/library`, refresh the page.
+1. While signed in on `/capture` or `/library`, refresh the page.
 
 Expected result:
 
@@ -415,9 +429,57 @@ Expected result:
 - the fresh user only sees their own seeds
 - direct navigation to a demo seed detail URL does not reveal demo seed content
 
+### Sprint 5 Hardening And Private Alpha
+
+#### 11. Forced Re-Auth Recovery
+
+1. Sign in as `demo@gloss.local`.
+2. Open a protected route such as `/review`.
+3. Clear cookies in the browser devtools or sign out from another tab if you are testing a hosted environment.
+4. Refresh the protected route.
+
+Expected result:
+
+- the app redirects to `/login` with a `returnTo` query
+- the app does not leave you stranded in a broken protected shell
+- signing back in returns you to the original route
+
+### Sprint 6 Journey Clarity And Recovery
+
+#### 12. First-Run Capture Handoff
+
+1. Create a fresh account.
+2. Confirm the first post-auth route is `/capture`.
+
+Expected result:
+
+- the app shows `Save a word`
+- the next step is obvious without extra explanation
+
+#### 13. Empty Library Recovery
+
+1. Sign in as a fresh user with no seeds.
+2. Open `/library`.
+
+Expected result:
+
+- the empty state explains that no words exist yet
+- the primary CTA takes you to `/capture`
+
+#### 14. Filtered Library Zero-State
+
+1. Sign in as `demo@gloss.local`.
+2. Open `/library`.
+3. Change the stage filter to one with no current results.
+
+Expected result:
+
+- the empty state reflects the active filter, not a truly empty library
+- a clear `Clear filter` action restores the full list
+
 ### Sprint 3 Constrained Enrichment
 
-#### 11. Ready Enrichment State
+#### 15. Ready Enrichment State
 
 1. While signed in, capture or open a `pellucid` seed with:
    - sentence: `Her explanation was pellucid even under pressure.`
@@ -437,7 +499,7 @@ Expected result in live mode:
 - the gloss is non-empty
 - optional fields may vary based on vendor evidence
 
-#### 12. Failed Enrichment State
+#### 16. Failed Enrichment State
 
 1. Capture a seed with:
    - word: `obscurium`
@@ -450,7 +512,7 @@ Expected result:
 - the UI exposes a `Retry enrichment` button
 - the page remains usable
 
-#### 13. Retry Path
+#### 17. Retry Path
 
 1. From the failed `obscurium` seed, click `Retry enrichment`.
 
@@ -461,7 +523,7 @@ Expected result:
 - the failed state persists with a stable message when lexical evidence is still unavailable
 - no duplicate seed or corrupted detail state appears
 
-#### 14. Enrichment Readback
+#### 18. Enrichment Readback
 
 1. Refresh the ready `pellucid` seed detail page.
 
@@ -471,9 +533,31 @@ Expected result:
 - the page does not require recapture
 - the saved enrichment matches the last accepted state rather than rebuilding from scratch on every load
 
+#### 19. Thin-Context Recovery
+
+1. Capture a word without a sentence or source.
+2. Wait for enrichment to fail with weak evidence.
+3. Add a sentence through the recovery form.
+
+Expected result:
+
+- the page explains that more context is needed
+- saving context succeeds without leaving the page
+- enrichment re-runs automatically after the first sentence is added
+
+#### 20. Evidence-First Seed Detail
+
+1. Open a ready enriched seed such as `lapidary` or `pellucid`.
+
+Expected result:
+
+- sentence and source evidence appear above generated scaffolding
+- the main definition reads as a cleaned definition, not only contextual phrasing
+- generated comparison material is clearly secondary to the reading evidence
+
 ### Sprint 4 Review Engine And Scheduling
 
-#### 15. Review Queue
+#### 21. Review Queue
 
 1. Sign in as `demo@gloss.local`.
 2. Open `/review`.
@@ -485,7 +569,7 @@ Expected result:
 - the dimension breakdown renders for recognition, distinction, and usage
 - the primary action is enabled
 
-#### 16. Start A Review Session
+#### 22. Start A Review Session
 
 1. On `/review`, click `Start review`.
 
@@ -499,7 +583,7 @@ Expected result:
   - at least two answer choices
 - the queue summary changes from `X due` to `Y remaining`
 
-#### 17. Submit A Review Card
+#### 23. Submit A Review Card
 
 1. Select any answer choice.
 2. Click `Submit`.
@@ -511,7 +595,19 @@ Expected result:
 - the UI does not get stuck on the same pending choice state
 - refreshing the page does not lose the active or completed session state unexpectedly
 
-#### 18. Complete A Short Session
+#### 24. Wrong-Answer Feedback
+
+1. Start a review session.
+2. Choose an incorrect answer deliberately.
+3. Submit the card.
+
+Expected result:
+
+- the UI shows correctness feedback before continuing
+- the correct answer is visible
+- the explanation is calm and learner-facing, not a raw contract string
+
+#### 25. Complete A Short Session
 
 1. Continue submitting answers until the session finishes.
 
@@ -520,6 +616,22 @@ Expected result:
 - the page shows `Session finished`
 - the completion state reports the number of completed cards
 - returning to `/review` shows updated queue counts
+
+#### 26. Protected Deep Link Recovery
+
+1. Sign out.
+2. Open `/library` directly.
+3. Sign in as `demo@gloss.local`.
+4. Open a seed detail page.
+5. Sign out from that detail page.
+6. Sign back in.
+
+Expected result:
+
+- anonymous access redirects to `/login?returnTo=...`
+- signing in from `/login?returnTo=%2Flibrary` returns you to `/library`
+- signing out from a seed detail route preserves that route as `returnTo`
+- signing back in returns you to the same seed detail page
 
 ## Manual API QA
 

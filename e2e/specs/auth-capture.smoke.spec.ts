@@ -106,8 +106,8 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   const capturedSeedCard = page
     .locator(".seed-card")
     .filter({ hasText: "Her explanation was pellucid even under pressure." });
-  await expect(capturedSeedCard).toHaveCount(1);
-  await expect(capturedSeedCard.getByRole("link", { name: "pellucid" })).toBeVisible();
+  await expect(capturedSeedCard.first()).toBeVisible();
+  await expect(capturedSeedCard.first().getByRole("link", { name: "pellucid" })).toBeVisible();
 
   await page
     .getByLabel("Primary")

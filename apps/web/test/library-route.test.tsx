@@ -16,11 +16,13 @@ import {
   MemoryRouter,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import type {
   fetchSeedList as fetchSeedListType,
 } from "../src/lib/api-client";
+import { ApiClientError } from "../src/lib/http";
 import { LibraryRoute } from "../src/routes/library-route";
 
 const {
@@ -65,6 +67,12 @@ vi.mock("../src/lib/env", () => ({
 }));
 
 describe("LibraryRoute", () => {
+  const LoginProbe = () => {
+    const location = useLocation();
+
+    return <p>{`Login ${location.search}`}</p>;
+  };
+
   afterEach(() => {
     cleanup();
     vi.resetAllMocks();
@@ -138,5 +146,26 @@ describe("LibraryRoute", () => {
     await waitFor(() => {
       expect(screen.getByRole("link", { name: "pellucid" })).toBeVisible();
     });
+  });
+
+  it("redirects unauthorized library loads through login with returnTo", async () => {
+    fetchSeedList.mockRejectedValue(
+      new ApiClientError("AUTH_UNAUTHORIZED", "Session expired."),
+    );
+
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route element={<LibraryRoute />} path="/library" />
+          <Route element={<LoginProbe />} path="/login" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Login ?returnTo=%2Flibrary")).toBeVisible();
+    });
+
+    expect(sessionState.setSession).toHaveBeenCalledWith(null);
   });
 });

@@ -75,6 +75,7 @@ type ReviewJourneyCase = {
     final_seed_stage_in?: SeedStage[];
     minimum_card_count?: number;
     status: "not_reviewable" | "reviewable";
+    wrong_answer_feedback?: boolean;
   };
   id: string;
   input: {
@@ -92,6 +93,14 @@ type ReviewCardAnswerKeyRow = {
   };
   id: string;
 };
+
+const getWrongChoiceId = (input: {
+  choices: {
+    id: string;
+  }[];
+  correctChoiceId: string;
+}): string | null =>
+  input.choices.find((choice) => choice.id !== input.correctChoiceId)?.id ?? null;
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const captureDatasetPath = path.join(
@@ -817,8 +826,95 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
       );
 
       let latestSession = startBody.data;
+      let startIndex = 0;
 
-      for (const row of answerKeyResult.rows) {
+      if (testCase.expected.wrong_answer_feedback) {
+        const firstRow = answerKeyResult.rows[0];
+        const firstCard = startBody.data.cards[0];
+
+        if (!firstRow || !firstCard || !("choices" in firstCard.promptPayload)) {
+          failures.push({
+            caseId: testCase.id,
+            category: "wrong_answer_setup",
+            journey: testCase.journey,
+            message:
+              "Expected the first review card to expose choices for a wrong-answer feedback check.",
+            severity: "critical",
+          });
+          continue;
+        }
+
+        const wrongChoiceId = getWrongChoiceId({
+          choices: firstCard.promptPayload.choices,
+          correctChoiceId: firstRow.answer_key.correctChoiceId,
+        });
+
+        if (!wrongChoiceId) {
+          failures.push({
+            caseId: testCase.id,
+            category: "wrong_answer_setup",
+            journey: testCase.journey,
+            message:
+              "Expected the first review card to include a non-correct choice for the feedback check.",
+            severity: "critical",
+          });
+          continue;
+        }
+
+        const wrongSubmitResponse = await runtime.app.request(
+          new URL(
+            `/review/sessions/${startBody.data.session.id}/cards/${firstRow.id}/submit`,
+            `${env.API_ORIGIN}/`,
+          ).toString(),
+          {
+            body: JSON.stringify({
+              choiceId: wrongChoiceId,
+              latencyMs: 250,
+            }),
+            headers: {
+              "content-type": "application/json",
+              cookie,
+              origin: env.WEB_ORIGIN,
+            },
+            method: "POST",
+          },
+        );
+
+        if (wrongSubmitResponse.status !== 200) {
+          failures.push({
+            caseId: testCase.id,
+            category: "wrong_answer_status",
+            journey: testCase.journey,
+            message:
+              `Expected wrong-answer submission status 200, received ${wrongSubmitResponse.status}.`,
+            severity: "critical",
+          });
+          continue;
+        }
+
+        const wrongSubmitBody = submitReviewCardResponseSchema.parse(
+          (await wrongSubmitResponse.json()) as unknown,
+        );
+
+        if (
+          wrongSubmitBody.data.result.correct !== false ||
+          wrongSubmitBody.data.result.correctChoiceId !== firstRow.answer_key.correctChoiceId
+        ) {
+          failures.push({
+            caseId: testCase.id,
+            category: "wrong_answer_feedback",
+            journey: testCase.journey,
+            message:
+              "Expected a wrong review answer to return incorrect feedback with the correct choice id.",
+            severity: "critical",
+          });
+        }
+
+        latestSession = wrongSubmitBody.data.session;
+        startIndex = 1;
+      }
+
+      for (const row of answerKeyResult.rows.slice(startIndex)) {
         const submitResponse = await runtime.app.request(
           new URL(
             `/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
