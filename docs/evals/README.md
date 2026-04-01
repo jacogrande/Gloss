@@ -2,6 +2,12 @@
 
 Gloss needs both product evals and agentic workflow evals. These evals are part of the harness, not an optional ML sidecar.
 
+The eval harness now has three layers:
+
+1. output evals
+2. trace evals
+3. browser journey fuzz evals
+
 ## Eval Categories
 
 ### Output Evals
@@ -25,6 +31,24 @@ Use for:
 - whether schema validation ran
 - whether unsupported fields were omitted
 - whether a failure recorded the right error code
+
+### Browser Journey Fuzz Evals
+
+These check whether the real browser can still complete every documented user journey under slightly varied but deterministic inputs.
+
+Use for:
+
+- auth redirects and deep-link recovery
+- first-run onboarding handoff
+- empty-state recovery
+- capture and seed-detail handoff
+- weak-evidence recovery
+- review queue, feedback, and completion
+
+The source of truth for browser journey coverage lives in:
+
+- `e2e/support/journey-fuzz.ts`
+- `e2e/specs/journey-fuzzy.eval.spec.ts`
 
 ## Dataset Files
 
@@ -68,11 +92,13 @@ The current implemented eval set focuses on capture, enrichment, review, and bou
 9. wrong review answers return a stable feedback contract with the correct choice id
 10. product routes expose split-origin CORS correctly
 11. request ids, schema versions, and stable error codes survive boundary and trace checks
+12. every documented user journey survives deterministic browser fuzz coverage
 
 The longer `mvp_seed_journeys.jsonl` file remains the forward-looking dataset for later review-generation work. For the current implementation:
 
 - `bun run eval:journeys` should run `capture_journeys.jsonl`, `enrichment_journeys.jsonl`, and `review_journeys.jsonl`
 - `bun run eval:traces` should run HTTP boundary checks, persisted enrichment trace checks, and persisted review trace checks
+- `bun run eval:browser` should run the `@journey-fuzz` Playwright inventory from `e2e/specs/journey-fuzzy.eval.spec.ts`
 - `review_journeys.jsonl` should protect both happy-path review completion and the wrong-answer feedback contract used by the Sprint 6 teaching loop
 
 When `ENRICHMENT_PROVIDER_MODE=live` is enabled for targeted vendor checks:
@@ -88,11 +114,13 @@ For MVP workflows:
 
 - no critical failures in output grading
 - no critical failures in trace grading
+- no failing browser-journey fuzz cases
 - at least `90%` pass rate on non-critical checks before broad rollout
 
 ## Cadence
 
 - run targeted evals before merge for any AI-sensitive change
 - run the full MVP eval set in CI
+- run browser fuzz evals whenever a user-visible journey changes
 - review failures by category, not as a flat list
 - treat every escaped AI bug as incomplete until it exists in a dataset file

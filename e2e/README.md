@@ -25,6 +25,27 @@ Use `bun run test:e2e:hosted -- --web-origin <url> --api-origin <url>` for the b
 
 `bun run smoke:live` is the opt-in browser validation path for the same flow shape with live enrichment providers. It should only be used when `OPENAI_API_KEY`, `MERRIAM_WEBSTER_DICTIONARY_API_KEY`, and `MERRIAM_WEBSTER_THESAURUS_API_KEY` are configured.
 
+## Journey Fuzz
+
+`bun run test:e2e:fuzzy` runs the manifest-driven `@journey-fuzz` suite.
+
+This layer is not another smoke spec. It is the browser side of the eval harness:
+
+- one typed inventory of documented user journeys
+- one deterministic fuzz profile per journey
+- one Playwright test per journey
+
+The source of truth lives in:
+
+- `e2e/support/journey-fuzz.ts`
+- `e2e/specs/journey-fuzzy.eval.spec.ts`
+
+Keep the suite deterministic:
+
+- per-journey users, not shared mutable demo state, for browser-mutation coverage
+- fixture-mode enrichment by default
+- invariant assertions, not brittle exact prose checks
+
 ## Test Data Principles
 
 - use stable fixtures
@@ -50,3 +71,5 @@ Current regression focus:
 3. capture validation and cross-user isolation
 4. review stale-tab conflict recovery and completed-session behavior
 5. hosted preview or staging verification through `bun run test:e2e:hosted -- --web-origin <url> --api-origin <url>`
+
+`bun run eval` now includes browser fuzz coverage through `bun run eval:browser`.

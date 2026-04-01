@@ -128,6 +128,8 @@ These scripts are part of the harness and should be implemented as the repo is s
   API, DB, schema, and provider boundary tests.
 - `bun run test:e2e`
   Full Playwright suite against local services. The runner chooses isolated local web/API ports automatically to avoid stale-port collisions.
+- `bun run test:e2e:fuzzy`
+  Manifest-driven Playwright journey fuzz suite. Covers every documented user journey with deterministic browser-level variants against local services.
 - `bun run test:e2e:hosted`
   Hosted Playwright verification against explicit preview or staging origins.
 - `bun run test:e2e:live`
@@ -156,6 +158,8 @@ These scripts are part of the harness and should be implemented as the repo is s
 
 - `bun run eval`
   Run the MVP eval set and summarize failures by category.
+- `bun run eval:browser`
+  Run the manifest-driven Playwright journey fuzz suite as part of the eval harness.
 - `bun run eval:journeys`
   Run output-level evals for capture, enrichment, and review generation.
 - `bun run eval:traces`
@@ -176,8 +180,9 @@ Default flow for substantial work:
 3. Make the smallest change that resolves the task.
 4. Run the narrowest validation that can disprove the change quickly.
 5. If the task touches AI behavior, run the relevant evals.
-6. If a failure mode is new, add an eval case before closing the work.
-7. Keep docs and scorecards current enough that `bun run harness:check` stays green.
+6. If the task changes a user journey, run the relevant browser fuzz coverage.
+7. If a failure mode is new, add an eval case before closing the work.
+8. Keep docs and scorecards current enough that `bun run harness:check` stays green.
 
 ## Runtime Visibility
 
@@ -247,6 +252,7 @@ No feature is considered complete unless it satisfies all of:
 - preview and staging verification notes stay current for private-alpha work
 - AI output is schema-checked
 - at least one smoke or eval path covers the new behavior
+- every documented user journey stays covered by the `@journey-fuzz` Playwright inventory
 - CI can run the relevant scripts without hand-edited local state
 
 ## Alpha Ops

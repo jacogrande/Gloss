@@ -22,6 +22,9 @@ export const createNetworkOriginTracker = (page: Page) => {
 
   return {
     checkpoint: (): number => crossOriginRequests.length,
+    dispose: (): void => {
+      page.off("request", onRequest);
+    },
     expectOnlyApiOriginUsedSince: async (checkpoint: number): Promise<void> => {
       const webOrigin = process.env.PLAYWRIGHT_BASE_URL
         ? new URL(process.env.PLAYWRIGHT_BASE_URL).origin
@@ -65,12 +68,61 @@ export const createNetworkOriginTracker = (page: Page) => {
   };
 };
 
+export const waitForSeedDetailState = async (input: {
+  expectRecovery?: boolean;
+  page: Page;
+}): Promise<"failed" | "ready"> => {
+  const enrichmentPanel = input.page.locator(".seed-enrichment");
+  const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
+  let outcome: "failed" | "pending" | "ready" = "pending";
+
+  await expect
+    .poll(async () => {
+      if (await gloss.isVisible().catch(() => false)) {
+        outcome = "ready";
+        return outcome;
+      }
+
+      if (
+        await input.page
+          .getByRole("heading", { name: "Add context" })
+          .isVisible()
+          .catch(() => false)
+      ) {
+        outcome = "failed";
+        return outcome;
+      }
+
+      if (
+        (await enrichmentPanel.getAttribute("class").catch(() => null))?.includes(
+          "seed-enrichment--failed",
+        )
+      ) {
+        outcome = "failed";
+        return outcome;
+      }
+
+      outcome = "pending";
+      return outcome;
+    }, {
+      timeout: 15_000,
+    })
+    .not.toBe("pending");
+
+  if (input.expectRecovery) {
+    await expect(input.page.getByRole("heading", { name: "Add context" })).toBeVisible();
+  }
+
+  return outcome === "ready" ? "ready" : "failed";
+};
+
 export const signInThroughUi = async (input: {
   email: string;
   page: Page;
   password?: string;
+  path?: string;
 }): Promise<void> => {
-  await input.page.goto("/login");
+  await input.page.goto(input.path ?? "/login");
   await input.page.getByLabel("Email").fill(input.email);
   await input.page
     .getByLabel("Password")
@@ -86,8 +138,9 @@ export const signUpThroughUi = async (input: {
   name: string;
   page: Page;
   password?: string;
+  path?: string;
 }): Promise<void> => {
-  await input.page.goto("/login");
+  await input.page.goto(input.path ?? "/login");
   await input.page.getByRole("button", { name: "Create account" }).click();
   await input.page.getByLabel("Name").fill(input.name);
   await input.page.getByLabel("Email").fill(input.email);
@@ -98,6 +151,7 @@ export const signUpThroughUi = async (input: {
     .getByTestId("auth-form")
     .getByRole("button", { name: "Create account" })
     .click();
+  await expect(input.page).not.toHaveURL(/\/login(?:\?.*)?$/);
 };
 
 export const signOutThroughUi = async (page: Page): Promise<void> => {
@@ -115,6 +169,7 @@ export const captureSeedThroughUi = async (input: {
   word: string;
 }): Promise<void> => {
   await input.page.goto("/capture");
+  await expect(input.page.getByLabel("Word or phrase")).toBeVisible();
   await input.page.getByLabel("Word or phrase").fill(input.word);
 
   if (input.sentence !== undefined) {
@@ -159,7 +214,13 @@ export const clearCookiesAndReload = async (
   await page.goto(pathname);
 };
 
-export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
+export const answerCurrentReviewCard = async (
+  page: Page,
+  strategy: "first" | "last" = "first",
+  options?: {
+    continueAfterFeedback?: boolean;
+  },
+): Promise<void> => {
   const remaining = await page
     .locator(".review__queue-summary")
     .textContent()
@@ -167,7 +228,11 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
   let submitState: "advanced" | "completed" | "feedback" | "pending" =
     "pending";
 
-  await page.getByRole("radio").first().click();
+  const choices = page.getByRole("radio");
+  const choice =
+    strategy === "last" ? choices.last() : choices.first();
+
+  await choice.click();
   await page.getByRole("button", { name: "Submit" }).click();
 
   await expect
@@ -206,7 +271,7 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
     })
     .toMatch(/advanced|completed|feedback/);
 
-  if (submitState === "feedback") {
+  if (submitState === "feedback" && options?.continueAfterFeedback !== false) {
     await page.getByRole("button", { name: "Continue" }).click();
 
     await expect
@@ -237,8 +302,34 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
   }
 };
 
+export const completeReviewSession = async (input: {
+  maxCards?: number;
+  page: Page;
+  strategy?: "first" | "last";
+}): Promise<void> => {
+  const maxCards = input.maxCards ?? 8;
+
+  for (let index = 0; index < maxCards; index += 1) {
+    if (
+      await input.page
+        .getByRole("heading", { name: "Session finished" })
+        .isVisible()
+        .catch(() => false)
+    ) {
+      return;
+    }
+
+    await answerCurrentReviewCard(input.page, input.strategy);
+  }
+
+  await expect(
+    input.page.getByRole("heading", { name: "Session finished" }),
+  ).toBeVisible();
+};
+
 export const openReviewSession = async (page: Page): Promise<void> => {
   await page.goto("/review");
+  await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
 
   if (
     await page
@@ -246,8 +337,20 @@ export const openReviewSession = async (page: Page): Promise<void> => {
       .isVisible()
       .catch(() => false)
   ) {
-    await page.getByRole("button", { name: "Start review" }).click();
+    await Promise.all([
+      page.waitForResponse((response) => {
+        const request = response.request();
+
+        return (
+          request.method() === "POST" &&
+          new URL(response.url()).pathname === "/review/sessions"
+        );
+      }),
+      page.getByRole("button", { name: "Start review" }).click(),
+    ]);
   }
 
-  await expect(page.locator(".review-card__question")).toBeVisible();
+  await expect(page.locator(".review-card__question")).toBeVisible({
+    timeout: 10_000,
+  });
 };
