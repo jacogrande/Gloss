@@ -1,3 +1,6 @@
+import { mkdirSync } from "node:fs";
+import { join } from "node:path";
+
 import {
   expect,
   test,
@@ -87,7 +90,7 @@ const runJourney = async (input: {
       await expect(input.page.getByRole("heading", { name: "Your words" })).toBeVisible();
       await expect(input.page.getByText("No words yet.")).toBeVisible();
       await expect(
-        input.page.getByRole("link", { name: "Capture your first word" }),
+        input.page.getByRole("link", { name: "Save your first word" }),
       ).toHaveAttribute("href", "/capture");
       return;
     }
@@ -200,13 +203,16 @@ const runJourney = async (input: {
       ).toBe("failed");
 
       await expect(
-        input.page.getByRole("heading", { name: "Add context" }),
+        input.page.getByRole("heading", { name: "Give this word more context" }),
       ).toBeVisible();
       await expect(
         input.page.getByRole("textbox", { name: "Sentence (optional)" }),
       ).toHaveValue(
         "",
       );
+      await expect(
+        input.page.getByRole("textbox", { name: "Sentence (optional)" }),
+      ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
       await expect(
         input.page.getByRole("button", { name: "Save context" }),
       ).toBeVisible();
@@ -340,6 +346,7 @@ const runJourney = async (input: {
 
 const browserJourneyTimeoutMs =
   process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 90_000 : 30_000;
+const browserJourneyScreenshotDir = process.env.PLAYWRIGHT_JOURNEY_SCREENSHOT_DIR;
 
 test.describe("browser journey fuzz evals", () => {
   for (const journey of browserJourneyDefinitions) {
@@ -350,6 +357,14 @@ test.describe("browser journey fuzz evals", () => {
         journeyId: journey.id,
         page,
       });
+
+      if (browserJourneyScreenshotDir) {
+        mkdirSync(browserJourneyScreenshotDir, { recursive: true });
+        await page.screenshot({
+          fullPage: true,
+          path: join(browserJourneyScreenshotDir, `${journey.id}.png`),
+        });
+      }
     });
   }
 });

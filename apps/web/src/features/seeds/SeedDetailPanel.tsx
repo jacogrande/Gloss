@@ -9,10 +9,11 @@ import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
 import {
   formatAnnotationDate,
   formatSourceEvidence,
+  getSeedCompareItems,
   getSeedActionState,
-  formatSeedStageLabel,
-  getAdditionalContexts,
+  getSeedStageBadge,
   type SeedCaptureNotice,
+  getAdditionalContexts,
   type SeedRecoveryState,
 } from "./seed-presenters";
 
@@ -22,7 +23,10 @@ type SeedDetailPanelProps = {
   contextUpdateMessage: string | null;
   enrichmentErrorMessage: string | null;
   isEnriching: boolean;
+  loadNotice: SeedCaptureNotice | null;
+  showPendingRefreshFallback: boolean;
   isUpdatingContext: boolean;
+  onRefreshEnrichmentStatus: () => void;
   onSaveContext: (value: UpdateSeedInput) => void;
   onRetryEnrichment: () => void;
   recoveryState: SeedRecoveryState | null;
@@ -35,7 +39,10 @@ export const SeedDetailPanel = ({
   contextUpdateMessage,
   enrichmentErrorMessage,
   isEnriching,
+  loadNotice,
+  showPendingRefreshFallback,
   isUpdatingContext,
+  onRefreshEnrichmentStatus,
   onSaveContext,
   onRetryEnrichment,
   recoveryState,
@@ -45,11 +52,9 @@ export const SeedDetailPanel = ({
     seed.enrichment?.status === "ready" ? seed.enrichment.payload : null;
   const additionalContexts = getAdditionalContexts(seed);
   const actionState = getSeedActionState({ seed });
+  const compareItems = getSeedCompareItems(payload);
   const sourceEvidence = formatSourceEvidence(seed.source);
-  const showCompare =
-    Boolean(payload?.registerNote) ||
-    Boolean(payload?.relatedWord) ||
-    Boolean(payload?.contrastiveWord);
+  const stageBadge = getSeedStageBadge(seed.stage);
 
   return (
     <section className="seed-detail">
@@ -62,9 +67,11 @@ export const SeedDetailPanel = ({
       <header className="seed-detail__hero">
         <div className="seed-detail__title-row">
           <h1>{seed.word}</h1>
-          <p className="seed-detail__status-badge" data-stage={seed.stage}>
-            {formatSeedStageLabel(seed.stage)}
-          </p>
+          {stageBadge ? (
+            <p className="seed-detail__status-badge" data-stage={seed.stage}>
+              {stageBadge}
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -72,6 +79,16 @@ export const SeedDetailPanel = ({
         <section className="panel panel--compact seed-detail__notice">
           <p className="panel__eyebrow">{captureNotice.title}</p>
           <p className="panel__copy">{captureNotice.message}</p>
+        </section>
+      ) : null}
+
+      {loadNotice ? (
+        <section
+          className="panel panel--compact seed-detail__notice"
+          role="alert"
+        >
+          <p className="panel__eyebrow">{loadNotice.title}</p>
+          <p className="panel__copy">{loadNotice.message}</p>
         </section>
       ) : null}
 
@@ -92,9 +109,43 @@ export const SeedDetailPanel = ({
           enrichment={seed.enrichment}
           errorMessage={enrichmentErrorMessage}
           isEnriching={isEnriching}
+          onRefresh={onRefreshEnrichmentStatus}
           onRetry={onRetryEnrichment}
+          showManualRefresh={showPendingRefreshFallback}
         />
       </section>
+
+      {recoveryState ? (
+        <SeedContextEditor
+          errorMessage={contextUpdateErrorMessage}
+          helperMessage={recoveryState.message}
+          isPending={isUpdatingContext}
+          onSubmit={onSaveContext}
+          sentencePlaceholder={recoveryState.sentencePlaceholder}
+          seed={seed}
+          statusMessage={contextUpdateMessage}
+          title={recoveryState.title}
+        />
+      ) : null}
+
+      {compareItems.length > 0 ? (
+        <section className="seed-detail__compare-panel">
+          <h2 className="seed-detail__panel-title">Compare</h2>
+          <dl className="seed-detail__compare-list">
+            {compareItems.map((item) => (
+              <div key={item.label}>
+                <dt>{item.label}</dt>
+                <dd>
+                  {item.word ? (
+                    <span className="seed-detail__compare-word">{item.word}</span>
+                  ) : null}
+                  <span className="seed-detail__compare-note">{item.note}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ) : null}
 
       {actionState ? (
         <section className="seed-detail__actions">
@@ -112,54 +163,6 @@ export const SeedDetailPanel = ({
         </section>
       ) : null}
 
-      {recoveryState ? (
-        <SeedContextEditor
-          errorMessage={contextUpdateErrorMessage}
-          helperMessage={recoveryState.message}
-          isPending={isUpdatingContext}
-          onSubmit={onSaveContext}
-          seed={seed}
-          statusMessage={contextUpdateMessage}
-          title={recoveryState.title}
-        />
-      ) : null}
-
-      {showCompare ? (
-        <section className="seed-detail__compare-panel">
-          <h2 className="seed-detail__panel-title">Compare</h2>
-          <dl className="seed-detail__stack">
-            {payload?.registerNote ? (
-              <div>
-                <dt>Tone</dt>
-                <dd>{payload.registerNote}</dd>
-              </div>
-            ) : null}
-            {payload?.relatedWord ? (
-              <div>
-                <dt>Similar</dt>
-                <dd>
-                  <span className="seed-detail__term">
-                    {payload.relatedWord.word}
-                  </span>
-                  <span>{payload.relatedWord.note}</span>
-                </dd>
-              </div>
-            ) : null}
-            {payload?.contrastiveWord ? (
-              <div>
-                <dt>Contrast</dt>
-                <dd>
-                  <span className="seed-detail__term">
-                    {payload.contrastiveWord.word}
-                  </span>
-                  <span>{payload.contrastiveWord.note}</span>
-                </dd>
-              </div>
-            ) : null}
-          </dl>
-        </section>
-      ) : null}
-
       <div className="seed-detail__details-group">
         {payload?.morphologyNote ? (
           <details className="seed-detail__details">
@@ -170,7 +173,7 @@ export const SeedDetailPanel = ({
 
         {seed.primarySentence || seed.source ? (
           <details className="seed-detail__details">
-            <summary>Details</summary>
+            <summary>Source details</summary>
             <dl className="seed-detail__meta">
               {seed.source?.url ? (
                 <div>
@@ -186,10 +189,12 @@ export const SeedDetailPanel = ({
                 <dt>Captured</dt>
                 <dd>{formatAnnotationDate(seed.createdAt)}</dd>
               </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{formatAnnotationDate(seed.updatedAt)}</dd>
-              </div>
+              {seed.updatedAt !== seed.createdAt ? (
+                <div>
+                  <dt>Updated</dt>
+                  <dd>{formatAnnotationDate(seed.updatedAt)}</dd>
+                </div>
+              ) : null}
             </dl>
           </details>
         ) : null}

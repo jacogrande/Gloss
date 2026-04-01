@@ -255,7 +255,7 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Correct" })).toBeVisible();
+      expect(screen.getByRole("heading", { name: "You’ve got it" })).toBeVisible();
     });
 
     expect(screen.getByText("Correct answer")).toBeVisible();
@@ -265,6 +265,8 @@ describe("ReviewRoute", () => {
     await waitFor(() => {
       expect(screen.getByText("Session finished")).toBeVisible();
     });
+
+    expect(screen.getByText("1 card across 1 word")).toBeVisible();
 
     expect(submitReviewCard).toHaveBeenCalledTimes(1);
     expect(fetchReviewQueue).toHaveBeenCalled();
@@ -320,7 +322,7 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Not quite" })).toBeVisible();
+      expect(screen.getByRole("heading", { name: "Try again" })).toBeVisible();
     });
 
     expect(screen.getByText("Your answer")).toBeVisible();
@@ -382,7 +384,7 @@ describe("ReviewRoute", () => {
     ).toBeVisible();
   });
 
-  it("shows a capture CTA instead of a dead-end button when nothing is reviewable", async () => {
+  it("shows a save CTA instead of a dead-end button when nothing is reviewable", async () => {
     fetchReviewQueue.mockResolvedValue({
       activeSessionId: null,
       availableCount: 0,
@@ -407,7 +409,7 @@ describe("ReviewRoute", () => {
     expect(
       screen.queryByRole("button", { name: /start review|resume session/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Capture your first word" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Save your first word" })).toHaveAttribute(
       "href",
       "/capture",
     );

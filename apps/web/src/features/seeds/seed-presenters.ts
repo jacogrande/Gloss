@@ -26,6 +26,9 @@ export const formatSeedStageLabel = (value: SeedStage): string => startCase(valu
 
 export const formatSourceKindLabel = (value: SourceKind): string => startCase(value);
 
+export const getSeedStageBadge = (value: SeedStage): string | null =>
+  value === "new" ? "New" : null;
+
 export const formatSourceEvidence = (
   source: Pick<NonNullable<SeedDetail["source"]>, "author" | "kind" | "title"> | null,
 ): string | null => {
@@ -41,38 +44,6 @@ export const formatSourceEvidence = (
 
   return parts.length > 0 ? parts.join(" · ") : null;
 };
-
-const capitalizeFirstLetter = (value: string): string =>
-  value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
-
-const contextualGlossPatterns = [
-  /^in this (?:sentence|context|passage|usage),?\s*(?:it\s+)?means\s+/iu,
-  /^in this kind of (?:sentence|context|passage|usage),?\s*(?:it\s+)?(?:means|describes|refers to)\s+/iu,
-  /^in this case,?\s*(?:it\s+)?means\s+/iu,
-  /^here,?\s*(?:it\s+)?means\s+/iu,
-  /^here,?\s*/iu,
-  /^in context,?\s*(?:it\s+)?means\s+/iu,
-  /^used here,?\s*(?:it\s+)?means\s+/iu,
-];
-
-export const toDictionaryDefinition = (value: string): string => {
-  const trimmedValue = value.trim();
-
-  for (const pattern of contextualGlossPatterns) {
-    if (!pattern.test(trimmedValue)) {
-      continue;
-    }
-
-    return capitalizeFirstLetter(trimmedValue.replace(pattern, "").trim());
-  }
-
-  return trimmedValue;
-};
-
-export const shouldShowContextualGloss = (
-  dictionaryDefinition: string,
-  contextualGloss: string,
-): boolean => dictionaryDefinition.trim() !== contextualGloss.trim();
 
 export const getAdditionalContexts = (
   seed: Pick<SeedDetail, "contexts" | "primarySentence">,
@@ -90,6 +61,7 @@ export type SeedCaptureNotice = {
 
 export type SeedRecoveryState = {
   message: string;
+  sentencePlaceholder: string;
   title: string;
 };
 
@@ -104,11 +76,109 @@ export type SeedActionState = {
   };
 };
 
+export type SeedCompareItem = {
+  label: string;
+  note: string;
+  word: string | null;
+};
+
+export type SeedEnrichmentFallbackView = {
+  actionLabel: string | null;
+  actionKind: "refresh" | "retry" | null;
+  canAct: boolean;
+  message: string;
+  title: string;
+  variant: "failed" | "pending";
+};
+
 const hasWeakEnrichmentFailure = (
   enrichment: SeedEnrichment | null,
 ): boolean =>
   enrichment?.status === "failed" &&
   enrichment.errorCode === "ENRICHMENT_EVIDENCE_UNAVAILABLE";
+
+export const getSeedEnrichmentFallbackView = (input: {
+  enrichment: SeedEnrichment | null | undefined;
+  errorMessage: string | null;
+  isEnriching: boolean;
+  showManualRefresh: boolean;
+}): SeedEnrichmentFallbackView | null => {
+  if (input.errorMessage && !input.isEnriching && !input.enrichment) {
+    return {
+      actionLabel: "Try again",
+      actionKind: "retry",
+      canAct: true,
+      message: input.errorMessage,
+      title: "Definition",
+      variant: "failed",
+    };
+  }
+
+  if (input.enrichment?.status === "pending" && input.errorMessage && !input.isEnriching) {
+    return {
+      actionLabel: "Check again",
+      actionKind: "refresh",
+      canAct: true,
+      message: input.errorMessage,
+      title: "Definition",
+      variant: "pending",
+    };
+  }
+
+  if (input.isEnriching || input.enrichment?.status === "pending" || !input.enrichment) {
+    return {
+      actionLabel: input.showManualRefresh ? "Check again" : null,
+      actionKind: input.showManualRefresh ? "refresh" : null,
+      canAct: input.showManualRefresh,
+      message: input.showManualRefresh
+        ? "Still loading? Check again."
+        : "Building the definition. It will appear here automatically.",
+      title: "Definition",
+      variant: "pending",
+    };
+  }
+
+  if (input.enrichment.status === "failed") {
+    const message =
+      input.errorMessage ??
+      (() => {
+        switch (input.enrichment?.errorCode) {
+          case "ENRICHMENT_EVIDENCE_UNAVAILABLE":
+            return "Not enough context yet.";
+          case "ENRICHMENT_SCHEMA_INVALID":
+            return "The response was invalid.";
+          case "ENRICHMENT_PROVIDER_ERROR":
+            return "The provider did not return a usable result.";
+          default:
+            return "Not available yet.";
+        }
+      })();
+
+    const canRetry = input.enrichment.errorCode !== "ENRICHMENT_EVIDENCE_UNAVAILABLE";
+
+    return {
+      actionLabel: canRetry ? "Try again" : null,
+      actionKind: canRetry ? "retry" : null,
+      canAct: canRetry,
+      message,
+      title: "Definition",
+      variant: "failed",
+    };
+  }
+
+  if (!input.enrichment.payload) {
+    return {
+      actionLabel: null,
+      actionKind: null,
+      canAct: false,
+      message: "No definition available.",
+      title: "Definition",
+      variant: "failed",
+    };
+  }
+
+  return null;
+};
 
 export const getSeedCaptureNotice = (input: {
   savedFromCapture: boolean;
@@ -126,7 +196,8 @@ export const getSeedCaptureNotice = (input: {
   }
 
   return {
-    message: "Your word is saved. Enrichment is running in the background.",
+    message:
+      "Your word is saved. Gloss is building the definition now. If the word is ready after that, it will enter review automatically.",
     title: "Saved",
   };
 };
@@ -138,26 +209,85 @@ export const getSeedRecoveryState = (
 ): SeedRecoveryState | null => {
   if (hasWeakEnrichmentFailure(input.seed.enrichment)) {
     return {
-      message: "Add a sentence or source details, then try enrichment again.",
-      title: "Add context",
+      message:
+        "Add the sentence where you found it, or a source note. Gloss will rebuild the definition after you save.",
+      sentencePlaceholder: "Paste the sentence where you saw this word.",
+      title: "Give this word more context",
     };
   }
 
   if (!input.seed.primarySentence && !input.seed.source) {
     return {
-      message: "A sentence or source note gives this word a better definition and better review cards.",
-      title: "Add context",
+      message:
+        "Add the sentence where you found it, or a source note. Gloss uses that context to build the definition and review cards.",
+      sentencePlaceholder: "Paste the sentence where you saw this word.",
+      title: "Give this word more context",
     };
   }
 
   if (!input.seed.primarySentence) {
     return {
-      message: "Add a sentence if you want a stronger definition and better review prompts.",
-      title: "Add context",
+      message:
+        "Add the sentence where you found this word. Gloss can rebuild the definition once you save it.",
+      sentencePlaceholder: "Paste the sentence where you saw this word.",
+      title: "Add the sentence",
     };
   }
 
   return null;
+};
+
+export const getSeedLoadNotice = (
+  errorMessage: string | null,
+): SeedCaptureNotice | null =>
+  errorMessage
+    ? {
+        message: `${errorMessage} Showing the last saved version for now.`,
+        title: "Couldn’t refresh",
+      }
+    : null;
+
+export const getSeedContextSourceToggleLabel = (input: {
+  hasSourceValues: boolean;
+  isSourceOpen: boolean;
+}): string => {
+  if (input.isSourceOpen) {
+    return "Hide source details";
+  }
+
+  return input.hasSourceValues ? "Edit source details" : "Add source details";
+};
+
+export const getSeedCompareItems = (
+  payload: NonNullable<SeedDetail["enrichment"]>["payload"] | null,
+): SeedCompareItem[] => {
+  if (!payload) {
+    return [];
+  }
+
+  return [
+    payload.registerNote
+      ? {
+          label: "Tone",
+          note: payload.registerNote,
+          word: null,
+        }
+      : null,
+    payload.relatedWord
+      ? {
+          label: "Similar",
+          note: payload.relatedWord.note,
+          word: payload.relatedWord.word,
+        }
+      : null,
+    payload.contrastiveWord
+      ? {
+          label: "Contrast",
+          note: payload.contrastiveWord.note,
+          word: payload.contrastiveWord.word,
+        }
+      : null,
+  ].filter((item): item is SeedCompareItem => item !== null);
 };
 
 export const getSeedActionState = (input: {

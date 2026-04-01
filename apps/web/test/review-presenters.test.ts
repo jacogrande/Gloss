@@ -88,7 +88,7 @@ describe("review presenters", () => {
       selectedChoiceId: "choice_2",
     });
 
-    expect(feedback.title).toBe("Not quite");
+    expect(feedback.title).toBe("Try again");
     expect(feedback.correctChoiceLabel).toBe(
       "Especially clear and easy to follow.",
     );
@@ -97,6 +97,7 @@ describe("review presenters", () => {
     );
     expect(feedback.explanation).toContain("pellucid means");
     expect(feedback.explanation).toContain("“Especially clear and easy to follow.”");
+    expect(feedback.message).toContain("Here, the better fit is");
   });
 
   it("models route state explicitly", () => {

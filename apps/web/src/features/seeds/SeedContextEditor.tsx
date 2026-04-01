@@ -15,6 +15,7 @@ import {
   toUpdateSeedInput,
   type SeedContextFormValues,
 } from "./capture-form-values";
+import { getSeedContextSourceToggleLabel } from "./seed-presenters";
 import {
   clearSeedContextDraft,
   readSeedContextDraft,
@@ -27,6 +28,7 @@ type SeedContextEditorProps = {
   isPending: boolean;
   statusMessage: string | null;
   onSubmit: (value: ReturnType<typeof toUpdateSeedInput>) => void;
+  sentencePlaceholder: string;
   seed: Pick<SeedDetail, "id" | "primarySentence" | "source">;
   title: string;
 };
@@ -60,6 +62,7 @@ export const SeedContextEditor = ({
   isPending,
   statusMessage,
   onSubmit,
+  sentencePlaceholder,
   seed,
   title,
 }: SeedContextEditorProps): JSX.Element => {
@@ -142,7 +145,7 @@ export const SeedContextEditor = ({
             onChange={(event) => {
               updateField("sentence", event.target.value);
             }}
-            placeholder="The prose became unexpectedly lapidary by the final chapter."
+            placeholder={sentencePlaceholder}
             rows={4}
             value={values.sentence}
           />
@@ -155,7 +158,12 @@ export const SeedContextEditor = ({
           }}
           open={isSourceOpen}
         >
-          <summary>Source details (optional)</summary>
+          <summary>
+            {getSeedContextSourceToggleLabel({
+              hasSourceValues: hasSourceValues(values),
+              isSourceOpen,
+            })}
+          </summary>
 
           <div className="capture-form__source-grid">
             <label className="capture-form__field">

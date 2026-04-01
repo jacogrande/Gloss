@@ -9,6 +9,7 @@ describe("environment parsing", () => {
       BETTER_AUTH_SECRET: "secret",
       BETTER_AUTH_URL: "http://127.0.0.1:8787",
       DATABASE_URL: "postgresql://gloss:gloss@127.0.0.1:54329/gloss",
+      ENRICHMENT_PROVIDER_MODE: "fixture",
       LOG_LEVEL: "debug",
       NODE_ENV: "development",
       PORT: "8787",

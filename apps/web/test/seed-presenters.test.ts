@@ -7,10 +7,13 @@ import {
 import {
   formatSourceEvidence,
   getSeedActionState,
+  getSeedLoadNotice,
   getSeedRecoveryState,
+} from "../src/features/seeds/seed-presenters";
+import {
   shouldShowContextualGloss,
   toDictionaryDefinition,
-} from "../src/features/seeds/seed-presenters";
+} from "../src/lib/contextual-gloss";
 
 describe("seed presenters", () => {
   it("strips common contextual lead-ins from dictionary definitions", () => {
@@ -46,7 +49,10 @@ describe("seed presenters", () => {
       },
     });
 
-    expect(recoveryState?.title).toBe("Add context");
+    expect(recoveryState?.title).toBe("Give this word more context");
+    expect(recoveryState?.sentencePlaceholder).toBe(
+      "Paste the sentence where you saw this word.",
+    );
     expect(
       getSeedActionState({
         seed: {
@@ -80,6 +86,14 @@ describe("seed presenters", () => {
         href: "/capture",
         label: "Save another word",
       },
+    });
+  });
+
+  it("derives a calm load notice when the authoritative seed fetch fails", () => {
+    expect(getSeedLoadNotice("Unable to load this seed.")).toEqual({
+      message:
+        "Unable to load this seed. Showing the last saved version for now.",
+      title: "Couldn’t refresh",
     });
   });
 });

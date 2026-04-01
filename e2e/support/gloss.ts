@@ -72,6 +72,7 @@ export const waitForSeedDetailState = async (input: {
   expectRecovery?: boolean;
   page: Page;
 }): Promise<"failed" | "ready"> => {
+  const recoveryHeadingPattern = /Give this word more context|Add the sentence/;
   const timeoutMs = process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 60_000 : 15_000;
   const enrichmentPanel = input.page.locator(".seed-enrichment");
   const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
@@ -86,7 +87,7 @@ export const waitForSeedDetailState = async (input: {
 
       if (
         await input.page
-          .getByRole("heading", { name: "Add context" })
+          .getByRole("heading", { name: recoveryHeadingPattern })
           .isVisible()
           .catch(() => false)
       ) {
@@ -111,7 +112,9 @@ export const waitForSeedDetailState = async (input: {
     .not.toBe("pending");
 
   if (input.expectRecovery) {
-    await expect(input.page.getByRole("heading", { name: "Add context" })).toBeVisible();
+    await expect(
+      input.page.getByRole("heading", { name: recoveryHeadingPattern }),
+    ).toBeVisible();
   }
 
   return outcome === "ready" ? "ready" : "failed";
@@ -173,18 +176,19 @@ export const captureSeedThroughUi = async (input: {
   await expect(input.page.getByLabel("Word or phrase")).toBeVisible();
   await input.page.getByLabel("Word or phrase").fill(input.word);
 
-  if (input.sentence !== undefined) {
-    await input.page.getByLabel("Sentence").fill(input.sentence);
-  }
-
   const hasSourceDetails =
+    input.sentence !== undefined ||
     input.sourceKind !== undefined ||
     input.sourceTitle !== undefined ||
     input.sourceAuthor !== undefined ||
     input.sourceUrl !== undefined;
 
   if (hasSourceDetails) {
-    await input.page.getByText("Source details (optional)").click();
+    await input.page.getByRole("button", { name: "Add context" }).click();
+  }
+
+  if (input.sentence !== undefined) {
+    await input.page.getByLabel("Sentence (optional)").fill(input.sentence);
   }
 
   if (input.sourceKind !== undefined) {

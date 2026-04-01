@@ -57,7 +57,9 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        onRefresh={vi.fn()}
         onRetry={vi.fn()}
+        showManualRefresh={false}
       />,
     );
 
@@ -97,7 +99,9 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        onRefresh={vi.fn()}
         onRetry={onRetry}
+        showManualRefresh={false}
       />,
     );
 
@@ -106,6 +110,29 @@ describe("SeedEnrichmentPanel", () => {
     expect(
       screen.getByText(/provider did not return a usable result/i),
     ).toBeVisible();
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats request failures without enrichment as failed, not pending", () => {
+    const onRetry = vi.fn();
+
+    render(
+      <SeedEnrichmentPanel
+        enrichment={null}
+        errorMessage="Unable to enrich this seed right now."
+        isEnriching={false}
+        onRefresh={vi.fn()}
+        onRetry={onRetry}
+        showManualRefresh={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    expect(
+      screen.getByText("Unable to enrich this seed right now."),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Refresh now" })).toBeNull();
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
@@ -131,7 +158,9 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        onRefresh={vi.fn()}
         onRetry={vi.fn()}
+        showManualRefresh={false}
       />,
     );
 
@@ -139,8 +168,42 @@ describe("SeedEnrichmentPanel", () => {
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
-  it("surfaces a refresh affordance while enrichment is pending", () => {
-    const onRetry = vi.fn();
+  it("keeps pending enrichment automatic by default", () => {
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: null,
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          id: "enrichment_125",
+          model: "fixture-seed-enrichment-v1",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: "2026-03-26T12:34:58.000Z",
+          status: "pending",
+          updatedAt: "2026-03-26T12:34:58.000Z",
+        }}
+        errorMessage={null}
+        isEnriching={false}
+        onRefresh={vi.fn()}
+        onRetry={vi.fn()}
+        showManualRefresh={false}
+      />,
+    );
+
+    expect(
+      screen.getByText(/It will appear here automatically\./i),
+    ).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Refresh now" })).toBeNull();
+  });
+
+  it("surfaces a quiet refresh fallback while enrichment is pending", () => {
+    const onRefresh = vi.fn();
 
     render(
       <SeedEnrichmentPanel
@@ -163,13 +226,53 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
-        onRetry={onRetry}
+        onRefresh={onRefresh}
+        onRetry={vi.fn()}
+        showManualRefresh={true}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
 
-    expect(screen.getByText(/building a definition/i)).toBeVisible();
-    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByText(/Still loading\? Check again\./i),
+    ).toBeVisible();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces pending refresh errors with a refresh action instead of a retry mutation", () => {
+    const onRefresh = vi.fn();
+
+    render(
+      <SeedEnrichmentPanel
+        enrichment={{
+          completedAt: null,
+          createdAt: "2026-03-26T12:34:56.000Z",
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          id: "enrichment_125",
+          model: "fixture-seed-enrichment-v1",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T12:34:57.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: "2026-03-26T12:34:58.000Z",
+          status: "pending",
+          updatedAt: "2026-03-26T12:34:58.000Z",
+        }}
+        errorMessage="Unable to refresh this seed right now."
+        isEnriching={false}
+        onRefresh={onRefresh}
+        onRetry={vi.fn()}
+        showManualRefresh={true}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Check again" }));
+
+    expect(screen.getByText("Unable to refresh this seed right now.")).toBeVisible();
+    expect(onRefresh).toHaveBeenCalledTimes(1);
   });
 });

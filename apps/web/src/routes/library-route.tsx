@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
   type JSX,
 } from "react";
@@ -39,8 +40,8 @@ export const LibraryRoute = (): JSX.Element => {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionState = useSessionState();
+  const [allStageTotal, setAllStageTotal] = useState<number | null>(null);
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
-  const [allStageTotal, setAllStageTotal] = useState<number>(0);
   const {
     data,
     error,
@@ -53,23 +54,52 @@ export const LibraryRoute = (): JSX.Element => {
     dependencies: [stageFilter],
     getErrorMessage: (error) =>
       error instanceof Error ? error.message : "Unable to load the library.",
-    load: (signal) =>
-      fetchSeedList(
+    load: async (signal) => {
+      if (stageFilter === "all") {
+        const response = await fetchSeedList(
+          webEnv.VITE_API_BASE_URL,
+          {},
+          signal,
+        );
+
+        return {
+          items: response.items,
+          total: response.total,
+        };
+      }
+
+      const filteredResponse = await fetchSeedList(
         webEnv.VITE_API_BASE_URL,
         {
-          stage: stageFilter === "all" ? undefined : stageFilter,
+          stage: stageFilter,
         },
         signal,
-      ),
+      );
+
+      return {
+        items: filteredResponse.items,
+        total: filteredResponse.total,
+      };
+    },
   });
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
 
   useEffect(() => {
-    if (stageFilter === "all" && data) {
-      setAllStageTotal(data.total);
+    if (stageFilter !== "all" || !data) {
+      return;
     }
+
+    setAllStageTotal(data.total);
   }, [data, stageFilter]);
+
+  const hasAnyWords = useMemo(() => {
+    if (stageFilter === "all") {
+      return total > 0;
+    }
+
+    return (allStageTotal ?? 0) > 0;
+  }, [allStageTotal, stageFilter, total]);
 
   useEffect(() => {
     if (!isUnauthorizedAuthError(error)) {
@@ -86,9 +116,10 @@ export const LibraryRoute = (): JSX.Element => {
   }, [error, location, navigate, sessionState]);
 
   const emptyState = getLibraryEmptyState({
-    hasAnyWords: stageFilter === "all" ? total > 0 : allStageTotal > 0,
+    hasAnyWords,
     stage: stageFilter,
   });
+  const showLibraryControls = stageFilter !== "all" || hasAnyWords;
 
   return (
     <section className="library">
@@ -98,25 +129,27 @@ export const LibraryRoute = (): JSX.Element => {
             <h2>Your words</h2>
           </div>
 
-          <div className="library__controls">
-            <label className="library__filter">
-              <span>Stage</span>
-              <select
-                onChange={(event) => {
-                  setStageFilter(event.target.value as StageFilter);
-                }}
-                value={stageFilter}
-              >
-                {stageOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {formatStageFilterLabel(option)}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {showLibraryControls ? (
+            <div className="library__controls">
+              <label className="library__filter">
+                <span>Stage</span>
+                <select
+                  onChange={(event) => {
+                    setStageFilter(event.target.value as StageFilter);
+                  }}
+                  value={stageFilter}
+                >
+                  {stageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {formatStageFilterLabel(option)}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <p className="library__summary">{total} word(s)</p>
-          </div>
+              <p className="library__summary">{total} word(s)</p>
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -1,5 +1,7 @@
 import { useState, type JSX } from "react";
 
+import { getAuthHelperCopy } from "../../lib/product-loop-copy";
+
 type AuthMode = "sign-in" | "sign-up";
 
 type AuthFormProps = {
@@ -24,10 +26,7 @@ export const AuthForm = ({
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
-  const helperCopy =
-    mode === "sign-in"
-      ? "Return to your words and reviews."
-      : "Create an account to start saving words from real reading.";
+  const helperCopy = getAuthHelperCopy(mode);
 
   return (
     <section className="auth-card" data-mode={mode}>
@@ -106,12 +105,14 @@ export const AuthForm = ({
             autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
             minLength={8}
             onChange={(event) => setPassword(event.target.value)}
-            placeholder="At least 8 characters"
+            placeholder={mode === "sign-in" ? "Your password" : "At least 8 characters"}
             required
             type="password"
             value={password}
           />
-          <small className="auth-card__hint">Use at least 8 characters.</small>
+          {mode === "sign-up" ? (
+            <small className="auth-card__hint">Use at least 8 characters.</small>
+          ) : null}
         </label>
 
         {errorMessage ? (

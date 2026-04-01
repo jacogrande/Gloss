@@ -34,10 +34,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   await page.getByRole("link", { name: "Capture" }).click();
   await expect(page).toHaveURL(/\/capture$/);
   await page.getByLabel("Word or phrase").fill("pellucid");
+  await expect(page.getByLabel("Sentence (optional)")).toHaveCount(0);
+  await page.getByRole("button", { name: "Add context" }).click();
   await page
     .getByLabel("Sentence (optional)")
     .fill("Her explanation was pellucid even under pressure.");
-  await page.getByText("Source details (optional)").click();
   await page.getByLabel("Source type").selectOption("book");
   await page.getByLabel("Source title").fill("On Style");
   await page.getByLabel("Author").fill("A. Reader");
@@ -88,14 +89,19 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     }
 
     await expect(gloss).not.toHaveText("");
+    await expect(page.getByRole("heading", { name: "Compare" })).toBeVisible();
     await expect
-      .poll(async () => page.locator(".seed-detail__stack div").count())
+      .poll(async () => page.locator(".seed-detail__compare-list div").count())
       .toBeGreaterThan(1);
   } else {
     await expect(gloss).not.toHaveText("");
     await expect(page.getByText("Similar")).toBeVisible();
-    await expect(page.locator(".seed-detail__term").filter({ hasText: "lucid" })).toBeVisible();
-    await expect(page.locator(".seed-detail__term").filter({ hasText: "opaque" })).toBeVisible();
+    await expect(
+      page.locator(".seed-detail__compare-word").filter({ hasText: "lucid" }),
+    ).toBeVisible();
+    await expect(
+      page.locator(".seed-detail__compare-word").filter({ hasText: "opaque" }),
+    ).toBeVisible();
   }
 
   await page

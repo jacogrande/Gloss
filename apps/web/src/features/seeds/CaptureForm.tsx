@@ -1,7 +1,18 @@
-import { useState, type FormEvent, type JSX } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type JSX,
+} from "react";
 
 import type { SourceKind } from "@gloss/shared/types";
 
+import {
+  getCaptureContextHelperCopy,
+  getCaptureContextToggleLabel,
+  getCaptureHelperCopy,
+  getCaptureOutcomeCopy,
+} from "../../lib/product-loop-copy";
 import {
   toCreateSeedInput,
   type CaptureFormValues,
@@ -35,6 +46,7 @@ export const CaptureForm = ({
   onSubmit,
 }: CaptureFormProps): JSX.Element => {
   const [values, setValues] = useState<CaptureFormValues>(initialValues);
+  const [isContextOpen, setIsContextOpen] = useState(false);
 
   const updateField = <TField extends keyof CaptureFormValues>(
     field: TField,
@@ -51,11 +63,23 @@ export const CaptureForm = ({
     onSubmit(toCreateSeedInput(values));
   };
 
+  const hasContext =
+    values.sentence.trim().length > 0 ||
+    values.sourceAuthor.trim().length > 0 ||
+    values.sourceTitle.trim().length > 0 ||
+    values.sourceUrl.trim().length > 0;
+
+  useEffect(() => {
+    if (errorMessage && hasContext && !isContextOpen) {
+      setIsContextOpen(true);
+    }
+  }, [errorMessage, hasContext, isContextOpen]);
+
   return (
     <section className="panel panel--capture">
       <div className="panel__header">
         <h2>Save a word</h2>
-        <p className="panel__copy">Word first. Add context only if it helps.</p>
+        <p className="panel__copy">{getCaptureHelperCopy()}</p>
       </div>
 
       <form className="capture-form" onSubmit={handleSubmit}>
@@ -73,95 +97,112 @@ export const CaptureForm = ({
               value={values.word}
             />
           </label>
-
-          <label className="capture-form__field">
-            <span>Sentence (optional)</span>
-            <textarea
-              name="sentence"
-              onChange={(event) => {
-                updateField("sentence", event.target.value);
+          <div className="capture-form__actions">
+            <button className="capture-form__submit" disabled={isPending} type="submit">
+              {isPending ? "Saving..." : "Save word"}
+            </button>
+            <button
+              className="capture-form__secondary-link"
+              onClick={() => {
+                setIsContextOpen((current) => !current);
               }}
-              placeholder="The prose became unexpectedly lapidary by the final chapter."
-              rows={4}
-              value={values.sentence}
-            />
-          </label>
+              type="button"
+            >
+              {getCaptureContextToggleLabel({
+                hasContext,
+                isOpen: isContextOpen,
+              })}
+            </button>
+          </div>
         </div>
 
-        <details className="capture-form__details">
-          <summary>Source details (optional)</summary>
-          <div className="capture-form__source-grid">
-            <label className="capture-form__field">
-              <span>Source type</span>
-              <select
-                name="sourceKind"
-                onChange={(event) => {
-                  updateField("sourceKind", event.target.value as SourceKind);
-                }}
-                value={values.sourceKind}
-              >
-                {sourceKindOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <p className="capture-form__hint">{getCaptureOutcomeCopy()}</p>
+
+        {isContextOpen ? (
+          <section className="capture-form__context-panel">
+            <div className="capture-form__context-header">
+              <p className="capture-form__context-title">Context</p>
+              <p className="capture-form__context-copy">
+                {getCaptureContextHelperCopy()}
+              </p>
+            </div>
 
             <label className="capture-form__field">
-              <span>Source title</span>
-              <input
-                name="sourceTitle"
+              <span>Sentence (optional)</span>
+              <textarea
+                name="sentence"
                 onChange={(event) => {
-                  updateField("sourceTitle", event.target.value);
+                  updateField("sentence", event.target.value);
                 }}
-                placeholder="Collected Essays"
-                value={values.sourceTitle}
+                placeholder="The prose became unexpectedly lapidary by the final chapter."
+                rows={4}
+                value={values.sentence}
               />
             </label>
 
-            <label className="capture-form__field">
-              <span>Author</span>
-              <input
-                name="sourceAuthor"
-                onChange={(event) => {
-                  updateField("sourceAuthor", event.target.value);
-                }}
-                placeholder="A. Reader"
-                value={values.sourceAuthor}
-              />
-            </label>
+            <div className="capture-form__source-grid">
+              <label className="capture-form__field">
+                <span>Source type</span>
+                <select
+                  name="sourceKind"
+                  onChange={(event) => {
+                    updateField("sourceKind", event.target.value as SourceKind);
+                  }}
+                  value={values.sourceKind}
+                >
+                  {sourceKindOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            <label className="capture-form__field">
-              <span>URL</span>
-              <input
-                name="sourceUrl"
-                onChange={(event) => {
-                  updateField("sourceUrl", event.target.value);
-                }}
-                placeholder="https://example.com/essay"
-                type="url"
-                value={values.sourceUrl}
-              />
-            </label>
-          </div>
-        </details>
+              <label className="capture-form__field">
+                <span>Source title</span>
+                <input
+                  name="sourceTitle"
+                  onChange={(event) => {
+                    updateField("sourceTitle", event.target.value);
+                  }}
+                  placeholder="Collected Essays"
+                  value={values.sourceTitle}
+                />
+              </label>
 
-        <p className="capture-form__hint">
-          After you save, Gloss starts enrichment in the background.
-        </p>
+              <label className="capture-form__field">
+                <span>Author</span>
+                <input
+                  name="sourceAuthor"
+                  onChange={(event) => {
+                    updateField("sourceAuthor", event.target.value);
+                  }}
+                  placeholder="A. Reader"
+                  value={values.sourceAuthor}
+                />
+              </label>
+
+              <label className="capture-form__field">
+                <span>URL</span>
+                <input
+                  name="sourceUrl"
+                  onChange={(event) => {
+                    updateField("sourceUrl", event.target.value);
+                  }}
+                  placeholder="https://example.com/essay"
+                  type="url"
+                  value={values.sourceUrl}
+                />
+              </label>
+            </div>
+          </section>
+        ) : null}
 
         {errorMessage ? (
           <p className="capture-form__error" role="alert">
             {errorMessage}
           </p>
         ) : null}
-
-        <div className="capture-form__actions">
-          <button className="capture-form__submit" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Save word"}
-          </button>
-        </div>
       </form>
     </section>
   );

@@ -36,6 +36,7 @@ export const createTestContext = async (input?: {
     BETTER_AUTH_SECRET: "test-secret-for-gloss",
     BETTER_AUTH_URL: "http://127.0.0.1:8787",
     DATABASE_URL: testDatabaseUrl,
+    ENRICHMENT_PROVIDER_MODE: "fixture",
     LOG_LEVEL: "error",
     NODE_ENV: "test",
     PORT: "8787",

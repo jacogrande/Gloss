@@ -49,6 +49,11 @@ textarea {
   font: inherit;
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: rgba(109, 109, 103, 0.82);
+}
+
 button {
   cursor: pointer;
 }
@@ -138,13 +143,12 @@ button {
 .shell__account {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
 }
 
 .shell__account-copy {
   display: grid;
   gap: 2px;
-  text-align: right;
 }
 
 .shell__account-name,
@@ -154,7 +158,8 @@ button {
 }
 
 .shell__account-name {
-  font-size: 0.95rem;
+  color: var(--ink-700);
+  font-size: 0.92rem;
   font-weight: 600;
 }
 
@@ -166,13 +171,16 @@ button {
 
 .shell__signout {
   appearance: none;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-elevated);
-  color: var(--ink-950);
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-500);
   font-weight: 600;
+}
+
+.shell__signout:hover {
+  color: var(--ink-950);
 }
 
 .shell__content {
@@ -210,7 +218,7 @@ button {
 .seed-card__stage,
 .seed-card__date,
 .seed-detail__meta dt,
-.seed-detail__stack dt,
+.seed-detail__compare-list dt,
 .library__summary {
   margin: 0;
   color: var(--ink-500);
@@ -407,6 +415,14 @@ button {
   gap: 16px;
 }
 
+.capture-form__context-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: var(--surface-muted);
+}
+
 .capture-form__details {
   display: grid;
   gap: 16px;
@@ -421,6 +437,24 @@ button {
 
 .capture-form__details[open] summary {
   color: var(--ink-950);
+}
+
+.capture-form__context-header {
+  display: grid;
+  gap: 4px;
+}
+
+.capture-form__context-title {
+  margin: 0;
+  color: var(--ink-950);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.capture-form__context-copy {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.92rem;
 }
 
 .capture-form__actions {
@@ -580,11 +614,11 @@ button {
 
 .seed-detail__status-badge {
   margin: 0;
-  padding: 0.22rem 0.55rem;
+  padding: 0.18rem 0.5rem;
   border-radius: 999px;
-  background: var(--accent-100);
-  color: var(--accent-700);
-  font-size: 0.78rem;
+  background: rgba(122, 143, 164, 0.1);
+  color: var(--ink-500);
+  font-size: 0.76rem;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -616,7 +650,8 @@ button {
 }
 
 .seed-detail__compare-panel {
-  background: var(--surface-accent);
+  gap: 20px;
+  background: var(--surface-muted);
 }
 
 .seed-detail__notice,
@@ -686,34 +721,38 @@ button {
   color: var(--ink-950);
 }
 
-.seed-detail__stack {
+.seed-detail__compare-list {
   display: grid;
   gap: 0;
   margin: 0;
 }
 
-.seed-detail__stack div {
+.seed-detail__compare-list div {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+}
+
+.seed-detail__compare-list div + div {
+  border-top: 1px solid rgba(20, 20, 20, 0.06);
+}
+
+.seed-detail__compare-list dd {
   display: grid;
   gap: 6px;
-  padding: 16px 0;
-}
-
-.seed-detail__stack div + div {
-  border-top: 1px solid rgba(90, 113, 135, 0.12);
-}
-
-.seed-detail__stack dd {
-  display: grid;
-  gap: 4px;
   margin: 0;
   color: var(--ink-700);
 }
 
-.seed-detail__term {
-  color: var(--accent-700);
+.seed-detail__compare-word {
+  color: var(--ink-950);
   font-family: "Iowan Old Style", "Source Serif 4", Georgia, serif;
   font-size: 1.26rem;
   line-height: 1.2;
+}
+
+.seed-detail__compare-note {
+  max-width: 42ch;
 }
 
 .seed-detail__details-group {
@@ -819,6 +858,20 @@ button {
   color: var(--ink-500);
 }
 
+.seed-enrichment__refresh-link {
+  appearance: none;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent-700);
+  font-weight: 600;
+}
+
+.seed-enrichment__refresh-link:hover {
+  color: var(--ink-950);
+}
+
 .review {
   width: min(100%, 720px);
   margin: 0 auto;
@@ -843,18 +896,22 @@ button {
   font-weight: 600;
 }
 
-.review__queue-metrics {
+.review__queue-facts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0;
 }
 
-.review__queue-metrics div {
+.review__queue-facts div {
   display: grid;
   gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--surface-muted);
 }
 
-.review__queue-metrics dt {
+.review__queue-facts dt {
   margin: 0;
   color: var(--ink-500);
   font-size: 0.82rem;
@@ -863,11 +920,11 @@ button {
   text-transform: uppercase;
 }
 
-.review__queue-metrics dd {
+.review__queue-facts dd {
   margin: 0;
   color: var(--ink-950);
-  font-family: "Iowan Old Style", "Source Serif 4", Georgia, serif;
-  font-size: 1.6rem;
+  font-size: 1rem;
+  font-weight: 600;
 }
 
 .review-card {

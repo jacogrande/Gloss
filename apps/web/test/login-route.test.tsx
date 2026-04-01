@@ -183,7 +183,7 @@ describe("LoginRoute", () => {
     );
 
     await userEvent.type(screen.getByRole("textbox", { name: /^Email/ }), "review@example.com");
-    await userEvent.type(screen.getByPlaceholderText("At least 8 characters"), "password1234");
+    await userEvent.type(screen.getByPlaceholderText("Your password"), "password1234");
     await userEvent.click(within(screen.getByTestId("auth-form")).getByRole("button", { name: "Sign in" }));
 
     await waitFor(() => {

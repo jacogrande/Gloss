@@ -60,7 +60,8 @@ test("private alpha capture flow validates empty words and keeps seeds private",
   await expect(page.getByRole("heading", { name: "Save a word" })).toBeVisible();
 
   await page.getByLabel("Word or phrase").fill("   ");
-  await page.getByLabel("Sentence").fill("The room felt austere but calm.");
+  await page.getByRole("button", { name: "Add context" }).click();
+  await page.getByLabel("Sentence (optional)").fill("The room felt austere but calm.");
   await page.getByRole("button", { name: "Save word" }).click();
   await expect(page.getByRole("alert")).toHaveText("Enter a word or phrase.");
 

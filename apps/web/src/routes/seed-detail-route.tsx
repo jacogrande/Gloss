@@ -18,9 +18,11 @@ import {
   getCurrentAppPath,
   getLoginPath,
 } from "../features/auth/post-auth";
+import { mergeSeedDetailState } from "../features/seeds/seed-detail-state";
 import { useSessionState } from "../features/auth/session-provider";
 import {
   getSeedCaptureNotice,
+  getSeedLoadNotice,
   getSeedRecoveryState,
 } from "../features/seeds/seed-presenters";
 import {
@@ -53,6 +55,8 @@ export const SeedDetailRoute = (): JSX.Element => {
     null,
   );
   const [isEnriching, setIsEnriching] = useState(false);
+  const [pendingRefreshCycle, setPendingRefreshCycle] = useState(0);
+  const [showPendingRefreshFallback, setShowPendingRefreshFallback] = useState(false);
   const [isUpdatingContext, setIsUpdatingContext] = useState(false);
   const [showSavedNotice, setShowSavedNotice] = useState<boolean>(
     Boolean(
@@ -91,23 +95,31 @@ export const SeedDetailRoute = (): JSX.Element => {
     );
   });
 
-  const refreshSeedDetail = useEffectEvent(async (): Promise<void> => {
+  const refreshSeedDetail = useEffectEvent(async (): Promise<SeedDetail | null> => {
     if (!seedId) {
-      return;
+      return null;
     }
 
     try {
-      const nextSeed = await fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId);
+      const loadedSeed = await fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId);
+      let nextSeed = loadedSeed;
 
-      setSeed(nextSeed);
+      setSeed((currentSeed) => {
+        nextSeed = currentSeed
+          ? mergeSeedDetailState(currentSeed, loadedSeed)
+          : loadedSeed;
+        return nextSeed;
+      });
 
       if (nextSeed.enrichment?.status !== "failed") {
         setEnrichmentErrorMessage(null);
       }
+
+      return nextSeed;
     } catch (error) {
       if (isUnauthorizedAuthError(error)) {
         await redirectToLogin();
-        return;
+        return null;
       }
 
       setEnrichmentErrorMessage(
@@ -115,6 +127,8 @@ export const SeedDetailRoute = (): JSX.Element => {
           ? error.message
           : "Unable to refresh this seed right now.",
       );
+
+      return null;
     }
   });
 
@@ -123,12 +137,21 @@ export const SeedDetailRoute = (): JSX.Element => {
       return;
     }
 
-    setSeed(loadedSeed);
+    let nextSeed = loadedSeed;
+    setSeed((currentSeed) => {
+      nextSeed = currentSeed
+        ? mergeSeedDetailState(currentSeed, loadedSeed)
+        : loadedSeed;
+      return nextSeed;
+    });
     setContextUpdateErrorMessage(null);
     setContextUpdateMessage(null);
     setEnrichmentErrorMessage(null);
     setIsEnriching(false);
-    autoRequestedSeedId.current = null;
+    setPendingRefreshCycle(0);
+    setShowPendingRefreshFallback(false);
+    autoRequestedSeedId.current =
+      nextSeed.enrichment?.status === "pending" ? nextSeed.id : null;
   }, [loadedSeed]);
 
   useEffect(() => {
@@ -157,6 +180,8 @@ export const SeedDetailRoute = (): JSX.Element => {
 
     setIsEnriching(true);
     setEnrichmentErrorMessage(null);
+    setPendingRefreshCycle(0);
+    setShowPendingRefreshFallback(false);
 
     try {
       const enrichment = await requestSeedEnrichment(
@@ -185,6 +210,7 @@ export const SeedDetailRoute = (): JSX.Element => {
           ? error.message
           : "Unable to enrich this seed right now.",
       );
+      setShowSavedNotice(false);
       return null;
     } finally {
       setIsEnriching(false);
@@ -265,9 +291,33 @@ export const SeedDetailRoute = (): JSX.Element => {
       return;
     }
 
+    let isCancelled = false;
+
     const timeoutId = window.setTimeout(() => {
-      void refreshSeedDetail();
+      void (async () => {
+        const nextSeed = await refreshSeedDetail();
+
+        if (!isCancelled && nextSeed?.enrichment?.status === "pending") {
+          setPendingRefreshCycle((current) => current + 1);
+        }
+      })();
     }, 1_500);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [isEnriching, pendingRefreshCycle, seed?.enrichment?.status, seed?.id]);
+
+  useEffect(() => {
+    if (seed?.enrichment?.status !== "pending" || isEnriching) {
+      setShowPendingRefreshFallback(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowPendingRefreshFallback(true);
+    }, 6_000);
 
     return () => {
       window.clearTimeout(timeoutId);
@@ -297,6 +347,7 @@ export const SeedDetailRoute = (): JSX.Element => {
     savedFromCapture: showSavedNotice,
     seed,
   });
+  const loadNotice = getSeedLoadNotice(errorMessage);
   const recoveryState = getSeedRecoveryState({
     seed,
   });
@@ -308,7 +359,12 @@ export const SeedDetailRoute = (): JSX.Element => {
       contextUpdateMessage={contextUpdateMessage}
       enrichmentErrorMessage={enrichmentErrorMessage}
       isEnriching={isEnriching}
+      loadNotice={loadNotice}
+      showPendingRefreshFallback={showPendingRefreshFallback}
       isUpdatingContext={isUpdatingContext}
+      onRefreshEnrichmentStatus={() => {
+        void refreshSeedDetail();
+      }}
       onSaveContext={(value) => {
         void saveContext(value);
       }}

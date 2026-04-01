@@ -95,10 +95,15 @@ describe("LibraryRoute", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "No words yet." })).toBeVisible();
-    expect(screen.getByRole("link", { name: "Capture your first word" })).toHaveAttribute(
+    expect(
+      screen.getByText(/Save your first word from real reading\./i),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Save your first word" })).toHaveAttribute(
       "href",
       "/capture",
     );
+    expect(screen.queryByLabelText("Stage")).toBeNull();
+    expect(screen.queryByText("0 word(s)")).toBeNull();
   });
 
   it("shows a clear-filter action for an empty filtered view", async () => {
@@ -120,6 +125,10 @@ describe("LibraryRoute", () => {
       .mockResolvedValueOnce({
         items: [],
         total: 0,
+      })
+      .mockResolvedValueOnce({
+        items: [savedSeed],
+        total: 1,
       })
       .mockResolvedValueOnce({
         items: [savedSeed],

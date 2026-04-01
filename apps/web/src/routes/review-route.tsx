@@ -434,6 +434,7 @@ export const ReviewRoute = (): JSX.Element => {
               {formatReviewExerciseLabel(reviewState.feedback.card.exerciseType)}
             </p>
             <h2>{feedbackDisplay.title}</h2>
+            <p className="panel__copy">{feedbackDisplay.message}</p>
           </div>
 
           <p className="review-feedback__word">
@@ -492,6 +493,7 @@ export const ReviewRoute = (): JSX.Element => {
           <div className="panel__header">
             <p className="panel__eyebrow">Review complete</p>
             <h2>{completionState.title}</h2>
+            <p className="panel__copy">{completionState.summary}</p>
           </div>
           <p className="panel__copy">{completionState.message}</p>
           <div className="capture-form__actions">
@@ -554,20 +556,16 @@ export const ReviewRoute = (): JSX.Element => {
           <p className="review__queue-summary">{queueDisplayState.summary}</p>
         </div>
 
-        <div className="review__queue-metrics">
-          <div>
-            <dt>Recognition</dt>
-            <dd>{queue?.dueByDimension.recognition ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Distinction</dt>
-            <dd>{queue?.dueByDimension.distinction ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Usage</dt>
-            <dd>{queue?.dueByDimension.usage ?? 0}</dd>
-          </div>
-        </div>
+        {queueDisplayState.facts.length > 0 ? (
+          <dl className="review__queue-facts">
+            {queueDisplayState.facts.map((fact) => (
+              <div key={fact.label}>
+                <dt>{fact.label}</dt>
+                <dd>{fact.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
 
         <p className="panel__copy">{queueDisplayState.message}</p>
 

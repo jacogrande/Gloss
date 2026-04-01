@@ -199,9 +199,55 @@ describe("SeedDetailRoute", () => {
     expect(screen.getByText("Definition")).toBeVisible();
   });
 
+  it("shows a load notice when the authoritative seed fetch fails after handoff", async () => {
+    fetchSeedDetail.mockRejectedValueOnce(new Error("Seed sync failed."));
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/seeds/seed_1",
+            state: {
+              initialSeed: createSeedDetail(null),
+              showSavedNotice: true,
+            },
+          },
+        ]}
+      >
+        <Routes>
+          <Route element={<SeedDetailRoute />} path="/seeds/:seedId" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "pellucid" })).toBeVisible();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Seed sync failed. Showing the last saved version for now.",
+    );
+  });
+
   it("polls seed detail while enrichment remains pending", async () => {
     fetchSeedDetail
       .mockResolvedValueOnce(createSeedDetail(null))
+      .mockResolvedValueOnce(
+        createSeedDetail({
+          completedAt: null,
+          createdAt: "2026-03-26T00:00:00.000Z",
+          errorCode: null,
+          failedAt: null,
+          guardrailFlags: [],
+          id: "enrichment_1",
+          model: "fixture-model",
+          payload: null,
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          requestedAt: "2026-03-26T00:00:00.000Z",
+          schemaVersion: "seed-enrichment-payload.v1",
+          startedAt: "2026-03-26T00:00:00.000Z",
+          status: "pending",
+          updatedAt: "2026-03-26T00:00:01.000Z",
+        }),
+      )
       .mockResolvedValueOnce(
         createSeedDetail({
           completedAt: "2026-03-26T00:00:02.000Z",
@@ -268,12 +314,12 @@ describe("SeedDetailRoute", () => {
     ).toBeVisible();
 
     await new Promise((resolve) => {
-      window.setTimeout(resolve, 1_600);
+      window.setTimeout(resolve, 3_200);
     });
     await flushPromises();
 
     expect(requestSeedEnrichment).toHaveBeenCalledTimes(1);
-    expect(fetchSeedDetail).toHaveBeenCalledTimes(2);
+    expect(fetchSeedDetail).toHaveBeenCalledTimes(3);
     expect(
       screen.getByText(
         "The explanation was especially clear and easy to follow.",
@@ -412,13 +458,16 @@ describe("SeedDetailRoute", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Add context" }),
+      await screen.findByRole("heading", { name: "Give this word more context" }),
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Add a sentence or source details, then try enrichment again.",
+        "Add the sentence where you found it, or a source note. Gloss will rebuild the definition after you save.",
       ),
     ).toBeVisible();
+    expect(
+      screen.getByRole("textbox", { name: "Sentence (optional)" }),
+    ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
 
     await userEvent.type(
       screen.getByRole("textbox", { name: "Sentence (optional)" }),

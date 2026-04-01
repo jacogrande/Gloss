@@ -1,5 +1,6 @@
 import type { SeedStage } from "@gloss/shared/types";
 
+import { getEmptyLibraryMessage } from "../../lib/product-loop-copy";
 import { formatSeedStageLabel } from "./seed-presenters";
 
 export type LibraryEmptyState = {
@@ -38,11 +39,11 @@ export const getLibraryEmptyState = (
 ): LibraryEmptyState => {
   if (!input.hasAnyWords) {
     return {
-      message: "Start with one word from real reading.",
+      message: getEmptyLibraryMessage(),
       primaryAction: {
         href: "/capture",
         kind: "link",
-        label: "Capture your first word",
+        label: "Save your first word",
       },
       ...(input.stage === "all"
         ? {}
@@ -68,11 +69,11 @@ export const getLibraryEmptyState = (
   }
 
   return {
-    message: "Start with one word from real reading.",
+    message: getEmptyLibraryMessage(),
     primaryAction: {
       href: "/capture",
       kind: "link",
-      label: "Capture your first word",
+      label: "Save your first word",
     },
     title: "No words yet.",
   };

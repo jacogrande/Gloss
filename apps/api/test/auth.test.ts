@@ -18,6 +18,7 @@ const createEnv = (
     BETTER_AUTH_SECRET: "test-secret-for-gloss",
     BETTER_AUTH_URL: "http://127.0.0.1:8787",
     DATABASE_URL: "postgresql://gloss:gloss@127.0.0.1:54329/gloss_test",
+    ENRICHMENT_PROVIDER_MODE: "fixture",
     LOG_LEVEL: "error",
     NODE_ENV: "test",
     PORT: "8787",

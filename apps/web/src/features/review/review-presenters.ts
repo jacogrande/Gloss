@@ -5,6 +5,8 @@ import type {
   ReviewSubmissionResult,
 } from "@gloss/shared/types";
 
+import { toDictionaryDefinition } from "../../lib/contextual-gloss";
+
 type ReviewChoice = ReviewCard["promptPayload"]["choices"][number];
 
 type ReviewActionLink = {
@@ -15,6 +17,10 @@ type ReviewActionLink = {
 export type ReviewQueueDisplayState = {
   actionLabel: string | null;
   canStart: boolean;
+  facts: Array<{
+    label: string;
+    value: string;
+  }>;
   message: string;
   secondaryAction: ReviewActionLink | null;
   summary: string;
@@ -29,6 +35,7 @@ export type ReviewFeedbackSnapshot = {
 export type ReviewFeedbackDisplayState = {
   correctChoiceLabel: string;
   explanation: string;
+  message: string;
   selectedChoiceLabel: string | null;
   status: "correct" | "incorrect";
   title: string;
@@ -37,6 +44,7 @@ export type ReviewFeedbackDisplayState = {
 export type ReviewCompletionDisplayState = {
   actionLabel: string;
   message: string;
+  summary: string;
   secondaryAction: ReviewActionLink;
   title: string;
 };
@@ -83,6 +91,21 @@ const getChoiceById = (
 const getChoiceDisplayLabel = (choice: ReviewChoice | null): string =>
   choice?.detail ?? choice?.label ?? "Unavailable";
 
+const formatReviewDimensionLabel = (
+  dimension: "distinction" | "recognition" | "usage",
+): string => {
+  switch (dimension) {
+    case "recognition":
+      return "Meaning";
+    case "distinction":
+      return "Compare";
+    case "usage":
+      return "Use";
+    default:
+      return "Review";
+  }
+};
+
 const trimTerminalPunctuation = (value: string): string =>
   value.trim().replace(/[.!?]+$/u, "");
 
@@ -91,27 +114,18 @@ const toSentenceCase = (value: string): string =>
 
 const toQuotedSentence = (value: string): string => `“${trimTerminalPunctuation(value)}.”`;
 
-const contextualLeadPatterns = [
-  /^in this (?:sentence|context|passage|usage),?\s*(?:it\s+)?means\s+/iu,
-  /^in this kind of (?:sentence|context|passage|usage),?\s*(?:it\s+)?(?:means|describes|refers to)\s+/iu,
-  /^here,?\s*(?:it\s+)?means\s+/iu,
-  /^here,?\s*/iu,
-  /^in context,?\s*(?:it\s+)?means\s+/iu,
-  /^used here,?\s*(?:it\s+)?means\s+/iu,
-];
+const formatDueDimensions = (
+  dueByDimension: ReviewQueueSummary["dueByDimension"],
+): string => {
+  const labels = (
+    Object.entries(dueByDimension) as Array<
+      [keyof ReviewQueueSummary["dueByDimension"], number]
+    >
+  )
+    .filter(([, count]) => count > 0)
+    .map(([dimension]) => formatReviewDimensionLabel(dimension));
 
-const normalizeGlossChoiceLabel = (value: string): string => {
-  const trimmedValue = value.trim();
-
-  for (const pattern of contextualLeadPatterns) {
-    if (!pattern.test(trimmedValue)) {
-      continue;
-    }
-
-    return toSentenceCase(trimmedValue.replace(pattern, "").trim());
-  }
-
-  return trimmedValue;
+  return labels.length > 0 ? labels.join(", ") : "Meaning";
 };
 
 export const formatReviewExerciseLabel = (
@@ -159,6 +173,12 @@ export const getReviewQueueDisplayState = (
     return {
       actionLabel: "Resume session",
       canStart: true,
+      facts: [
+        {
+          label: "Next",
+          value: "Pick up the current card",
+        },
+      ],
       message:
         "Your session is still open. Pick up where you left off.",
       secondaryAction: {
@@ -173,8 +193,22 @@ export const getReviewQueueDisplayState = (
     return {
       actionLabel: "Start review",
       canStart: true,
+      facts: [
+        {
+          label: "Ready now",
+          value: pluralize(queue?.dueCount ?? 0, "word"),
+        },
+        {
+          label: "Focus",
+          value: formatDueDimensions(queue?.dueByDimension ?? {
+            distinction: 0,
+            recognition: 0,
+            usage: 0,
+          }),
+        },
+      ],
       message:
-        "Start a short session from the words due now. One word may turn into more than one card.",
+        "Start a short session from the words due now. Gloss will ask for meaning, comparison, and usage only where each word is ready for it.",
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -187,6 +221,7 @@ export const getReviewQueueDisplayState = (
     return {
       actionLabel: null,
       canStart: false,
+      facts: [],
       message:
         "Nothing is due yet. Browse your library now, then come back once a word is ready.",
       secondaryAction: {
@@ -201,6 +236,12 @@ export const getReviewQueueDisplayState = (
     return {
       actionLabel: null,
       canStart: false,
+      facts: [
+        {
+          label: "Saved",
+          value: pluralize(queue?.capturedCount ?? 0, "word"),
+        },
+      ],
       message:
         "Your saved words are still being prepared for review. Give them a moment, or browse your library.",
       secondaryAction: {
@@ -214,11 +255,12 @@ export const getReviewQueueDisplayState = (
   return {
     actionLabel: null,
     canStart: false,
+    facts: [],
     message:
       "You do not have anything to review yet. Save a word first, then come back once it is ready.",
     secondaryAction: {
       href: "/capture",
-      label: "Capture your first word",
+      label: "Save your first word",
     },
     summary: "Nothing to review yet",
   };
@@ -235,12 +277,12 @@ const buildReviewFeedbackExplanation = (input: {
       return `${toQuotedSentence(input.correctChoiceLabel)} is the less natural tone here.`;
     case "recognition_in_fresh_sentence":
       return `In this fresh sentence, ${input.card.promptPayload.word} means ${toQuotedSentence(
-        normalizeGlossChoiceLabel(input.correctChoiceLabel),
+        toDictionaryDefinition(input.correctChoiceLabel),
       )}`;
     case "meaning_in_context":
     default:
       return `Here, ${input.card.promptPayload.word} means ${toQuotedSentence(
-        normalizeGlossChoiceLabel(input.correctChoiceLabel),
+        toDictionaryDefinition(input.correctChoiceLabel),
       )}`;
   }
 };
@@ -264,21 +306,38 @@ export const getReviewFeedbackDisplayState = (
       card: feedback.card,
       correctChoiceLabel,
     }),
+    message: feedback.result.correct
+      ? "You matched the meaning this card was testing."
+      : `You picked ${toQuotedSentence(
+          getChoiceDisplayLabel(selectedChoice),
+        )}. Here, the better fit is ${toQuotedSentence(correctChoiceLabel)}`,
     selectedChoiceLabel: getChoiceDisplayLabel(selectedChoice),
     status: feedback.result.correct ? "correct" : "incorrect",
-    title: feedback.result.correct ? "Correct" : "Not quite",
+    title: feedback.result.correct ? "You’ve got it" : "Try again",
   };
 };
+
+const getReviewSessionWordCount = (session: ReviewSessionDetail): number =>
+  new Set(session.cards.map((card) => card.promptPayload.word)).size;
 
 export const getReviewCompletionDisplayState = (input: {
   session: ReviewSessionDetail;
 }): ReviewCompletionDisplayState => {
+  const wordCount = getReviewSessionWordCount(input.session);
+
   return {
     actionLabel: "Back to review queue",
     message: `You finished ${pluralize(
       input.session.session.cardCount,
       "card",
-    )}. Check the queue again when you want another short session.`,
+    )}. Gloss updated when ${pluralize(
+      wordCount,
+      "word",
+    )} should come back next.`,
+    summary: `${pluralize(input.session.session.cardCount, "card")} across ${pluralize(
+      wordCount,
+      "word",
+    )}`,
     secondaryAction: {
       href: "/library",
       label: "Browse your words",
