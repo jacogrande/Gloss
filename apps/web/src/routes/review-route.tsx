@@ -8,12 +8,20 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 import type {
-  ReviewCard,
-  ReviewQueueSummary,
   ReviewSessionDetail,
+  ReviewSubmissionResult,
 } from "@gloss/shared/types";
 
-import { getReviewQueueDisplayState } from "../features/review/review-presenters";
+import {
+  formatReviewExerciseLabel,
+  formatReviewProgressLabel,
+  formatReviewRemainingLabel,
+  getReviewCompletionDisplayState,
+  getReviewFeedbackDisplayState,
+  getReviewQueueDisplayState,
+  getReviewRouteState,
+  type ReviewFeedbackSnapshot,
+} from "../features/review/review-presenters";
 import { useSessionState } from "../features/auth/session-provider";
 import {
   fetchReviewQueue,
@@ -25,15 +33,37 @@ import { webEnv } from "../lib/env";
 import { ApiClientError } from "../lib/http";
 import { useAsyncResource } from "../lib/use-async-resource";
 
-const getCurrentCard = (
-  session: ReviewSessionDetail | null,
-): ReviewCard | null =>
-  session?.cards.find((card) => card.status === "pending") ?? null;
+type SubmitSuccess = {
+  result: ReviewSubmissionResult;
+  session: ReviewSessionDetail;
+};
+
+const createFeedbackSnapshot = (input: {
+  response: SubmitSuccess;
+  selectedChoiceId: string;
+}): ReviewFeedbackSnapshot | null => {
+  const answeredCard = input.response.session.cards.find(
+    (card) => card.id === input.response.result.cardId,
+  );
+
+  if (!answeredCard) {
+    return null;
+  }
+
+  return {
+    card: answeredCard,
+    result: input.response.result,
+    selectedChoiceId: input.selectedChoiceId,
+  };
+};
 
 export const ReviewRoute = (): JSX.Element => {
   const navigate = useNavigate();
   const sessionState = useSessionState();
   const [session, setSession] = useState<ReviewSessionDetail | null>(null);
+  const [feedbackState, setFeedbackState] = useState<ReviewFeedbackSnapshot | null>(
+    null,
+  );
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
@@ -47,7 +77,7 @@ export const ReviewRoute = (): JSX.Element => {
     data: queue,
     errorMessage,
     isLoading,
-  } = useAsyncResource<ReviewQueueSummary>({
+  } = useAsyncResource({
     dependencies: [refreshKey],
     getErrorMessage: (error) =>
       error instanceof Error ? error.message : "Unable to load review right now.",
@@ -59,6 +89,7 @@ export const ReviewRoute = (): JSX.Element => {
   });
 
   const handleUnauthorized = useEffectEvent(async (): Promise<void> => {
+    setFeedbackState(null);
     sessionState.setSession(null);
     await navigate("/login", { replace: true });
   });
@@ -66,6 +97,7 @@ export const ReviewRoute = (): JSX.Element => {
   const reconcileSessionConflict = useEffectEvent(
     async (message: string): Promise<void> => {
       if (!session?.session.id) {
+        setFeedbackState(null);
         setSession(null);
         setSessionMessage(message);
         refreshQueue();
@@ -78,6 +110,7 @@ export const ReviewRoute = (): JSX.Element => {
           session.session.id,
         );
 
+        setFeedbackState(null);
         setSession(nextSession);
         setSessionMessage(message);
         setSelectedChoiceId(null);
@@ -93,6 +126,7 @@ export const ReviewRoute = (): JSX.Element => {
           return;
         }
 
+        setFeedbackState(null);
         setSession(null);
         setSessionMessage(message);
         refreshQueue();
@@ -107,6 +141,7 @@ export const ReviewRoute = (): JSX.Element => {
         sessionId,
       );
 
+      setFeedbackState(null);
       setSession(nextSession);
       setSessionMessage(null);
       setSelectedChoiceId(null);
@@ -146,12 +181,13 @@ export const ReviewRoute = (): JSX.Element => {
   }, [loadSession, queue?.activeSessionId, session?.session.status]);
 
   useEffect(() => {
+    if (feedbackState) {
+      return;
+    }
+
     cardStartedAt.current = Date.now();
     setSelectedChoiceId(null);
-  }, [session?.session.currentCardId]);
-
-  const currentCard = getCurrentCard(session);
-  const queueDisplayState = queue ? getReviewQueueDisplayState(queue) : null;
+  }, [feedbackState, session?.session.currentCardId]);
 
   const startSession = async (): Promise<void> => {
     setIsStarting(true);
@@ -160,6 +196,7 @@ export const ReviewRoute = (): JSX.Element => {
     try {
       const nextSession = await startReviewSession(webEnv.VITE_API_BASE_URL);
 
+      setFeedbackState(null);
       setSession(nextSession);
       setSessionMessage(null);
       lastLoadedSessionId.current = nextSession.session.id;
@@ -183,8 +220,10 @@ export const ReviewRoute = (): JSX.Element => {
     }
   };
 
-  const submitCurrentCard = async (): Promise<void> => {
-    if (!currentCard || !selectedChoiceId || isSubmitting) {
+  const submitCurrentCard = async (
+    card: ReviewFeedbackSnapshot["card"],
+  ): Promise<void> => {
+    if (!selectedChoiceId || isSubmitting) {
       return;
     }
 
@@ -193,7 +232,7 @@ export const ReviewRoute = (): JSX.Element => {
 
     try {
       const response = await submitReviewCard(webEnv.VITE_API_BASE_URL, {
-        cardId: currentCard.id,
+        cardId: card.id,
         sessionId: session?.session.id ?? "",
         submission: {
           choiceId: selectedChoiceId,
@@ -202,6 +241,12 @@ export const ReviewRoute = (): JSX.Element => {
       });
 
       setSession(response.session);
+      setFeedbackState(
+        createFeedbackSnapshot({
+          response,
+          selectedChoiceId,
+        }),
+      );
       setSelectedChoiceId(null);
       refreshQueue();
     } catch (error) {
@@ -233,7 +278,21 @@ export const ReviewRoute = (): JSX.Element => {
     }
   };
 
-  if (isLoading && !queue && !session) {
+  const clearSessionState = (): void => {
+    setFeedbackState(null);
+    setSelectedChoiceId(null);
+    setSessionMessage(null);
+    setSession(null);
+    refreshQueue();
+  };
+
+  const reviewState = getReviewRouteState({
+    feedback: feedbackState,
+    isInitialLoading: isLoading && !queue && !session,
+    session,
+  });
+
+  if (reviewState.kind === "loading") {
     return (
       <section className="panel">
         <p className="panel__copy">Loading review...</p>
@@ -241,7 +300,7 @@ export const ReviewRoute = (): JSX.Element => {
     );
   }
 
-  if (session && currentCard) {
+  if (reviewState.kind === "card") {
     return (
       <section className="review">
         <div className="panel panel--compact review__queue-panel">
@@ -249,31 +308,41 @@ export const ReviewRoute = (): JSX.Element => {
             <div>
               <h2>Review</h2>
               <p className="panel__copy">
-                Card {currentCard.position + 1} of {session.session.cardCount}
+                {formatReviewProgressLabel({
+                  card: reviewState.card,
+                  session: reviewState.session.session,
+                })}
               </p>
             </div>
             <p className="review__queue-summary">
-              {session.session.remainingCount} remaining
+              {formatReviewRemainingLabel({
+                context: "answering",
+                session: reviewState.session.session,
+              })}
             </p>
           </div>
         </div>
 
         <section className="review-card">
           <div className="review-card__header">
-            <p className="panel__eyebrow">{currentCard.exerciseType.replaceAll("_", " ")}</p>
-            <h2>{currentCard.promptPayload.word}</h2>
+            <p className="panel__eyebrow">
+              {formatReviewExerciseLabel(reviewState.card.exerciseType)}
+            </p>
+            <h2>{reviewState.card.promptPayload.word}</h2>
           </div>
 
-          {"sentence" in currentCard.promptPayload ? (
+          {"sentence" in reviewState.card.promptPayload ? (
             <p className="review-card__sentence">
-              {currentCard.promptPayload.sentence}
+              {reviewState.card.promptPayload.sentence}
             </p>
           ) : null}
 
-          <p className="review-card__question">{currentCard.promptPayload.question}</p>
+          <p className="review-card__question">
+            {reviewState.card.promptPayload.question}
+          </p>
 
           <div className="review-card__choices" role="radiogroup">
-            {currentCard.promptPayload.choices.map((choice) => {
+            {reviewState.card.promptPayload.choices.map((choice) => {
               const isSelected = selectedChoiceId === choice.id;
 
               return (
@@ -311,7 +380,7 @@ export const ReviewRoute = (): JSX.Element => {
               className="capture-form__submit"
               disabled={!selectedChoiceId || isSubmitting}
               onClick={() => {
-                void submitCurrentCard();
+                void submitCurrentCard(reviewState.card);
               }}
               type="button"
             >
@@ -323,28 +392,114 @@ export const ReviewRoute = (): JSX.Element => {
     );
   }
 
-  if (session && session.session.status === "completed") {
+  if (reviewState.kind === "feedback") {
+    const feedbackDisplay = getReviewFeedbackDisplayState(reviewState.feedback);
+
+    return (
+      <section className="review">
+        <div className="panel panel--compact review__queue-panel">
+          <div className="review__queue-header">
+            <div>
+              <h2>Review</h2>
+              <p className="panel__copy">
+                {formatReviewProgressLabel({
+                  card: reviewState.feedback.card,
+                  session: reviewState.session.session,
+                })}
+              </p>
+            </div>
+            <p className="review__queue-summary">
+              {formatReviewRemainingLabel({
+                context: "feedback",
+                session: reviewState.session.session,
+              })}
+            </p>
+          </div>
+        </div>
+
+        <section className={`review-card review-feedback review-feedback--${feedbackDisplay.status}`}>
+          <div className="review-card__header">
+            <p className="panel__eyebrow">
+              {formatReviewExerciseLabel(reviewState.feedback.card.exerciseType)}
+            </p>
+            <h2>{feedbackDisplay.title}</h2>
+          </div>
+
+          <p className="review-feedback__word">
+            {reviewState.feedback.card.promptPayload.word}
+          </p>
+
+          {"sentence" in reviewState.feedback.card.promptPayload ? (
+            <p className="review-card__sentence">
+              {reviewState.feedback.card.promptPayload.sentence}
+            </p>
+          ) : null}
+
+          <div className="review-feedback__grid">
+            {feedbackDisplay.selectedChoiceLabel &&
+            !reviewState.feedback.result.correct ? (
+              <section className="review-feedback__choice-block">
+                <h3>Your answer</h3>
+                <p>{feedbackDisplay.selectedChoiceLabel}</p>
+              </section>
+            ) : null}
+
+            <section className="review-feedback__choice-block">
+              <h3>Correct answer</h3>
+              <p>{feedbackDisplay.correctChoiceLabel}</p>
+            </section>
+          </div>
+
+          <p className="review-feedback__explanation">
+            {feedbackDisplay.explanation}
+          </p>
+
+          <div className="review-card__actions">
+            <button
+              className="capture-form__submit"
+              onClick={() => {
+                setFeedbackState(null);
+              }}
+              type="button"
+            >
+              Continue
+            </button>
+          </div>
+        </section>
+      </section>
+    );
+  }
+
+  if (reviewState.kind === "complete") {
+    const completionState = getReviewCompletionDisplayState({
+      queue,
+      session: reviewState.session,
+    });
+
     return (
       <section className="review">
         <section className="panel">
           <div className="panel__header">
             <p className="panel__eyebrow">Review complete</p>
-            <h2>Session finished</h2>
+            <h2>{completionState.title}</h2>
           </div>
-          <p className="panel__copy">
-            You completed {session.session.cardCount} review card(s).
-          </p>
+          <p className="panel__copy">{completionState.message}</p>
           <div className="capture-form__actions">
             <button
               className="capture-form__submit"
               onClick={() => {
-                setSession(null);
-                refreshQueue();
+                clearSessionState();
               }}
               type="button"
             >
-              Review again
+              {completionState.actionLabel}
             </button>
+            <Link
+              className="capture-form__secondary-link"
+              to={completionState.secondaryAction.href}
+            >
+              {completionState.secondaryAction.label}
+            </Link>
           </div>
         </section>
       </section>
@@ -376,6 +531,8 @@ export const ReviewRoute = (): JSX.Element => {
     );
   }
 
+  const queueDisplayState = getReviewQueueDisplayState(queue);
+
   return (
     <section className="review">
       <section className="panel review__queue-panel">
@@ -384,9 +541,7 @@ export const ReviewRoute = (): JSX.Element => {
             <p className="panel__eyebrow">Queue</p>
             <h2>Review</h2>
           </div>
-          <p className="review__queue-summary">
-            {queue?.dueCount ?? 0} due
-          </p>
+          <p className="review__queue-summary">{queueDisplayState.summary}</p>
         </div>
 
         <div className="review__queue-metrics">
@@ -404,13 +559,13 @@ export const ReviewRoute = (): JSX.Element => {
           </div>
         </div>
 
-        <p className="panel__copy">{queueDisplayState?.message ?? "Loading review..."}</p>
+        <p className="panel__copy">{queueDisplayState.message}</p>
 
         {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
         {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
 
         <div className="capture-form__actions">
-          {queueDisplayState?.canStart && queueDisplayState.actionLabel ? (
+          {queueDisplayState.canStart && queueDisplayState.actionLabel ? (
             <button
               className="capture-form__submit"
               disabled={isStarting}
@@ -422,7 +577,7 @@ export const ReviewRoute = (): JSX.Element => {
               {isStarting ? "Starting..." : queueDisplayState.actionLabel}
             </button>
           ) : null}
-          {queueDisplayState?.secondaryAction ? (
+          {queueDisplayState.secondaryAction ? (
             <Link
               className="capture-form__secondary-link"
               to={queueDisplayState.secondaryAction.href}

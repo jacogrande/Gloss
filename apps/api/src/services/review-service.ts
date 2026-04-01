@@ -508,6 +508,7 @@ export const createReviewService = (input: {
             result: {
               cardId,
               correct: applied.outcome.correct,
+              correctChoiceId: latestCard.answerKey.correctChoiceId,
               outcome: applied.outcome.outcome,
               seedStage: nextSeedStage,
             },

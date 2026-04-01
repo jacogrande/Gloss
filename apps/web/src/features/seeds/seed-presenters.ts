@@ -161,18 +161,13 @@ export const getSeedRecoveryState = (
 };
 
 export const getSeedActionState = (input: {
-  recoveryState: SeedRecoveryState | null;
   seed: Pick<SeedDetail, "enrichment">;
 }): SeedActionState | null => {
-  if (input.recoveryState) {
-    return null;
-  }
-
   if (input.seed.enrichment?.status === "ready") {
     return {
       primary: {
         href: "/review",
-        label: "Start review",
+        label: "Review queue",
       },
       secondary: {
         href: "/capture",

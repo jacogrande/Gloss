@@ -44,10 +44,7 @@ export const SeedDetailPanel = ({
   const payload =
     seed.enrichment?.status === "ready" ? seed.enrichment.payload : null;
   const additionalContexts = getAdditionalContexts(seed);
-  const actionState = getSeedActionState({
-    recoveryState,
-    seed,
-  });
+  const actionState = getSeedActionState({ seed });
   const sourceEvidence = formatSourceEvidence(seed.source);
   const showCompare =
     Boolean(payload?.registerNote) ||
@@ -80,7 +77,7 @@ export const SeedDetailPanel = ({
 
       {seed.primarySentence || seed.source ? (
         <section className="seed-detail__evidence">
-          <p className="seed-detail__eyebrow">Context</p>
+          <h2 className="seed-detail__evidence-title">Context</h2>
           {seed.primarySentence ? (
             <p className="seed-detail__sentence">{seed.primarySentence}</p>
           ) : null}

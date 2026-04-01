@@ -248,7 +248,10 @@ describe("SeedDetailRoute", () => {
     expect(screen.getByText("In context")).toBeVisible();
     expect(screen.getByText("Compare")).toBeVisible();
     expect(screen.getByText("Similar")).toBeVisible();
-    expect(screen.getByText("Start review")).toBeVisible();
+    expect(screen.getByRole("link", { name: "Review queue" })).toHaveAttribute(
+      "href",
+      "/review",
+    );
     expect(screen.getByText("lucid")).toBeVisible();
     expect(screen.getByText("Roots")).toBeVisible();
   });
@@ -482,8 +485,12 @@ describe("SeedDetailRoute", () => {
       </MemoryRouter>,
     );
 
+    expect(await screen.findByRole("link", { name: "Review queue" })).toHaveAttribute(
+      "href",
+      "/review",
+    );
     await userEvent.type(
-      await screen.findByRole("textbox", { name: "Sentence (optional)" }),
+      screen.getByRole("textbox", { name: "Sentence (optional)" }),
       "Her reply was pellucid even under pressure.",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save context" }));

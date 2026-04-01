@@ -212,6 +212,7 @@ describe("ReviewRoute", () => {
       result: {
         cardId: "card_1",
         correct: true,
+        correctChoiceId: "choice_1",
         outcome: "correct",
         seedStage: "stabilizing",
       },
@@ -241,7 +242,7 @@ describe("ReviewRoute", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
-    expect(screen.getByText("1 due")).toBeVisible();
+    expect(screen.getByText("1 word due now")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Start review" }));
 
@@ -254,11 +255,83 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Correct" })).toBeVisible();
+    });
+
+    expect(screen.getByText("Correct answer")).toBeVisible();
+    expect(
+      screen.getByText("Especially clear and easy to follow."),
+    ).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
       expect(screen.getByText("Session finished")).toBeVisible();
     });
 
     expect(submitReviewCard).toHaveBeenCalledTimes(1);
     expect(fetchReviewQueue).toHaveBeenCalled();
+  });
+
+  it("shows corrective feedback before continuing after a wrong answer", async () => {
+    const activeSession = createActiveSession();
+
+    fetchReviewQueue.mockResolvedValue(createQueue());
+    startReviewSession.mockResolvedValue(activeSession);
+    submitReviewCard.mockResolvedValue({
+      result: {
+        cardId: "card_1",
+        correct: false,
+        correctChoiceId: "choice_1",
+        outcome: "incorrect",
+        seedStage: "new",
+      },
+      session: {
+        cards: [
+          {
+            ...activeSession.cards[0]!,
+            status: "answered",
+          },
+        ],
+        session: {
+          ...activeSession.session,
+          completedAt: "2026-03-29T00:00:05.000Z",
+          currentCardId: null,
+          remainingCount: 0,
+          status: "completed",
+        },
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("heading", { name: "Review" });
+    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await screen.findByRole("heading", { name: "pellucid" });
+
+    await userEvent.click(
+      screen.getByRole("radio", {
+        name: /Mostly careless and imprecise/i,
+      }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Submit" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Not quite" })).toBeVisible();
+    });
+
+    expect(screen.getByText("Your answer")).toBeVisible();
+    expect(screen.getByText("Correct answer")).toBeVisible();
+    expect(screen.getByText("Mostly careless and imprecise.")).toBeVisible();
+    expect(
+      screen.getByText("Especially clear and easy to follow."),
+    ).toBeVisible();
   });
 
   it("refreshes the session after a stale-card conflict", async () => {
@@ -398,7 +471,9 @@ describe("ReviewRoute", () => {
 
     expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
     expect(
-      screen.getByText("Nothing is ready to review yet. Give your saved words a moment, or browse your library in the meantime."),
+      screen.getByText(
+        "Your saved words are still being prepared for review. Give them a moment, or browse your library.",
+      ),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Browse your words" })).toHaveAttribute(
       "href",

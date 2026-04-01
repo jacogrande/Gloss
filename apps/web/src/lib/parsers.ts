@@ -477,6 +477,7 @@ export const parseSubmitReviewCardResponse = (
       result: {
         cardId: readString(result.cardId),
         correct: readBoolean(result.correct),
+        correctChoiceId: readString(result.correctChoiceId),
         outcome: readEnum(result.outcome, reviewOutcomeValueSet),
         seedStage: readEnum(result.seedStage, seedStageValueSet),
       },

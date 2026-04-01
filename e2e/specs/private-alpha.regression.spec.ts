@@ -155,7 +155,7 @@ test("private alpha review recovers from stale-card conflicts and completes sess
     await expect(
       page.getByRole("heading", { name: "Session finished" }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "Review again" }).click();
+    await page.getByRole("button", { name: "Back to review queue" }).click();
     await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
   } finally {
     await secondPage.close();

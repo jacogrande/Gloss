@@ -157,6 +157,8 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
 
   await page.getByRole("radio").first().click();
   await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByText("Correct answer")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect
     .poll(async () => {

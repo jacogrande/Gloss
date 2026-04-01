@@ -386,6 +386,7 @@ export const reviewSubmissionResultSchema = z
   .object({
     cardId: z.string().min(1),
     correct: z.boolean(),
+    correctChoiceId: z.string().trim().min(1).max(80),
     outcome: reviewOutcomeSchema,
     seedStage: seedStageSchema,
   })

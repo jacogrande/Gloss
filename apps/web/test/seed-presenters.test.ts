@@ -49,34 +49,6 @@ describe("seed presenters", () => {
     expect(recoveryState?.title).toBe("Add context");
     expect(
       getSeedActionState({
-        recoveryState,
-        seed: {
-          enrichment: {
-            completedAt: "2026-03-26T00:00:02.000Z",
-            createdAt: "2026-03-26T00:00:00.000Z",
-            errorCode: null,
-            failedAt: null,
-            guardrailFlags: [],
-            id: "enrichment_1",
-            model: "fixture-model",
-            payload: {
-              gloss: "Especially clear and easy to follow.",
-            },
-            promptTemplateVersion: "seed-enrichment.v1",
-            provider: "fixture",
-            requestedAt: "2026-03-26T00:00:00.000Z",
-            schemaVersion: "seed-enrichment-payload.v1",
-            startedAt: null,
-            status: "ready",
-            updatedAt: "2026-03-26T00:00:02.000Z",
-          },
-        },
-      }),
-    ).toBeNull();
-
-    expect(
-      getSeedActionState({
-        recoveryState: null,
         seed: {
           enrichment: {
             completedAt: "2026-03-26T00:00:02.000Z",
@@ -102,7 +74,7 @@ describe("seed presenters", () => {
     ).toEqual({
       primary: {
         href: "/review",
-        label: "Start review",
+        label: "Review queue",
       },
       secondary: {
         href: "/capture",

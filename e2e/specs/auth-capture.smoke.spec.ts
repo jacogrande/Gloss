@@ -45,7 +45,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
 
   await expect(page).toHaveURL(/\/seeds\/.+/);
   await expect(page.getByRole("heading", { name: "pellucid" })).toBeVisible();
-  await expect(page.locator(".seed-detail__evidence .seed-detail__eyebrow")).toHaveText(
+  await expect(page.locator(".seed-detail__evidence .seed-detail__evidence-title")).toHaveText(
     "Context",
   );
   await expect(page.locator(".seed-detail__sentence")).toHaveText(
@@ -63,12 +63,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
           return "ready";
         }
 
-        if (
-          await page
-            .getByRole("button", { name: "Try again" })
-            .isVisible()
-            .catch(() => false)
-        ) {
+        const panelClassName = await enrichmentPanel.getAttribute("class").catch(
+          () => null,
+        );
+
+        if (panelClassName?.includes("seed-enrichment--failed")) {
           return "failed";
         }
 
@@ -78,7 +77,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
       })
       .toBe("ready");
 
-    if (await page.getByRole("button", { name: "Try again" }).isVisible().catch(() => false)) {
+    if (
+      (await enrichmentPanel.getAttribute("class").catch(() => null))?.includes(
+        "seed-enrichment--failed",
+      )
+    ) {
       throw new Error(
         `Live enrichment failed in the browser: ${await enrichmentPanel.locator(".seed-enrichment__state-copy").textContent()}`,
       );
@@ -108,7 +111,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     .click();
   await expect(page).toHaveURL(/\/review$/);
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
-  await expect(page.getByText(/\d+ due/)).toBeVisible();
+  await expect(page.getByText(/\d+ words? due now/)).toBeVisible();
   await page.getByRole("button", { name: "Start review" }).click();
 
   await expect(page.locator(".review-card__question")).toBeVisible();
@@ -119,6 +122,8 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
 
   await firstChoice.click();
   await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByText("Correct answer")).toBeVisible();
+  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect
     .poll(async () => {
