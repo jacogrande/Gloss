@@ -34,15 +34,15 @@ test("private alpha auth flow handles missing-account errors and forced re-auth"
     page,
   });
 
-  await expect(page).toHaveURL(/\/library$/);
-  await expect(page.getByRole("heading", { name: "No words yet." })).toBeVisible();
+  await expect(page).toHaveURL(/\/capture$/);
+  await expect(page.getByRole("heading", { name: "Save a word" })).toBeVisible();
 
   await page.reload();
-  await expect(page).toHaveURL(/\/library$/);
-  await expect(page.getByRole("heading", { name: "No words yet." })).toBeVisible();
+  await expect(page).toHaveURL(/\/capture$/);
+  await expect(page.getByRole("heading", { name: "Save a word" })).toBeVisible();
 
   await clearCookiesAndReload(page.context(), page, "/review");
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Freview$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
@@ -56,13 +56,12 @@ test("private alpha capture flow validates empty words and keeps seeds private",
     name: "Capture Reader",
     page,
   });
-  await expect(page).toHaveURL(/\/library$/);
-  await expect(page.getByRole("heading", { name: "No words yet." })).toBeVisible();
+  await expect(page).toHaveURL(/\/capture$/);
+  await expect(page.getByRole("heading", { name: "Save a word" })).toBeVisible();
 
-  await page.goto("/capture");
   await page.getByLabel("Word or phrase").fill("   ");
   await page.getByLabel("Sentence").fill("The room felt austere but calm.");
-  await page.getByRole("button", { name: "Save seed" }).click();
+  await page.getByRole("button", { name: "Save word" }).click();
   await expect(page.getByRole("alert")).toHaveText("Enter a word or phrase.");
 
   await captureSeedThroughUi({

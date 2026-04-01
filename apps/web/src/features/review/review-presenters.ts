@@ -234,14 +234,14 @@ const buildReviewFeedbackExplanation = (input: {
     case "register_judgment":
       return `${toQuotedSentence(input.correctChoiceLabel)} is the less natural tone here.`;
     case "recognition_in_fresh_sentence":
-      return `In this fresh sentence, ${input.card.promptPayload.word} means ${trimTerminalPunctuation(
+      return `In this fresh sentence, ${input.card.promptPayload.word} means ${toQuotedSentence(
         normalizeGlossChoiceLabel(input.correctChoiceLabel),
-      ).toLowerCase()}.`;
+      )}`;
     case "meaning_in_context":
     default:
-      return `Here, ${input.card.promptPayload.word} means ${trimTerminalPunctuation(
+      return `Here, ${input.card.promptPayload.word} means ${toQuotedSentence(
         normalizeGlossChoiceLabel(input.correctChoiceLabel),
-      ).toLowerCase()}.`;
+      )}`;
   }
 };
 
@@ -271,30 +271,14 @@ export const getReviewFeedbackDisplayState = (
 };
 
 export const getReviewCompletionDisplayState = (input: {
-  queue: ReviewQueueSummary | null | undefined;
   session: ReviewSessionDetail;
 }): ReviewCompletionDisplayState => {
-  if ((input.queue?.dueCount ?? 0) > 0) {
-    return {
-      actionLabel: "Back to review queue",
-      message: `You finished ${pluralize(
-        input.session.session.cardCount,
-        "card",
-      )}. ${pluralize(input.queue?.dueCount ?? 0, "word")} ${input.queue?.dueCount === 1 ? "is" : "are"} still due when you want another short session.`,
-      secondaryAction: {
-        href: "/library",
-        label: "Browse your words",
-      },
-      title: "Session finished",
-    };
-  }
-
   return {
     actionLabel: "Back to review queue",
     message: `You finished ${pluralize(
       input.session.session.cardCount,
       "card",
-    )}. Your queue is clear for now.`,
+    )}. Check the queue again when you want another short session.`,
     secondaryAction: {
       href: "/library",
       label: "Browse your words",

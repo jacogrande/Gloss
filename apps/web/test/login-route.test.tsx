@@ -131,4 +131,29 @@ describe("LoginRoute", () => {
       expect(screen.getByText("Capture page")).toBeVisible();
     });
   });
+
+  it("returns sign-in users to the requested protected route", async () => {
+    signInWithPassword.mockResolvedValue(undefined);
+    refreshSession.mockResolvedValue(null);
+    sessionState.refreshSession = refreshSession;
+
+    render(
+      <MemoryRouter initialEntries={["/login?returnTo=%2Freview"]}>
+        <Routes>
+          <Route element={<LoginRoute />} path="/login" />
+          <Route element={<p>Capture page</p>} path="/capture" />
+          <Route element={<p>Library page</p>} path="/library" />
+          <Route element={<p>Review page</p>} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByRole("textbox", { name: /^Email/ }), "review@example.com");
+    await userEvent.type(screen.getByPlaceholderText("At least 8 characters"), "password1234");
+    await userEvent.click(within(screen.getByTestId("auth-form")).getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Review page")).toBeVisible();
+    });
+  });
 });

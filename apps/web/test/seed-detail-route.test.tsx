@@ -30,16 +30,40 @@ const {
   fetchSeedDetail,
   requestSeedEnrichment,
   updateSeed,
+  sessionState,
 } = vi.hoisted(() => ({
   fetchSeedDetail: vi.fn<typeof fetchSeedDetailType>(),
   requestSeedEnrichment: vi.fn<typeof requestSeedEnrichmentType>(),
   updateSeed: vi.fn<typeof updateSeedType>(),
+  sessionState: {
+    refreshSession: vi.fn(),
+    session: {
+      profile: null,
+      session: {
+        expiresAt: "2026-04-01T00:00:00.000Z",
+        id: "session_1",
+        userId: "user_1",
+      },
+      user: {
+        email: "reader@example.com",
+        id: "user_1",
+        image: null,
+        name: "Reader",
+      },
+    },
+    setSession: vi.fn(),
+    status: "authenticated" as const,
+  },
 }));
 
 vi.mock("../src/lib/api-client", () => ({
   fetchSeedDetail,
   requestSeedEnrichment,
   updateSeed,
+}));
+
+vi.mock("../src/features/auth/session-provider", () => ({
+  useSessionState: () => sessionState,
 }));
 
 vi.mock("../src/lib/env", () => ({
@@ -107,6 +131,7 @@ describe("SeedDetailRoute", () => {
   afterEach(() => {
     vi.resetAllMocks();
     cleanup();
+    sessionState.setSession = vi.fn();
   });
 
   it("renders the initial seed handoff immediately after capture", async () => {

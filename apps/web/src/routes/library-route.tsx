@@ -3,7 +3,7 @@ import {
   useState,
   type JSX,
 } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type {
   SeedStage,
@@ -14,6 +14,12 @@ import {
   formatStageFilterLabel,
   getLibraryEmptyState,
 } from "../features/seeds/library-presenters";
+import { isUnauthorizedAuthError } from "../features/auth/auth-service";
+import {
+  getCurrentAppPath,
+  getLoginPath,
+} from "../features/auth/post-auth";
+import { useSessionState } from "../features/auth/session-provider";
 import { SeedCard } from "../features/seeds/SeedCard";
 import { fetchSeedList } from "../lib/api-client";
 import { webEnv } from "../lib/env";
@@ -30,10 +36,14 @@ const stageOptions: StageFilter[] = [
 ];
 
 export const LibraryRoute = (): JSX.Element => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const sessionState = useSessionState();
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
   const [allStageTotal, setAllStageTotal] = useState<number>(0);
   const {
     data,
+    error,
     errorMessage,
     isLoading,
   } = useAsyncResource<{
@@ -60,6 +70,20 @@ export const LibraryRoute = (): JSX.Element => {
       setAllStageTotal(data.total);
     }
   }, [data, stageFilter]);
+
+  useEffect(() => {
+    if (!isUnauthorizedAuthError(error)) {
+      return;
+    }
+
+    sessionState.setSession(null);
+    void navigate(
+      getLoginPath({
+        returnTo: getCurrentAppPath(location),
+      }),
+      { replace: true },
+    );
+  }, [error, location, navigate, sessionState]);
 
   const emptyState = getLibraryEmptyState({
     hasAnyWords: stageFilter === "all" ? total > 0 : allStageTotal > 0,

@@ -5,7 +5,7 @@ import {
   useState,
   type JSX,
 } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type {
   ReviewSessionDetail,
@@ -22,6 +22,10 @@ import {
   getReviewRouteState,
   type ReviewFeedbackSnapshot,
 } from "../features/review/review-presenters";
+import {
+  getCurrentAppPath,
+  getLoginPath,
+} from "../features/auth/post-auth";
 import { useSessionState } from "../features/auth/session-provider";
 import {
   fetchReviewQueue,
@@ -59,6 +63,7 @@ const createFeedbackSnapshot = (input: {
 
 export const ReviewRoute = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
   const sessionState = useSessionState();
   const [session, setSession] = useState<ReviewSessionDetail | null>(null);
   const [feedbackState, setFeedbackState] = useState<ReviewFeedbackSnapshot | null>(
@@ -91,7 +96,12 @@ export const ReviewRoute = (): JSX.Element => {
   const handleUnauthorized = useEffectEvent(async (): Promise<void> => {
     setFeedbackState(null);
     sessionState.setSession(null);
-    await navigate("/login", { replace: true });
+    await navigate(
+      getLoginPath({
+        returnTo: getCurrentAppPath(location),
+      }),
+      { replace: true },
+    );
   });
 
   const reconcileSessionConflict = useEffectEvent(
@@ -242,10 +252,12 @@ export const ReviewRoute = (): JSX.Element => {
 
       setSession(response.session);
       setFeedbackState(
-        createFeedbackSnapshot({
-          response,
-          selectedChoiceId,
-        }),
+        response.result.correct
+          ? null
+          : createFeedbackSnapshot({
+              response,
+              selectedChoiceId,
+            }),
       );
       setSelectedChoiceId(null);
       refreshQueue();
@@ -472,7 +484,6 @@ export const ReviewRoute = (): JSX.Element => {
 
   if (reviewState.kind === "complete") {
     const completionState = getReviewCompletionDisplayState({
-      queue,
       session: reviewState.session,
     });
 

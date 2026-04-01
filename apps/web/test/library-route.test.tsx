@@ -23,12 +23,38 @@ import type {
 } from "../src/lib/api-client";
 import { LibraryRoute } from "../src/routes/library-route";
 
-const { fetchSeedList } = vi.hoisted(() => ({
+const {
+  fetchSeedList,
+  sessionState,
+} = vi.hoisted(() => ({
   fetchSeedList: vi.fn<typeof fetchSeedListType>(),
+  sessionState: {
+    refreshSession: vi.fn(),
+    session: {
+      profile: null,
+      session: {
+        expiresAt: "2026-04-01T00:00:00.000Z",
+        id: "session_1",
+        userId: "user_1",
+      },
+      user: {
+        email: "reader@example.com",
+        id: "user_1",
+        image: null,
+        name: "Reader",
+      },
+    },
+    setSession: vi.fn(),
+    status: "authenticated" as const,
+  },
 }));
 
 vi.mock("../src/lib/api-client", () => ({
   fetchSeedList,
+}));
+
+vi.mock("../src/features/auth/session-provider", () => ({
+  useSessionState: () => sessionState,
 }));
 
 vi.mock("../src/lib/env", () => ({
@@ -42,6 +68,7 @@ describe("LibraryRoute", () => {
   afterEach(() => {
     cleanup();
     vi.resetAllMocks();
+    sessionState.setSession = vi.fn();
   });
 
   it("shows a capture CTA when the library is truly empty", async () => {

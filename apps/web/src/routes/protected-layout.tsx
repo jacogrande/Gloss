@@ -1,25 +1,33 @@
 import { useState, useTransition, type JSX } from "react";
-import { Navigate, Outlet, useNavigate } from "react-router-dom";
+import { Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { AppShell } from "../features/app-shell/AppShell";
 import {
   getAuthErrorMessage,
   signOutCurrentSession,
 } from "../features/auth/auth-service";
+import {
+  getCurrentAppPath,
+  getLoginPath,
+} from "../features/auth/post-auth";
 import { useSessionState } from "../features/auth/session-provider";
 
 export const ProtectedLayout = (): JSX.Element => {
   const navigate = useNavigate();
+  const location = useLocation();
   const session = useSessionState();
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const loginPath = getLoginPath({
+    returnTo: getCurrentAppPath(location),
+  });
 
   if (session.status === "loading") {
     return <main className="screen screen--centered">Loading...</main>;
   }
 
   if (!session.session) {
-    return <Navigate replace to="/login" />;
+    return <Navigate replace to={loginPath} />;
   }
 
   return (

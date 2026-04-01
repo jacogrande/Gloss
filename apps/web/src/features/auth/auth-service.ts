@@ -7,6 +7,11 @@ type AuthFormFields = {
   password: string;
 };
 
+export const isUnauthorizedAuthError = (
+  value: unknown,
+): value is ApiClientError =>
+  value instanceof ApiClientError && value.code === "AUTH_UNAUTHORIZED";
+
 const toErrorMessage = (value: unknown): string => {
   if (value instanceof Error && value.message.length > 0) {
     const message = value.message.trim();
@@ -15,7 +20,7 @@ const toErrorMessage = (value: unknown): string => {
       return "Incorrect email or password.";
     }
 
-    if (value instanceof ApiClientError && value.code === "AUTH_UNAUTHORIZED") {
+    if (isUnauthorizedAuthError(value)) {
       return "Your session expired. Sign in again.";
     }
 

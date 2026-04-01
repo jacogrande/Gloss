@@ -5,7 +5,7 @@ import {
   useState,
   type JSX,
 } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import type {
   SeedDetail,
@@ -13,6 +13,12 @@ import type {
 } from "@gloss/shared/types";
 
 import { SeedDetailPanel } from "../features/seeds/SeedDetailPanel";
+import { isUnauthorizedAuthError } from "../features/auth/auth-service";
+import {
+  getCurrentAppPath,
+  getLoginPath,
+} from "../features/auth/post-auth";
+import { useSessionState } from "../features/auth/session-provider";
 import {
   getSeedCaptureNotice,
   getSeedRecoveryState,
@@ -26,8 +32,10 @@ import { webEnv } from "../lib/env";
 import { useAsyncResource } from "../lib/use-async-resource";
 
 export const SeedDetailRoute = (): JSX.Element => {
+  const navigate = useNavigate();
   const { seedId } = useParams<{ seedId: string }>();
   const location = useLocation();
+  const sessionState = useSessionState();
   const initialSeed =
     (location.state as
       | {
@@ -61,6 +69,7 @@ export const SeedDetailRoute = (): JSX.Element => {
 
   const {
     data: loadedSeed,
+    error,
     errorMessage,
     isLoading,
   } = useAsyncResource<SeedDetail>({
@@ -70,6 +79,16 @@ export const SeedDetailRoute = (): JSX.Element => {
       error instanceof Error ? error.message : "Unable to load this seed.",
     load: (signal) =>
       fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId ?? "", signal),
+  });
+
+  const redirectToLogin = useEffectEvent(async (): Promise<void> => {
+    sessionState.setSession(null);
+    await navigate(
+      getLoginPath({
+        returnTo: getCurrentAppPath(location),
+      }),
+      { replace: true },
+    );
   });
 
   const refreshSeedDetail = useEffectEvent(async (): Promise<void> => {
@@ -86,6 +105,11 @@ export const SeedDetailRoute = (): JSX.Element => {
         setEnrichmentErrorMessage(null);
       }
     } catch (error) {
+      if (isUnauthorizedAuthError(error)) {
+        await redirectToLogin();
+        return;
+      }
+
       setEnrichmentErrorMessage(
         error instanceof Error
           ? error.message
@@ -106,6 +130,14 @@ export const SeedDetailRoute = (): JSX.Element => {
     setIsEnriching(false);
     autoRequestedSeedId.current = null;
   }, [loadedSeed]);
+
+  useEffect(() => {
+    if (!isUnauthorizedAuthError(error)) {
+      return;
+    }
+
+    void redirectToLogin();
+  }, [error, redirectToLogin]);
 
   useEffect(() => {
     if (
@@ -143,6 +175,11 @@ export const SeedDetailRoute = (): JSX.Element => {
       );
       return enrichment;
     } catch (error) {
+      if (isUnauthorizedAuthError(error)) {
+        await redirectToLogin();
+        return null;
+      }
+
       setEnrichmentErrorMessage(
         error instanceof Error
           ? error.message
@@ -191,6 +228,11 @@ export const SeedDetailRoute = (): JSX.Element => {
         );
       }
     } catch (error) {
+      if (isUnauthorizedAuthError(error)) {
+        await redirectToLogin();
+        return;
+      }
+
       setContextUpdateErrorMessage(
         error instanceof Error
           ? error.message

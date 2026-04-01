@@ -10,7 +10,7 @@ test("@smoke unauthenticated library access redirects to login", async ({
 }) => {
   await page.goto("/library");
 
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login\?returnTo=%2Flibrary$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 });
 
@@ -103,7 +103,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     .getByRole("link", { exact: true, name: "Library" })
     .click();
   await expect(page).toHaveURL(/\/library$/);
-  await expect(page.getByRole("link", { name: "pellucid" })).toBeVisible();
+  const capturedSeedCard = page
+    .locator(".seed-card")
+    .filter({ hasText: "Her explanation was pellucid even under pressure." });
+  await expect(capturedSeedCard).toHaveCount(1);
+  await expect(capturedSeedCard.getByRole("link", { name: "pellucid" })).toBeVisible();
 
   await page
     .getByLabel("Primary")
@@ -119,11 +123,11 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   const queueSummary = page.locator(".review__queue-summary");
   const remainingBeforeSubmit = await queueSummary.textContent();
   const firstChoice = page.getByRole("radio").first();
+  let submitState: "advanced" | "completed" | "feedback" | "pending" =
+    "pending";
 
   await firstChoice.click();
   await page.getByRole("button", { name: "Submit" }).click();
-  await expect(page.getByText("Correct answer")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect
     .poll(async () => {
@@ -133,15 +137,61 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
           .isVisible()
           .catch(() => false)
       ) {
-        return true;
+        submitState = "completed";
+        return submitState;
+      }
+
+      if (
+        await page.getByText("Correct answer").isVisible().catch(() => false)
+      ) {
+        submitState = "feedback";
+        return submitState;
       }
 
       const remainingAfterSubmit = await queueSummary.textContent().catch(
         () => null,
       );
 
-      return remainingAfterSubmit !== null &&
-        remainingAfterSubmit !== remainingBeforeSubmit;
+      if (
+        remainingAfterSubmit !== null &&
+        remainingAfterSubmit !== remainingBeforeSubmit
+      ) {
+        submitState = "advanced";
+        return submitState;
+      }
+
+      submitState = "pending";
+      return submitState;
     })
-    .toBe(true);
+    .toMatch(/advanced|feedback|completed/);
+
+  if (submitState === "feedback") {
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await expect
+      .poll(async () => {
+        if (
+          await page
+            .getByRole("heading", { name: "Session finished" })
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return "completed";
+        }
+
+        const remainingAfterSubmit = await queueSummary.textContent().catch(
+          () => null,
+        );
+
+        if (
+          remainingAfterSubmit !== null &&
+          remainingAfterSubmit !== remainingBeforeSubmit
+        ) {
+          return "advanced";
+        }
+
+        return "pending";
+      })
+      .toMatch(/advanced|completed/);
+  }
 });

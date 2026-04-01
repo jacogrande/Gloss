@@ -9,8 +9,8 @@ import {
 
 import type { SessionData } from "@gloss/shared/types";
 
+import { isUnauthorizedAuthError } from "./auth-service";
 import { fetchSessionSnapshot } from "../../lib/api-client";
-import { ApiClientError } from "../../lib/http";
 import { webEnv } from "../../lib/env";
 
 type SessionStatus = "loading" | "authenticated" | "anonymous";
@@ -24,9 +24,6 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 const sessionStorageKey = "gloss.session";
-
-const isUnauthorized = (value: unknown): boolean =>
-  value instanceof ApiClientError && value.code === "AUTH_UNAUTHORIZED";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
@@ -110,7 +107,7 @@ export const SessionProvider = ({
 
       return nextSession;
     } catch (error) {
-      if (isUnauthorized(error)) {
+      if (isUnauthorizedAuthError(error)) {
         setSession(null);
         return null;
       }
@@ -143,7 +140,7 @@ export const SessionProvider = ({
           return;
         }
 
-        if (isUnauthorized(error)) {
+        if (isUnauthorizedAuthError(error)) {
           setSession(null);
           return;
         }

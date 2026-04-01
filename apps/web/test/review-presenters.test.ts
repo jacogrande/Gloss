@@ -95,7 +95,8 @@ describe("review presenters", () => {
     expect(feedback.selectedChoiceLabel).toBe(
       "Mostly careless and imprecise.",
     );
-    expect(feedback.explanation).toContain("pellucid means especially clear");
+    expect(feedback.explanation).toContain("pellucid means");
+    expect(feedback.explanation).toContain("“Especially clear and easy to follow.”");
   });
 
   it("models route state explicitly", () => {

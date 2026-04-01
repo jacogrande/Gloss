@@ -3,6 +3,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import type { JSX } from "react";
 import {
   describe,
   expect,
@@ -13,25 +14,33 @@ import {
   MemoryRouter,
   Route,
   Routes,
+  useLocation,
 } from "react-router-dom";
 
 import { ProtectedLayout } from "../src/routes/protected-layout";
 
 const signOutCurrentSession = vi.fn<() => Promise<void>>();
-const setSession = vi.fn<(value: null) => void>();
+const sessionState = {
+  refreshSession: vi.fn(),
+  session: {
+    user: {
+      email: "reader@example.com",
+      name: "Reader",
+    },
+  } as
+    | {
+        user: {
+          email: string;
+          name: string;
+        };
+      }
+    | null,
+  setSession: vi.fn<(value: null) => void>(),
+  status: "authenticated" as "anonymous" | "authenticated" | "loading",
+};
 
 vi.mock("../src/features/auth/session-provider", () => ({
-  useSessionState: () => ({
-    refreshSession: vi.fn(),
-    session: {
-      user: {
-        email: "reader@example.com",
-        name: "Reader",
-      },
-    },
-    setSession,
-    status: "authenticated",
-  }),
+  useSessionState: () => sessionState,
 }));
 
 vi.mock("../src/features/auth/auth-service", () => ({
@@ -41,8 +50,21 @@ vi.mock("../src/features/auth/auth-service", () => ({
 }));
 
 describe("ProtectedLayout", () => {
+  const LoginProbe = (): JSX.Element => {
+    const location = useLocation();
+
+    return <div>Login screen {location.search}</div>;
+  };
+
   it("surfaces sign-out failures instead of leaving an unhandled rejection", async () => {
     signOutCurrentSession.mockRejectedValueOnce(new Error("Unable to sign out."));
+    sessionState.session = {
+      user: {
+        email: "reader@example.com",
+        name: "Reader",
+      },
+    };
+    sessionState.status = "authenticated";
 
     render(
       <MemoryRouter initialEntries={["/library"]}>
@@ -59,5 +81,27 @@ describe("ProtectedLayout", () => {
 
     expect(await screen.findByText("Unable to sign out.")).toBeVisible();
     expect(screen.getByText("Library body")).toBeVisible();
+  });
+
+  it("preserves the requested route when redirecting anonymous users to login", async () => {
+    sessionState.session = null;
+    sessionState.status = "anonymous";
+
+    render(
+      <MemoryRouter initialEntries={["/seeds/seed_1?from=library"]}>
+        <Routes>
+          <Route element={<ProtectedLayout />}>
+            <Route element={<div>Seed body</div>} path="/seeds/:seedId" />
+          </Route>
+          <Route element={<LoginProbe />} path="/login" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Login screen ?returnTo=%2Fseeds%2Fseed_1%3Ffrom%3Dlibrary",
+      ),
+    ).toBeVisible();
   });
 });

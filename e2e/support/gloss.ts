@@ -102,7 +102,7 @@ export const signUpThroughUi = async (input: {
 
 export const signOutThroughUi = async (page: Page): Promise<void> => {
   await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/login$/);
+  await expect(page).toHaveURL(/\/login(?:\?.*)?$/);
 };
 
 export const captureSeedThroughUi = async (input: {
@@ -121,6 +121,16 @@ export const captureSeedThroughUi = async (input: {
     await input.page.getByLabel("Sentence").fill(input.sentence);
   }
 
+  const hasSourceDetails =
+    input.sourceKind !== undefined ||
+    input.sourceTitle !== undefined ||
+    input.sourceAuthor !== undefined ||
+    input.sourceUrl !== undefined;
+
+  if (hasSourceDetails) {
+    await input.page.getByText("Source details (optional)").click();
+  }
+
   if (input.sourceKind !== undefined) {
     await input.page.getByLabel("Source type").selectOption(input.sourceKind);
   }
@@ -137,7 +147,7 @@ export const captureSeedThroughUi = async (input: {
     await input.page.getByLabel("URL").fill(input.sourceUrl);
   }
 
-  await input.page.getByRole("button", { name: "Save seed" }).click();
+  await input.page.getByRole("button", { name: "Save word" }).click();
 };
 
 export const clearCookiesAndReload = async (
@@ -154,11 +164,11 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
     .locator(".review__queue-summary")
     .textContent()
     .catch(() => null);
+  let submitState: "advanced" | "completed" | "feedback" | "pending" =
+    "pending";
 
   await page.getByRole("radio").first().click();
   await page.getByRole("button", { name: "Submit" }).click();
-  await expect(page.getByText("Correct answer")).toBeVisible();
-  await page.getByRole("button", { name: "Continue" }).click();
 
   await expect
     .poll(async () => {
@@ -168,7 +178,15 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
           .isVisible()
           .catch(() => false)
       ) {
-        return "completed";
+        submitState = "completed";
+        return submitState;
+      }
+
+      if (
+        await page.getByText("Correct answer").isVisible().catch(() => false)
+      ) {
+        submitState = "feedback";
+        return submitState;
       }
 
       const nextRemaining = await page
@@ -177,14 +195,46 @@ export const answerCurrentReviewCard = async (page: Page): Promise<void> => {
         .catch(() => null);
 
       if (remaining !== null && nextRemaining !== null && nextRemaining !== remaining) {
-        return "advanced";
+        submitState = "advanced";
+        return submitState;
       }
 
-      return "pending";
+      submitState = "pending";
+      return submitState;
     }, {
       timeout: 10_000,
     })
-    .toMatch(/advanced|completed/);
+    .toMatch(/advanced|completed|feedback/);
+
+  if (submitState === "feedback") {
+    await page.getByRole("button", { name: "Continue" }).click();
+
+    await expect
+      .poll(async () => {
+        if (
+          await page
+            .getByRole("heading", { name: "Session finished" })
+            .isVisible()
+            .catch(() => false)
+        ) {
+          return "completed";
+        }
+
+        const nextRemaining = await page
+          .locator(".review__queue-summary")
+          .textContent()
+          .catch(() => null);
+
+        if (remaining !== null && nextRemaining !== null && nextRemaining !== remaining) {
+          return "advanced";
+        }
+
+        return "pending";
+      }, {
+        timeout: 10_000,
+      })
+      .toMatch(/advanced|completed/);
+  }
 };
 
 export const openReviewSession = async (page: Page): Promise<void> => {

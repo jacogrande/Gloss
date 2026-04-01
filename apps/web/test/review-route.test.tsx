@@ -255,17 +255,6 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Correct" })).toBeVisible();
-    });
-
-    expect(screen.getByText("Correct answer")).toBeVisible();
-    expect(
-      screen.getByText("Especially clear and easy to follow."),
-    ).toBeVisible();
-
-    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
-
-    await waitFor(() => {
       expect(screen.getByText("Session finished")).toBeVisible();
     });
 
