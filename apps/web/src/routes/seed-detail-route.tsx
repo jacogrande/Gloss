@@ -5,25 +5,58 @@ import {
   useState,
   type JSX,
 } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 
-import type { SeedDetail } from "@gloss/shared/types";
+import type {
+  SeedDetail,
+  UpdateSeedInput,
+} from "@gloss/shared/types";
 
 import { SeedDetailPanel } from "../features/seeds/SeedDetailPanel";
 import {
+  getSeedCaptureNotice,
+  getSeedRecoveryState,
+} from "../features/seeds/seed-presenters";
+import {
   fetchSeedDetail,
   requestSeedEnrichment,
+  updateSeed,
 } from "../lib/api-client";
 import { webEnv } from "../lib/env";
 import { useAsyncResource } from "../lib/use-async-resource";
 
 export const SeedDetailRoute = (): JSX.Element => {
   const { seedId } = useParams<{ seedId: string }>();
-  const [seed, setSeed] = useState<SeedDetail | null>(null);
+  const location = useLocation();
+  const initialSeed =
+    (location.state as
+      | {
+          initialSeed?: SeedDetail;
+          showSavedNotice?: boolean;
+        }
+      | null
+      | undefined)?.initialSeed ?? null;
+  const [seed, setSeed] = useState<SeedDetail | null>(initialSeed);
+  const [contextUpdateErrorMessage, setContextUpdateErrorMessage] = useState<string | null>(
+    null,
+  );
+  const [contextUpdateMessage, setContextUpdateMessage] = useState<string | null>(null);
   const [enrichmentErrorMessage, setEnrichmentErrorMessage] = useState<string | null>(
     null,
   );
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isUpdatingContext, setIsUpdatingContext] = useState(false);
+  const [showSavedNotice, setShowSavedNotice] = useState<boolean>(
+    Boolean(
+      (location.state as
+        | {
+            initialSeed?: SeedDetail;
+            showSavedNotice?: boolean;
+          }
+        | null
+        | undefined)?.showSavedNotice,
+    ),
+  );
   const autoRequestedSeedId = useRef<string | null>(null);
 
   const {
@@ -62,15 +95,32 @@ export const SeedDetailRoute = (): JSX.Element => {
   });
 
   useEffect(() => {
-    setSeed(loadedSeed ?? null);
+    if (!loadedSeed) {
+      return;
+    }
+
+    setSeed(loadedSeed);
+    setContextUpdateErrorMessage(null);
+    setContextUpdateMessage(null);
     setEnrichmentErrorMessage(null);
     setIsEnriching(false);
     autoRequestedSeedId.current = null;
   }, [loadedSeed]);
 
-  const runEnrichment = async (): Promise<void> => {
+  useEffect(() => {
+    if (
+      seed?.enrichment?.status === "ready" ||
+      seed?.enrichment?.status === "failed"
+    ) {
+      setShowSavedNotice(false);
+    }
+  }, [seed?.enrichment?.status]);
+
+  const runEnrichment = async (options?: {
+    force?: boolean;
+  }): Promise<SeedDetail["enrichment"] | null> => {
     if (!seedId) {
-      return;
+      return null;
     }
 
     setIsEnriching(true);
@@ -80,6 +130,7 @@ export const SeedDetailRoute = (): JSX.Element => {
       const enrichment = await requestSeedEnrichment(
         webEnv.VITE_API_BASE_URL,
         seedId,
+        options,
       );
 
       setSeed((currentSeed) =>
@@ -90,14 +141,63 @@ export const SeedDetailRoute = (): JSX.Element => {
             }
           : currentSeed,
       );
+      return enrichment;
     } catch (error) {
       setEnrichmentErrorMessage(
         error instanceof Error
           ? error.message
           : "Unable to enrich this seed right now.",
       );
+      return null;
     } finally {
       setIsEnriching(false);
+    }
+  };
+
+  const saveContext = async (value: UpdateSeedInput): Promise<void> => {
+    if (!seedId) {
+      return;
+    }
+
+    setIsUpdatingContext(true);
+    setContextUpdateErrorMessage(null);
+    setContextUpdateMessage(null);
+
+    try {
+      const updatedSeed = await updateSeed(webEnv.VITE_API_BASE_URL, seedId, value);
+
+      setSeed(updatedSeed);
+      setContextUpdateMessage("Context saved.");
+      setShowSavedNotice(false);
+
+      const shouldForceEnrichment =
+        seed?.enrichment?.status === "pending" ||
+        seed?.enrichment?.status === "ready";
+      const shouldRefreshEnrichment =
+        shouldForceEnrichment ||
+        updatedSeed.enrichment?.status === "failed" ||
+        updatedSeed.enrichment === null;
+
+      if (shouldRefreshEnrichment) {
+        autoRequestedSeedId.current = updatedSeed.id;
+        const refreshedEnrichment = await runEnrichment({
+          force: shouldForceEnrichment,
+        });
+
+        setContextUpdateMessage(
+          refreshedEnrichment?.status === "pending"
+            ? "Context saved. Enrichment is running."
+            : "Context saved.",
+        );
+      }
+    } catch (error) {
+      setContextUpdateErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Unable to save context right now.",
+      );
+    } finally {
+      setIsUpdatingContext(false);
     }
   };
 
@@ -132,7 +232,7 @@ export const SeedDetailRoute = (): JSX.Element => {
     };
   }, [isEnriching, seed?.enrichment?.status, seed?.id]);
 
-  if (isLoading) {
+  if (isLoading && !seed) {
     return (
       <section className="panel">
         <p className="panel__copy">Loading...</p>
@@ -140,7 +240,7 @@ export const SeedDetailRoute = (): JSX.Element => {
     );
   }
 
-  if (!seedId || errorMessage || !seed) {
+  if (!seedId || (!seed && errorMessage) || !seed) {
     return (
       <section className="panel">
         <h2>{errorMessage ?? (!seedId ? "Missing seed id." : "Seed unavailable.")}</h2>
@@ -151,14 +251,30 @@ export const SeedDetailRoute = (): JSX.Element => {
     );
   }
 
+  const captureNotice = getSeedCaptureNotice({
+    savedFromCapture: showSavedNotice,
+    seed,
+  });
+  const recoveryState = getSeedRecoveryState({
+    seed,
+  });
+
   return (
     <SeedDetailPanel
+      captureNotice={captureNotice}
+      contextUpdateErrorMessage={contextUpdateErrorMessage}
+      contextUpdateMessage={contextUpdateMessage}
       enrichmentErrorMessage={enrichmentErrorMessage}
       isEnriching={isEnriching}
+      isUpdatingContext={isUpdatingContext}
+      onSaveContext={(value) => {
+        void saveContext(value);
+      }}
       onRetryEnrichment={() => {
         autoRequestedSeedId.current = seed.id;
         void runEnrichment();
       }}
+      recoveryState={recoveryState}
       seed={seed}
     />
   );

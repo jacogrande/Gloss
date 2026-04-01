@@ -5,6 +5,7 @@ import {
   requestSeedEnrichmentResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
+  updateSeedResponseSchema,
 } from "@gloss/shared/contracts";
 import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 
@@ -201,6 +202,110 @@ describe("seed integration", () => {
     expect(listBody.data.total).toBe(0);
     expect(detailResponse.status).toBe(404);
     expect(detailBody.error.code).toBe("NOT_FOUND");
+  });
+
+  it("updates sentence and source metadata for the owner", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "update-owner@example.com",
+      env: context.env,
+      name: "Update Owner",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          word: "laconic",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const updateResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}`,
+      {
+        body: JSON.stringify({
+          sentence: "Her reply was laconic but precise.",
+          source: {
+            kind: "article",
+            title: "On Style",
+          },
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "PATCH",
+      },
+    );
+    const updateBody = updateSeedResponseSchema.parse(
+      (await updateResponse.json()) as unknown,
+    );
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateBody.data.primarySentence).toBe("Her reply was laconic but precise.");
+    expect(updateBody.data.source?.title).toBe("On Style");
+    expect(updateBody.data.contexts[0]?.text).toBe("Her reply was laconic but precise.");
+  });
+
+  it("does not allow one user to update another user's seed", async () => {
+    const ownerCookie = await signUpTestUser({
+      app: context.app,
+      email: "update-foreign-owner@example.com",
+      env: context.env,
+      name: "Update Foreign Owner",
+    });
+    const otherCookie = await signUpTestUser({
+      app: context.app,
+      email: "update-foreign-other@example.com",
+      env: context.env,
+      name: "Update Foreign Other",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          word: "reticent",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: ownerCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const updateResponse = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}`,
+      {
+        body: JSON.stringify({
+          sentence: "This should not be allowed.",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie: otherCookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "PATCH",
+      },
+    );
+    const updateBody = apiErrorResponseSchema.parse(
+      (await updateResponse.json()) as unknown,
+    );
+
+    expect(updateResponse.status).toBe(404);
+    expect(updateBody.error.code).toBe("NOT_FOUND");
   });
 
   it("does not allow one user to enrich another user's seed", async () => {

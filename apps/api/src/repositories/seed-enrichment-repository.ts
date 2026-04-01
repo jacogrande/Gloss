@@ -30,6 +30,7 @@ type SeedEnrichmentValidationResult = {
 
 export type SeedEnrichmentRepository = {
   acquirePending: (input: {
+    force?: boolean;
     model: string;
     promptTemplateVersion: string;
     provider: string;
@@ -134,7 +135,7 @@ export const createSeedEnrichmentRepository = (
           updatedAt: timestamp,
         },
         target: seedEnrichmentsTable.seedId,
-        ...(reacquireWhere
+        ...(!input.force && reacquireWhere
           ? {
               setWhere: reacquireWhere,
             }

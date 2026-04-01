@@ -282,4 +282,47 @@ describe("fetchSessionSnapshot", () => {
 
     fetchMock.mockRestore();
   });
+
+  it("supports forced enrichment refresh requests", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            completedAt: null,
+            createdAt: "2026-03-26T12:34:56.000Z",
+            errorCode: null,
+            failedAt: null,
+            guardrailFlags: [],
+            id: "enrichment_123",
+            model: "fixture-seed-enrichment-v1",
+            payload: null,
+            promptTemplateVersion: "seed-enrichment.v1",
+            provider: "fixture",
+            requestedAt: "2026-03-26T12:34:57.000Z",
+            schemaVersion: "seed-enrichment-payload.v1",
+            startedAt: "2026-03-26T12:34:58.000Z",
+            status: "pending",
+            updatedAt: "2026-03-26T12:34:58.000Z",
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await requestSeedEnrichment("http://127.0.0.1:8787", "seed_123", {
+      force: true,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/seeds/seed_123/enrich",
+      expect.objectContaining({
+        body: JSON.stringify({ force: true }),
+        credentials: "include",
+        method: "POST",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
 });

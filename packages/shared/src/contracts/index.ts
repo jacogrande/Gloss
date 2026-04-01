@@ -437,15 +437,37 @@ export const createSeedInputSchema = z.object({
   word: wordSchema,
 });
 
+export const updateSeedInputSchema = z
+  .object({
+    sentence: z.string().trim().min(1).max(2_000).nullable().optional(),
+    source: sourceInputSchema.nullable().optional(),
+  })
+  .superRefine((value, context) => {
+    if ("sentence" in value || "source" in value) {
+      return;
+    }
+
+    context.addIssue({
+      code: "custom",
+      message: "Provide at least one field to update.",
+      path: ["sentence"],
+    });
+  });
+
 export const listSeedsQuerySchema = z.object({
   stage: seedStageSchema.optional(),
 });
 
-export const requestSeedEnrichmentInputSchema = z.object({}).strict();
+export const requestSeedEnrichmentInputSchema = z
+  .object({
+    force: z.boolean().optional(),
+  })
+  .strict();
 
 export const createSeedResponseSchema = createApiSuccessSchema(seedDetailSchema);
 
 export const seedDetailResponseSchema = createApiSuccessSchema(seedDetailSchema);
+export const updateSeedResponseSchema = createApiSuccessSchema(seedDetailSchema);
 
 export const seedListResponseSchema = createApiSuccessSchema(listSeedsDataSchema);
 

@@ -29,7 +29,13 @@ export const CaptureRoute = (): JSX.Element => {
               const seed = await createSeed(webEnv.VITE_API_BASE_URL, value);
 
               clearCaptureOnboardingPending();
-              await navigate(`/seeds/${seed.id}`);
+              await navigate(`/seeds/${seed.id}`, {
+                replace: true,
+                state: {
+                  initialSeed: seed,
+                  showSavedNotice: true,
+                },
+              });
             } catch (error) {
               setErrorMessage(toErrorMessage(error));
             }

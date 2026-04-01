@@ -1,27 +1,43 @@
+import type { UpdateSeedInput } from "@gloss/shared/types";
 import type { JSX } from "react";
 import { Link } from "react-router-dom";
 
 import type { SeedDetail } from "@gloss/shared/types";
 
+import { SeedContextEditor } from "./SeedContextEditor";
 import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
 import {
   formatAnnotationDate,
   formatSeedStageLabel,
   formatSourceKindLabel,
   getAdditionalContexts,
+  type SeedCaptureNotice,
+  type SeedRecoveryState,
 } from "./seed-presenters";
 
 type SeedDetailPanelProps = {
+  captureNotice: SeedCaptureNotice | null;
+  contextUpdateErrorMessage: string | null;
+  contextUpdateMessage: string | null;
   enrichmentErrorMessage: string | null;
   isEnriching: boolean;
+  isUpdatingContext: boolean;
+  onSaveContext: (value: UpdateSeedInput) => void;
   onRetryEnrichment: () => void;
+  recoveryState: SeedRecoveryState | null;
   seed: SeedDetail;
 };
 
 export const SeedDetailPanel = ({
+  captureNotice,
+  contextUpdateErrorMessage,
+  contextUpdateMessage,
   enrichmentErrorMessage,
   isEnriching,
+  isUpdatingContext,
+  onSaveContext,
   onRetryEnrichment,
+  recoveryState,
   seed,
 }: SeedDetailPanelProps): JSX.Element => {
   const payload =
@@ -49,6 +65,13 @@ export const SeedDetailPanel = ({
         </div>
       </header>
 
+      {captureNotice ? (
+        <section className="panel panel--compact seed-detail__notice">
+          <p className="panel__eyebrow">{captureNotice.title}</p>
+          <p className="panel__copy">{captureNotice.message}</p>
+        </section>
+      ) : null}
+
       <section className="seed-detail__reading-block">
         <SeedEnrichmentPanel
           enrichment={seed.enrichment}
@@ -64,6 +87,18 @@ export const SeedDetailPanel = ({
           </article>
         ) : null}
       </section>
+
+      {recoveryState ? (
+        <SeedContextEditor
+          errorMessage={contextUpdateErrorMessage}
+          helperMessage={recoveryState.message}
+          isPending={isUpdatingContext}
+          onSubmit={onSaveContext}
+          seed={seed}
+          statusMessage={contextUpdateMessage}
+          title={recoveryState.title}
+        />
+      ) : null}
 
       {showCompare ? (
         <section className="seed-detail__compare-panel">

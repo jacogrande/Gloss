@@ -435,6 +435,9 @@ export const parseSeedListResponse = (value: unknown): ListSeedsData =>
 export const parseSeedDetailResponse = (value: unknown): SeedDetail =>
   parseApiSuccess(value, parseSeedDetail);
 
+export const parseUpdateSeedResponse = (value: unknown): SeedDetail =>
+  parseApiSuccess(value, parseSeedDetail);
+
 export const parseSeedEnrichmentResponse = (value: unknown): SeedEnrichment =>
   parseApiSuccess(value, parseSeedEnrichment);
 

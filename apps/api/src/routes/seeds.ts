@@ -1,8 +1,11 @@
 import {
   listSeedsQuerySchema,
+  requestSeedEnrichmentInputSchema,
   requestSeedEnrichmentResponseSchema,
   seedDetailResponseSchema,
   seedListResponseSchema,
+  updateSeedInputSchema,
+  updateSeedResponseSchema,
 } from "@gloss/shared/contracts";
 
 import type { GlossApp } from "../app";
@@ -89,8 +92,12 @@ export const registerSeedRoutes = (
     context.set("sessionId", String(session.session.id));
     const seedId = context.req.param("seedId");
     context.set("seedId", seedId);
+    const body = requestSeedEnrichmentInputSchema.parse(
+      await context.req.json().catch(() => ({})),
+    );
 
     const enrichment = await dependencies.enrichmentService.requestSeedEnrichment({
+      force: body.force ?? false,
       requestId: context.get("requestId"),
       seedId,
       userId: String(session.user.id),
@@ -115,6 +122,36 @@ export const registerSeedRoutes = (
       context,
       requestSeedEnrichmentResponseSchema.parse({
         data: enrichment,
+        ok: true,
+      }).data,
+    );
+  });
+
+  app.patch("/seeds/:seedId", async (context) => {
+    context.set("journey", "seeds.update");
+    const session = await requireSession({
+      auth: dependencies.auth,
+      headers: context.req.raw.headers,
+      requestId: context.get("requestId"),
+    });
+    context.set("actorTag", String(session.user.id));
+    context.set("sessionId", String(session.session.id));
+    const seedId = context.req.param("seedId");
+    context.set("seedId", seedId);
+    const body = updateSeedInputSchema.parse(await context.req.json());
+    const dbStartedAt = performance.now();
+    const seedDetail = await dependencies.seedService.updateSeed({
+      patch: body,
+      requestId: context.get("requestId"),
+      seedId,
+      userId: String(session.user.id),
+    });
+    context.set("dbTimeMs", Math.round(performance.now() - dbStartedAt));
+
+    return jsonSuccess(
+      context,
+      updateSeedResponseSchema.parse({
+        data: seedDetail,
         ok: true,
       }).data,
     );

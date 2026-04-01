@@ -8,6 +8,7 @@ import type {
   SeedContext,
   SeedDetail,
   SeedSummary,
+  UpdateSeedInput,
 } from "@gloss/shared/types";
 
 import type {
@@ -18,6 +19,10 @@ import type {
 import { toSeedEnrichment } from "./enrichment-contracts";
 
 export type NormalizedSourceInput = NonNullable<CreateSeedInput["source"]>;
+export type NormalizedSeedUpdateInput = {
+  sentence?: string | null;
+  source?: NormalizedSourceInput | null;
+};
 export type SourceSummaryRecord = {
   author: string | null;
   id: string;
@@ -49,6 +54,34 @@ export const normalizeCaptureInput = (
       }
     : undefined,
   word: normalizeWhitespace(input.word),
+});
+
+export const normalizeSeedUpdateInput = (
+  input: UpdateSeedInput,
+): NormalizedSeedUpdateInput => ({
+  ...("sentence" in input
+    ? {
+        sentence: input.sentence
+          ? normalizeWhitespace(input.sentence)
+          : null,
+      }
+    : {}),
+  ...("source" in input
+    ? {
+        source: input.source
+          ? {
+              author: input.source.author
+                ? normalizeWhitespace(input.source.author)
+                : undefined,
+              kind: input.source.kind,
+              title: input.source.title
+                ? normalizeWhitespace(input.source.title)
+                : undefined,
+              url: input.source.url,
+            }
+          : null,
+      }
+    : {}),
 });
 
 export const toSourceSummary = (

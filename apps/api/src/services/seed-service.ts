@@ -7,12 +7,14 @@ import type {
   CreateSeedInput,
   ListSeedsQuery,
   SeedDetail,
+  UpdateSeedInput,
 } from "@gloss/shared/types";
 
 import type { GlossDatabase } from "../lib/db";
 import type { Logger } from "../lib/logger";
 import {
   normalizeCaptureInput,
+  normalizeSeedUpdateInput,
   toSeedDetail,
   toSeedSummary,
 } from "../lib/seed-contracts";
@@ -30,6 +32,7 @@ export type SeedService = {
   createSeed: (input: { capture: CreateSeedInput; userId: string }) => Promise<SeedDetail>;
   getSeedDetail: (input: { requestId?: string; seedId: string; userId: string }) => Promise<SeedDetail>;
   listSeeds: (input: { query: ListSeedsQuery; userId: string }) => Promise<ReturnType<typeof listSeedsDataSchema.parse>>;
+  updateSeed: (input: { patch: UpdateSeedInput; requestId?: string; seedId: string; userId: string }) => Promise<SeedDetail>;
 };
 
 export const createSeedService = (
@@ -111,6 +114,26 @@ export const createSeedService = (
     return listSeedsDataSchema.parse({
       items: listed.items.map(toSeedSummary),
       total: listed.total,
+    });
+  },
+  async updateSeed(input) {
+    const normalizedPatch = normalizeSeedUpdateInput(input.patch);
+    const updatedRecord = await repository.updateSeed({
+      patch: normalizedPatch,
+      seedId: input.seedId,
+      userId: input.userId,
+    });
+
+    if (!updatedRecord) {
+      throw notFoundError("Seed not found.", input.requestId);
+    }
+
+    return toSeedDetail({
+      ...updatedRecord,
+      enrichment: await enrichmentRepository.getCurrentForSeed({
+        seedId: input.seedId,
+        userId: input.userId,
+      }),
     });
   },
 });

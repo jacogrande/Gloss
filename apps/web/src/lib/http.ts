@@ -89,7 +89,7 @@ export const toApiClientError = (
 type RequestDocumentInput = {
   apiBaseUrl: string;
   body?: unknown;
-  method?: "GET" | "POST";
+  method?: "GET" | "PATCH" | "POST";
   pathname: string;
   query?: Record<string, string | undefined>;
   signal?: AbortSignal;
@@ -113,7 +113,7 @@ export const requestDocument = async (
       ...requestInit.headers,
       "content-type": "application/json",
     };
-  } else if (method === "POST") {
+  } else if (method === "POST" || method === "PATCH") {
     requestInit.body = JSON.stringify({});
     requestInit.headers = {
       ...requestInit.headers,

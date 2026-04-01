@@ -6,6 +6,7 @@ import type {
   ReviewSubmissionInput,
   ReviewSubmissionResult,
   SeedEnrichment,
+  UpdateSeedInput,
 } from "@gloss/shared/types";
 import { requestJson } from "./http";
 import {
@@ -20,6 +21,7 @@ import {
   parseSeedListResponse,
   parseSessionResponse,
   parseSubmitReviewCardResponse,
+  parseUpdateSeedResponse,
 } from "./parsers";
 
 export const fetchSessionSnapshot = async (
@@ -102,12 +104,29 @@ export const fetchSeedDetail = async (
         },
   );
 
+export const updateSeed = async (
+  apiBaseUrl: string,
+  seedId: string,
+  input: UpdateSeedInput,
+): Promise<import("@gloss/shared/types").SeedDetail> =>
+  requestJson({
+    apiBaseUrl,
+    body: input,
+    method: "PATCH",
+    parseData: parseUpdateSeedResponse,
+    pathname: `/seeds/${seedId}`,
+  });
+
 export const requestSeedEnrichment = async (
   apiBaseUrl: string,
   seedId: string,
+  options?: {
+    force?: boolean;
+  },
 ): Promise<SeedEnrichment> =>
   requestJson({
     apiBaseUrl,
+    body: options?.force ? { force: true } : {},
     method: "POST",
     parseData: parseSeedEnrichmentResponse,
     pathname: `/seeds/${seedId}/enrich`,

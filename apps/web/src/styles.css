@@ -407,6 +407,22 @@ button {
   gap: 16px;
 }
 
+.capture-form__details {
+  display: grid;
+  gap: 16px;
+}
+
+.capture-form__details summary {
+  cursor: pointer;
+  color: var(--accent-700);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.capture-form__details[open] summary {
+  color: var(--ink-950);
+}
+
 .capture-form__actions {
   display: flex;
   align-items: center;
@@ -601,6 +617,11 @@ button {
 
 .seed-detail__compare-panel {
   background: var(--surface-accent);
+}
+
+.seed-detail__notice,
+.seed-detail__recovery {
+  gap: 14px;
 }
 
 .seed-detail__example {

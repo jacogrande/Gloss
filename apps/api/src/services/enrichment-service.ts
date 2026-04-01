@@ -47,6 +47,7 @@ import type { Pool } from "pg";
 
 export type EnrichmentService = {
   requestSeedEnrichment: (input: {
+    force?: boolean;
     requestId?: string;
     seedId: string;
     userId: string;
@@ -318,7 +319,7 @@ export const createEnrichmentService = (input: {
   };
 
   return {
-    async requestSeedEnrichment({ requestId, seedId, userId }) {
+    async requestSeedEnrichment({ force = false, requestId, seedId, userId }) {
       const startedAt = Date.now();
       const acquisition = await withPostgresAdvisoryLock({
         key: seedId,
@@ -328,14 +329,14 @@ export const createEnrichmentService = (input: {
           const currentEnrichment =
             await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
 
-          if (currentEnrichment?.status === "ready") {
+          if (!force && currentEnrichment?.status === "ready") {
             return {
               enrichment: currentEnrichment,
               kind: "existing" as const,
             };
           }
 
-          if (currentEnrichment && isActivePendingEnrichment(currentEnrichment)) {
+          if (!force && currentEnrichment && isActivePendingEnrichment(currentEnrichment)) {
             return {
               enrichment: currentEnrichment,
               kind: "existing" as const,
@@ -362,6 +363,7 @@ export const createEnrichmentService = (input: {
           });
 
           const pendingEnrichment = await seedEnrichmentRepository.acquirePending({
+            force,
             model: input.providers.modelProvider.model,
             promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
             provider: input.providers.modelProvider.provider,

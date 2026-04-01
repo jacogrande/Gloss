@@ -42,6 +42,7 @@ import {
   sessionUserSchema,
   sourceKindSchema,
   sourceSummarySchema,
+  updateSeedInputSchema,
 } from "../contracts/index";
 import type { ApiErrorCode } from "../errors/index";
 import { apiErrorSchema } from "../schemas/index";
@@ -134,6 +135,8 @@ export type SeedEnrichmentStatus = z.infer<
 export type SeedStage = z.infer<typeof seedStageSchema>;
 
 export type SeedSummary = z.infer<typeof seedSummarySchema>;
+
+export type UpdateSeedInput = z.infer<typeof updateSeedInputSchema>;
 
 export type SessionData = z.infer<typeof sessionDataSchema>;
 

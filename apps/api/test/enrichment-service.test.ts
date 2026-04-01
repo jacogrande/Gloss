@@ -9,6 +9,7 @@ import type { SeedEnrichmentPayload } from "@gloss/shared/types";
 
 import type {
   SeedEnrichmentRow,
+  SeedEnrichmentTraceRow,
   SeedRow,
 } from "../src/db/schema";
 import type { Logger } from "../src/lib/logger";
@@ -109,6 +110,7 @@ const createRepository = (): SeedRepository => ({
     }),
   ),
   listSeeds: vi.fn(),
+  updateSeed: vi.fn(),
 });
 
 const createProviders = (): EnrichmentProviders => ({
@@ -182,6 +184,82 @@ const createPool = (): {
 });
 
 describe("enrichment service", () => {
+  it("forces a refresh when requested against an existing ready enrichment", async () => {
+    const logger = createLogger();
+    const repository = createRepository();
+    const providers = createProviders();
+    const currentReadyRow = createReadyRow();
+    const pendingRow = createPendingRow();
+    const seedEnrichmentRepository: SeedEnrichmentRepository = {
+      acquirePending: vi.fn(() => Promise.resolve(pendingRow)),
+      createTrace: vi.fn(() =>
+        Promise.resolve({
+          createdAt: new Date("2026-03-26T00:00:01.000Z"),
+          errorCode: null,
+          guardrailFlags: [],
+          id: "trace_1",
+          lexicalEvidence: {
+            capturedSentencePreview:
+              "Her explanation was pellucid even under pressure.",
+            contrastCandidates: ["opaque"],
+            dictionaryGlosses: ["clear and easy to understand"],
+            exampleSentences: [],
+            lemma: "pellucid",
+            morphologyHints: [],
+            partOfSpeech: "adjective",
+            registerLabels: [],
+            relatedCandidates: ["lucid"],
+            sourceSummary: {
+              kind: "book",
+              title: "On Style",
+            },
+          },
+          model: "fixture-model",
+          outputRedacted: createReadyPayload(),
+          promptTemplateVersion: "seed-enrichment.v1",
+          provider: "fixture",
+          schemaVersion: "seed-enrichment-payload.v1",
+          seedEnrichmentId: pendingRow.id,
+          seedId: "seed_1",
+          status: "ready" as const,
+          userId: "user_1",
+          validationResult: {
+            accepted: true,
+            issues: [],
+          },
+        } satisfies SeedEnrichmentTraceRow),
+      ),
+      getCurrentForSeed: vi
+        .fn()
+        .mockResolvedValueOnce(currentReadyRow)
+        .mockResolvedValueOnce(currentReadyRow),
+      getLatestTraceForSeed: vi.fn(() => Promise.resolve(null)),
+      markFailed: vi.fn(),
+      markReady: vi.fn(() => Promise.resolve(createReadyRow())),
+    };
+    const service = createEnrichmentService({
+      db: {} as never,
+      logger,
+      pool: createPool() as never,
+      providers,
+      productEventService: createProductEventService(),
+      requestRateLimitService: createRateLimitService(),
+      repository,
+      seedEnrichmentRepository,
+    });
+
+    const enrichment = await service.requestSeedEnrichment({
+      force: true,
+      requestId: "request_2",
+      seedId: "seed_1",
+      userId: "user_1",
+    });
+
+    expect(enrichment.status).toBe("ready");
+    expect(seedEnrichmentRepository.acquirePending).toHaveBeenCalledTimes(1);
+    expect(providers.modelProvider.generate).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves a ready enrichment when trace persistence fails", async () => {
     const logger = createLogger();
     const repository = createRepository();

@@ -18,18 +18,19 @@ describe("CaptureForm", () => {
     fireEvent.change(screen.getByLabelText("Word or phrase"), {
       target: { value: "lapidary" },
     });
-    fireEvent.change(screen.getByLabelText("Sentence"), {
+    fireEvent.change(screen.getByLabelText("Sentence (optional)"), {
       target: {
         value: "The prose became unexpectedly lapidary by the final chapter.",
       },
     });
+    fireEvent.click(screen.getByText("Source details (optional)"));
     fireEvent.change(screen.getByLabelText("Source type"), {
       target: { value: "book" },
     });
     fireEvent.change(screen.getByLabelText("Source title"), {
       target: { value: "Collected Essays" },
     });
-    fireEvent.submit(screen.getByRole("button", { name: "Save seed" }));
+    fireEvent.submit(screen.getByRole("button", { name: "Save word" }));
 
     expect(onSubmit).toHaveBeenCalledWith({
       sentence: "The prose became unexpectedly lapidary by the final chapter.",

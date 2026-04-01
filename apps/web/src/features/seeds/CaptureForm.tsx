@@ -55,7 +55,7 @@ export const CaptureForm = ({
     <section className="panel panel--capture">
       <div className="panel__header">
         <h2>Save a word</h2>
-        <p className="panel__copy">Add context only if you need it.</p>
+        <p className="panel__copy">Word first. Add context only if it helps.</p>
       </div>
 
       <form className="capture-form" onSubmit={handleSubmit}>
@@ -75,7 +75,7 @@ export const CaptureForm = ({
           </label>
 
           <label className="capture-form__field">
-            <span>Sentence</span>
+            <span>Sentence (optional)</span>
             <textarea
               name="sentence"
               onChange={(event) => {
@@ -88,11 +88,8 @@ export const CaptureForm = ({
           </label>
         </div>
 
-        <section className="capture-form__source-section">
-          <div className="capture-form__section-intro">
-            <p className="capture-form__section-label">Source</p>
-          </div>
-
+        <details className="capture-form__details">
+          <summary>Source details (optional)</summary>
           <div className="capture-form__source-grid">
             <label className="capture-form__field">
               <span>Source type</span>
@@ -148,7 +145,11 @@ export const CaptureForm = ({
               />
             </label>
           </div>
-        </section>
+        </details>
+
+        <p className="capture-form__hint">
+          After you save, Gloss starts enrichment in the background.
+        </p>
 
         {errorMessage ? (
           <p className="capture-form__error" role="alert">
@@ -158,7 +159,7 @@ export const CaptureForm = ({
 
         <div className="capture-form__actions">
           <button className="capture-form__submit" disabled={isPending} type="submit">
-            {isPending ? "Saving..." : "Save seed"}
+            {isPending ? "Saving..." : "Save word"}
           </button>
         </div>
       </form>

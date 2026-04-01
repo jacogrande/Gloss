@@ -35,12 +35,13 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   await expect(page).toHaveURL(/\/capture$/);
   await page.getByLabel("Word or phrase").fill("pellucid");
   await page
-    .getByLabel("Sentence")
+    .getByLabel("Sentence (optional)")
     .fill("Her explanation was pellucid even under pressure.");
+  await page.getByText("Source details (optional)").click();
   await page.getByLabel("Source type").selectOption("book");
   await page.getByLabel("Source title").fill("On Style");
   await page.getByLabel("Author").fill("A. Reader");
-  await page.getByRole("button", { name: "Save seed" }).click();
+  await page.getByRole("button", { name: "Save word" }).click();
 
   await expect(page).toHaveURL(/\/seeds\/.+/);
   await expect(page.getByRole("heading", { name: "pellucid" })).toBeVisible();
