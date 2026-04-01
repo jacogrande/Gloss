@@ -74,7 +74,13 @@ export const getReturnToPath = (search: string): string | null =>
   sanitizeReturnTo(new URLSearchParams(search).get(returnToSearchParam));
 
 export const resolvePostAuthPath = (input?: {
+  preferOnboarding?: boolean;
   search?: string;
   storage?: StorageLike | null;
-}): string =>
-  getReturnToPath(input?.search ?? "") ?? getPostAuthPath(input?.storage);
+}): string => {
+  if (input?.preferOnboarding && hasCaptureOnboardingPending(input.storage)) {
+    return "/capture";
+  }
+
+  return getReturnToPath(input?.search ?? "") ?? getPostAuthPath(input?.storage);
+};

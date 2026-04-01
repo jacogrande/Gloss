@@ -99,6 +99,40 @@ describe("LoginRoute", () => {
     expect(signUpWithPassword).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps new sign-up users on capture even when a protected returnTo is present", async () => {
+    signUpWithPassword.mockResolvedValue(undefined);
+    refreshSession.mockResolvedValue(null);
+    sessionState.refreshSession = refreshSession;
+
+    render(
+      <MemoryRouter initialEntries={["/login?returnTo=%2Freview"]}>
+        <Routes>
+          <Route element={<LoginRoute />} path="/login" />
+          <Route element={<p>Capture page</p>} path="/capture" />
+          <Route element={<p>Review page</p>} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(
+      within(screen.getByRole("tablist", { name: "Auth mode" })).getByRole("button", {
+        name: "Create account",
+      }),
+    );
+    await userEvent.type(screen.getByRole("textbox", { name: /^Name/ }), "New Reader");
+    await userEvent.type(screen.getByRole("textbox", { name: /^Email/ }), "new-reader@example.com");
+    await userEvent.type(screen.getByPlaceholderText("At least 8 characters"), "password1234");
+    await userEvent.click(
+      within(screen.getByTestId("auth-form")).getByRole("button", {
+        name: "Create account",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Capture page")).toBeVisible();
+    });
+  });
+
   it("redirects authenticated users to capture while onboarding is still pending", async () => {
     window.sessionStorage.setItem("gloss.capture_onboarding_pending", "true");
     sessionState.session = {

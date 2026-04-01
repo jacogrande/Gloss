@@ -15,6 +15,11 @@ import {
   toUpdateSeedInput,
   type SeedContextFormValues,
 } from "./capture-form-values";
+import {
+  clearSeedContextDraft,
+  readSeedContextDraft,
+  writeSeedContextDraft,
+} from "./seed-context-draft";
 
 type SeedContextEditorProps = {
   errorMessage: string | null;
@@ -22,7 +27,7 @@ type SeedContextEditorProps = {
   isPending: boolean;
   statusMessage: string | null;
   onSubmit: (value: ReturnType<typeof toUpdateSeedInput>) => void;
-  seed: Pick<SeedDetail, "primarySentence" | "source">;
+  seed: Pick<SeedDetail, "id" | "primarySentence" | "source">;
   title: string;
 };
 
@@ -59,21 +64,23 @@ export const SeedContextEditor = ({
   title,
 }: SeedContextEditorProps): JSX.Element => {
   const [values, setValues] = useState<SeedContextFormValues>(() =>
-    toInitialValues(seed),
+    readSeedContextDraft(seed.id)?.values ?? toInitialValues(seed),
   );
   const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(null);
   const [isSourceOpen, setIsSourceOpen] = useState(() =>
-    hasSourceValues(toInitialValues(seed)),
+    readSeedContextDraft(seed.id)?.isSourceOpen ?? hasSourceValues(toInitialValues(seed)),
   );
   const hasChanges = hasSeedContextChanges(values, seed);
 
   useEffect(() => {
     const nextValues = toInitialValues(seed);
+    const draft = readSeedContextDraft(seed.id);
 
-    setValues(nextValues);
-    setIsSourceOpen(hasSourceValues(nextValues));
+    setValues(draft?.values ?? nextValues);
+    setIsSourceOpen(draft?.isSourceOpen ?? hasSourceValues(nextValues));
     setLocalErrorMessage(null);
   }, [
+    seed.id,
     seed.primarySentence,
     seed.source?.author,
     seed.source?.id,
@@ -81,6 +88,18 @@ export const SeedContextEditor = ({
     seed.source?.title,
     seed.source?.url,
   ]);
+
+  useEffect(() => {
+    if (hasSeedContextChanges(values, seed)) {
+      writeSeedContextDraft(seed.id, {
+        isSourceOpen,
+        values,
+      });
+      return;
+    }
+
+    clearSeedContextDraft(seed.id);
+  }, [isSourceOpen, seed, values]);
 
   const updateField = <TField extends keyof SeedContextFormValues>(
     field: TField,

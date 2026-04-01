@@ -23,6 +23,7 @@ export const LoginRoute = (): JSX.Element => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const resolvedPostAuthPath = resolvePostAuthPath({
+    preferOnboarding: true,
     search: location.search,
   });
 
@@ -60,6 +61,7 @@ export const LoginRoute = (): JSX.Element => {
                   await signUpWithPassword(fields);
                   markCaptureOnboardingPending();
                   nextPath = resolvePostAuthPath({
+                    preferOnboarding: true,
                     search: location.search,
                   });
                 }

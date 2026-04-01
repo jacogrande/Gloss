@@ -4,6 +4,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { JSX } from "react";
 import userEvent from "@testing-library/user-event";
 import {
   afterEach,
@@ -67,7 +68,7 @@ vi.mock("../src/lib/env", () => ({
 }));
 
 describe("LibraryRoute", () => {
-  const LoginProbe = () => {
+  const LoginProbe = (): JSX.Element => {
     const location = useLocation();
 
     return <p>{`Login ${location.search}`}</p>;

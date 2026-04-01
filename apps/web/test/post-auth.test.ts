@@ -66,4 +66,15 @@ describe("post-auth helpers", () => {
       }),
     ).toBe("/seeds/seed_1?from=library#compare");
   });
+
+  it("can prioritize capture onboarding ahead of a protected return destination", () => {
+    markCaptureOnboardingPending();
+
+    expect(
+      resolvePostAuthPath({
+        preferOnboarding: true,
+        search: "?returnTo=%2Freview",
+      }),
+    ).toBe("/capture");
+  });
 });

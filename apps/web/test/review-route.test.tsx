@@ -255,6 +255,14 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "Correct" })).toBeVisible();
+    });
+
+    expect(screen.getByText("Correct answer")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
       expect(screen.getByText("Session finished")).toBeVisible();
     });
 
@@ -490,5 +498,30 @@ describe("ReviewRoute", () => {
       "href",
       "/library",
     );
+  });
+
+  it("shows session recovery guidance when an active session cannot be reloaded", async () => {
+    fetchReviewQueue.mockResolvedValue(
+      createQueue({
+        activeSessionId: "session_1",
+      }),
+    );
+    fetchReviewSession.mockRejectedValue(new Error("Session unavailable."));
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+
+    await waitFor(() => {
+      expect(screen.getByText("Session unavailable.")).toBeVisible();
+    });
+
+    expect(screen.getByRole("button", { name: "Resume session" })).toBeVisible();
   });
 });

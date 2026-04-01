@@ -202,6 +202,7 @@ export const ReviewRoute = (): JSX.Element => {
   const startSession = async (): Promise<void> => {
     setIsStarting(true);
     setQueueMessage(null);
+    setSessionMessage(null);
 
     try {
       const nextSession = await startReviewSession(webEnv.VITE_API_BASE_URL);
@@ -252,12 +253,10 @@ export const ReviewRoute = (): JSX.Element => {
 
       setSession(response.session);
       setFeedbackState(
-        response.result.correct
-          ? null
-          : createFeedbackSnapshot({
-              response,
-              selectedChoiceId,
-            }),
+        createFeedbackSnapshot({
+          response,
+          selectedChoiceId,
+        }),
       );
       setSelectedChoiceId(null);
       refreshQueue();
@@ -573,6 +572,7 @@ export const ReviewRoute = (): JSX.Element => {
         <p className="panel__copy">{queueDisplayState.message}</p>
 
         {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
+        {sessionMessage ? <p className="capture-form__hint">{sessionMessage}</p> : null}
         {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
 
         <div className="capture-form__actions">
