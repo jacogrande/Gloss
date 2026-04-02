@@ -224,6 +224,8 @@ export const answerCurrentReviewCard = async (
   strategy: "first" | "last" = "first",
   options?: {
     continueAfterFeedback?: boolean;
+    submitWithEnter?: boolean;
+    textAnswer?: string | ((page: Page) => Promise<string> | string);
   },
 ): Promise<void> => {
   const remaining = await page
@@ -233,12 +235,34 @@ export const answerCurrentReviewCard = async (
   let submitState: "advanced" | "completed" | "feedback" | "pending" =
     "pending";
 
-  const choices = page.getByRole("radio");
-  const choice =
-    strategy === "last" ? choices.last() : choices.first();
+  const textInput = page.getByRole("textbox", { name: "Your answer" });
+  const isTextCard = await textInput.isVisible().catch(() => false);
 
-  await choice.click();
-  await page.getByRole("button", { name: "Submit" }).click();
+  if (isTextCard) {
+    if (!options?.textAnswer) {
+      throw new Error("Text recall cards require a textAnswer option.");
+    }
+
+    const textAnswer =
+      typeof options.textAnswer === "function"
+        ? await options.textAnswer(page)
+        : options.textAnswer;
+
+    await textInput.fill(textAnswer);
+    if (options?.submitWithEnter) {
+      await textInput.press("Enter");
+    }
+  } else {
+    const choices = page.getByRole("radio");
+    const choice =
+      strategy === "last" ? choices.last() : choices.first();
+
+    await choice.click();
+  }
+
+  if (!isTextCard || !options?.submitWithEnter) {
+    await page.getByRole("button", { name: "Submit" }).click();
+  }
 
   await expect
     .poll(async () => {
@@ -311,6 +335,7 @@ export const completeReviewSession = async (input: {
   maxCards?: number;
   page: Page;
   strategy?: "first" | "last";
+  textAnswer?: string | ((page: Page) => Promise<string> | string);
 }): Promise<void> => {
   const maxCards = input.maxCards ?? 8;
 
@@ -324,7 +349,9 @@ export const completeReviewSession = async (input: {
       return;
     }
 
-    await answerCurrentReviewCard(input.page, input.strategy);
+    await answerCurrentReviewCard(input.page, input.strategy, {
+      textAnswer: input.textAnswer,
+    });
   }
 
   await expect(

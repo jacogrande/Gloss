@@ -66,14 +66,24 @@ type ReviewCardTraceRow = {
 };
 
 type PersistedReviewCardRow = {
-  answer_key: {
-    correctChoiceId?: string;
-  };
+  answer_key:
+    | {
+        correctChoiceId?: string;
+        type: "choice";
+      }
+    | {
+        acceptableAnswers?: string[];
+        canonicalAnswer?: string;
+        type: "text";
+      };
   generation_source: string;
   id: string;
+  primary_sentence_text: string | null;
   prompt_payload: {
     choices?: unknown[];
     question?: string;
+    sentence?: string;
+    type?: string;
   };
   prompt_template_version: string;
   schema_version: string;
@@ -93,6 +103,24 @@ type ReviewEventTraceRow = {
 
 const getHeader = (response: Response, name: string): string | null =>
   response.headers.get(name);
+
+const normalizeEvalWord = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+
+const normalizeSentenceForComparison = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
+const createBlankedCapturedSentence = (input: {
+  capturedSentence: string;
+  word: string;
+}): string =>
+  input.capturedSentence.replace(
+    new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRegExp(input.word)})(?=$|[^\\p{L}\\p{N}])`, "iu"),
+    (_, prefix: string) => `${prefix}____`,
+  );
 
 const logSummary = (input: {
   dataset: string;
@@ -560,6 +588,14 @@ const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
           answer_key,
           generation_source,
           id,
+          (
+            SELECT context.text
+            FROM seed_contexts context
+            WHERE context.seed_id = review_cards.seed_id
+              AND context.is_primary = true
+            ORDER BY context.created_at ASC
+            LIMIT 1
+          ) AS primary_sentence_text,
           prompt_payload,
           prompt_template_version,
           schema_version,
@@ -593,13 +629,41 @@ const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
       reviewCardResult.rows.length === 0 ||
       reviewCardResult.rows.some(
         (row) =>
-          row.prompt_template_version !== "review-card.v1" ||
-          row.schema_version !== "review-card-prompt.v1" ||
+          row.prompt_template_version !== "review-card.v2" ||
+          row.schema_version !== "review-card-prompt.v2" ||
           row.status !== "pending" ||
-          typeof row.answer_key.correctChoiceId !== "string" ||
+          (typeof row.primary_sentence_text === "string" &&
+            typeof row.prompt_payload.sentence === "string" &&
+            ((row.prompt_payload.type === "recognition_in_fresh_sentence" &&
+              normalizeSentenceForComparison(row.primary_sentence_text) ===
+                normalizeSentenceForComparison(row.prompt_payload.sentence)) ||
+              (row.prompt_payload.type === "cloze_recall" &&
+                row.answer_key.type === "text" &&
+                typeof row.answer_key.canonicalAnswer === "string" &&
+                row.answer_key.canonicalAnswer.length > 0 &&
+                normalizeSentenceForComparison(
+                  createBlankedCapturedSentence({
+                    capturedSentence: row.primary_sentence_text,
+                    word: row.answer_key.canonicalAnswer,
+                  }),
+                ) ===
+                  normalizeSentenceForComparison(row.prompt_payload.sentence)))) ||
           typeof row.prompt_payload.question !== "string" ||
-          !Array.isArray(row.prompt_payload.choices) ||
-          row.prompt_payload.choices.length < 2,
+          (row.answer_key.type === "choice"
+            ? typeof row.answer_key.correctChoiceId !== "string" ||
+              !Array.isArray(row.prompt_payload.choices) ||
+              row.prompt_payload.choices.length < 2
+            : typeof row.answer_key.canonicalAnswer !== "string" ||
+              !Array.isArray(row.answer_key.acceptableAnswers) ||
+              typeof row.prompt_payload.sentence !== "string" ||
+              row.prompt_payload.type !== "cloze_recall" ||
+              !row.prompt_payload.sentence.includes("____") ||
+              normalizeEvalWord(row.prompt_payload.question ?? "").includes(
+                normalizeEvalWord(row.answer_key.canonicalAnswer),
+              ) ||
+              normalizeEvalWord(row.prompt_payload.sentence).includes(
+                normalizeEvalWord(row.answer_key.canonicalAnswer),
+              )),
       )
     ) {
       failures.push({
@@ -622,12 +686,19 @@ const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
         return (
           !matchingCard ||
           row.generation_source !== matchingCard.generation_source ||
-          row.prompt_template_version !== "review-card.v1" ||
-          row.schema_version !== "review-card-prompt.v1" ||
+          row.prompt_template_version !== "review-card.v2" ||
+          row.schema_version !== "review-card-prompt.v2" ||
           typeof row.output_redacted !== "object" ||
           row.output_redacted === null ||
-          row.validation_result.accepted !== true ||
           !Array.isArray(row.validation_result.issues) ||
+          (!(
+            row.validation_result.accepted === true ||
+            (row.validation_result.accepted === false &&
+              typeof row.output_redacted.fallbackFromModel === "boolean" &&
+              row.output_redacted.fallbackFromModel === true &&
+              typeof row.output_redacted.fallbackReason === "string" &&
+              row.validation_result.issues.length > 0)
+          )) ||
           (row.generation_source === "model" && row.input_redacted === null)
         );
       })
@@ -649,10 +720,19 @@ const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
           `${env.API_ORIGIN}/`,
         ).toString(),
         {
-          body: JSON.stringify({
-            choiceId: row.answer_key.correctChoiceId,
-            latencyMs: 200 + index,
-          }),
+          body: JSON.stringify(
+            row.answer_key.type === "choice"
+              ? {
+                  choiceId: row.answer_key.correctChoiceId,
+                  latencyMs: 200 + index,
+                  type: "choice",
+                }
+              : {
+                  latencyMs: 200 + index,
+                  text: row.answer_key.canonicalAnswer,
+                  type: "text",
+                },
+          ),
           headers: {
             "content-type": "application/json",
             cookie,
@@ -671,10 +751,19 @@ const runReviewTraceChecks = async (): Promise<EvalFailure[]> => {
             `${env.API_ORIGIN}/`,
           ).toString(),
           {
-            body: JSON.stringify({
-              choiceId: row.answer_key.correctChoiceId,
-              latencyMs: 250,
-            }),
+            body: JSON.stringify(
+              row.answer_key.type === "choice"
+                ? {
+                    choiceId: row.answer_key.correctChoiceId,
+                    latencyMs: 250,
+                    type: "choice",
+                  }
+                : {
+                    latencyMs: 250,
+                    text: row.answer_key.canonicalAnswer,
+                    type: "text",
+                  },
+            ),
             headers: {
               "content-type": "application/json",
               cookie,

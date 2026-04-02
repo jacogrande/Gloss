@@ -24,6 +24,7 @@ const createApiEnv = (overrides: Partial<ServerEnv> = {}): ServerEnv => ({
   OPENAI_API_KEY: undefined,
   OPENAI_MODEL: "gpt-5-mini-2025-08-07",
   PORT: 8787,
+  REVIEW_PROVIDER_MODE: "fixture",
   WEB_ORIGIN: "https://preview.gloss.test",
   ...overrides,
 });

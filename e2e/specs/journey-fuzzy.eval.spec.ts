@@ -22,6 +22,7 @@ import {
   buildBrowserJourneyFuzzProfile,
   type BrowserJourneyId,
 } from "../support/journey-fuzz";
+import { promoteSeedToRecallReady } from "../support/review-state";
 
 const captureKnownSeed = async (input: {
   page: Page;
@@ -239,6 +240,81 @@ const runJourney = async (input: {
       await expect(input.page.getByText(/\d+ word due now|\d+ words due now/)).toBeVisible();
       await expect(
         input.page.getByRole("button", { name: "Start review" }),
+      ).toBeVisible();
+      return;
+    }
+
+    case "review_recall_card": {
+      await signUpThroughUi({
+        email: profile.email,
+        name: profile.name,
+        page: input.page,
+      });
+
+      await captureKnownSeed({
+        page: input.page,
+        profile,
+      });
+      await waitForSeedDetailState({
+        page: input.page,
+      });
+      await promoteSeedToRecallReady({
+        email: profile.email,
+        word: profile.knownWord.word,
+      });
+
+      await openReviewSession(input.page);
+      await expect(
+        input.page.getByRole("heading", { name: "Recall the word" }),
+      ).toBeVisible();
+      await expect(
+        input.page.getByRole("textbox", { name: "Your answer" }),
+      ).toBeVisible();
+      await answerCurrentReviewCard(input.page, "first", {
+        continueAfterFeedback: false,
+        textAnswer: profile.knownWord.word,
+      });
+      await expect(input.page.getByText("Correct answer")).toBeVisible();
+      await expect(
+        input.page.getByText("You recalled the right word for this sentence."),
+      ).toBeVisible();
+      return;
+    }
+
+    case "review_recall_feedback": {
+      await signUpThroughUi({
+        email: profile.email,
+        name: profile.name,
+        page: input.page,
+      });
+
+      await captureKnownSeed({
+        page: input.page,
+        profile,
+      });
+      await waitForSeedDetailState({
+        page: input.page,
+      });
+      await promoteSeedToRecallReady({
+        email: profile.email,
+        word: profile.knownWord.word,
+      });
+
+      await openReviewSession(input.page);
+      await expect(
+        input.page.getByRole("heading", { name: "Recall the word" }),
+      ).toBeVisible();
+      await answerCurrentReviewCard(input.page, "first", {
+        continueAfterFeedback: false,
+        submitWithEnter: true,
+        textAnswer: `${profile.knownWord.word}-wrong`,
+      });
+      await expect(input.page.getByText("Correct answer")).toBeVisible();
+      await expect(
+        input.page.getByText("Try again"),
+      ).toBeVisible();
+      await expect(
+        input.page.getByText(/Here, the better fit is/u),
       ).toBeVisible();
       return;
     }

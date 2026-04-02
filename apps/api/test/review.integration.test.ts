@@ -19,13 +19,21 @@ import {
   signUpTestUser,
   type TestContext,
 } from "./helpers";
+import { createReviewService } from "../src/services/review-service";
 
 let context: TestContext;
 
 type ReviewCardAnswerKeyRow = {
-  answer_key: {
-    correctChoiceId: string;
-  };
+  answer_key:
+    | {
+        correctChoiceId: string;
+        type: "choice";
+      }
+    | {
+        acceptableAnswers: string[];
+        canonicalAnswer: string;
+        type: "text";
+      };
   id: string;
 };
 
@@ -154,10 +162,19 @@ describe("review integration", () => {
       const submitResponse = await context.app.request(
         `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
         {
-          body: JSON.stringify({
-            choiceId: row.answer_key.correctChoiceId,
-            latencyMs: 250,
-          }),
+          body: JSON.stringify(
+            row.answer_key.type === "choice"
+              ? {
+                  choiceId: row.answer_key.correctChoiceId,
+                  latencyMs: 250,
+                  type: "choice",
+                }
+              : {
+                  latencyMs: 250,
+                  text: row.answer_key.canonicalAnswer,
+                  type: "text",
+                },
+          ),
           headers: {
             "content-type": "application/json",
             cookie,
@@ -400,10 +417,19 @@ describe("review integration", () => {
     const firstSubmitResponse = await context.app.request(
       `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
       {
-        body: JSON.stringify({
-          choiceId: firstCard?.answer_key.correctChoiceId,
-          latencyMs: 100,
-        }),
+        body: JSON.stringify(
+          firstCard?.answer_key.type === "choice"
+            ? {
+                choiceId: firstCard.answer_key.correctChoiceId,
+                latencyMs: 100,
+                type: "choice",
+              }
+            : {
+                latencyMs: 100,
+                text: firstCard?.answer_key.canonicalAnswer ?? "",
+                type: "text",
+              },
+        ),
         headers: {
           "content-type": "application/json",
           cookie,
@@ -418,10 +444,19 @@ describe("review integration", () => {
     const duplicateSubmitResponse = await context.app.request(
       `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
       {
-        body: JSON.stringify({
-          choiceId: firstCard?.answer_key.correctChoiceId,
-          latencyMs: 120,
-        }),
+        body: JSON.stringify(
+          firstCard?.answer_key.type === "choice"
+            ? {
+                choiceId: firstCard.answer_key.correctChoiceId,
+                latencyMs: 120,
+                type: "choice",
+              }
+            : {
+                latencyMs: 120,
+                text: firstCard?.answer_key.canonicalAnswer ?? "",
+                type: "text",
+              },
+        ),
         headers: {
           "content-type": "application/json",
           cookie,
@@ -436,6 +471,387 @@ describe("review integration", () => {
 
     expect(duplicateSubmitResponse.status).toBe(409);
     expect(duplicateBody.error.code).toBe("REVIEW_CONFLICT");
+  });
+
+  it("serves a cloze recall card once recognition is established", async () => {
+    const email = "cloze-reviewer@example.com";
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email,
+      env: context.env,
+      name: "Cloze Reviewer",
+    });
+    const seedId = await createAndEnrichSeed({
+      cookie,
+      email,
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+    const userResult = await context.database.pool.query<{ id: string }>(
+      'SELECT id FROM "user" WHERE email = $1 LIMIT 1',
+      [email],
+    );
+    const userId = userResult.rows[0]?.id;
+
+    expect(userId).toBeTruthy();
+
+    await context.database.pool.query(
+      `
+        INSERT INTO review_states (
+          id,
+          seed_id,
+          user_id,
+          recognition_score,
+          distinction_score,
+          usage_score,
+          recognition_due_at,
+          distinction_due_at,
+          usage_due_at,
+          last_reviewed_at,
+          last_session_id,
+          scheduler_version
+        )
+        VALUES (
+          $1, $2, $3,
+          2, 1, 1,
+          NOW() - INTERVAL '2 hours',
+          NOW() + INTERVAL '2 days',
+          NOW() + INTERVAL '2 days',
+          NOW(),
+          NULL,
+          'review-scheduler.v1'
+        )
+      `,
+      ["cloze_state_1", seedId, userId],
+    );
+
+    const startResponse = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const firstCard = startBody.data.cards[0];
+
+    expect(startResponse.status).toBe(200);
+    expect(startBody.data.session.cardCount).toBe(1);
+    expect(firstCard?.exerciseType).toBe("cloze_recall");
+    expect(firstCard?.promptPayload.type).toBe("cloze_recall");
+
+    const answerKeyResult = await context.database.pool.query<ReviewCardAnswerKeyRow>(
+      `
+        SELECT id, answer_key
+        FROM review_cards
+        WHERE review_session_id = $1
+        ORDER BY position ASC
+      `,
+      [startBody.data.session.id],
+    );
+    const answerKey = answerKeyResult.rows[0];
+
+    expect(answerKey?.answer_key.type).toBe("text");
+
+    const submitResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${answerKey?.id}/submit`,
+      {
+        body: JSON.stringify({
+          latencyMs: 150,
+          text: "  PELLUCID ",
+          type: "text",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const submitBody = submitReviewCardResponseSchema.parse(
+      (await submitResponse.json()) as unknown,
+    );
+
+    expect(submitResponse.status).toBe(200);
+    expect(submitBody.data.result.correct).toBe(true);
+    expect(submitBody.data.result.submissionType).toBe("text");
+    if (submitBody.data.result.submissionType === "text") {
+      expect(submitBody.data.result.expectedText).toBe("pellucid");
+    }
+    expect(submitBody.data.session.session.status).toBe("completed");
+  });
+
+  it("rejects stale clients that submit the wrong answer type for a card", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "mismatch-submit@example.com",
+      env: context.env,
+      name: "Mismatch Submit",
+    });
+    await createAndEnrichSeed({
+      cookie,
+      email: "mismatch-submit@example.com",
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+
+    const startResponse = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const firstCard = startBody.data.cards[0];
+
+    expect(firstCard).toBeTruthy();
+    expect(firstCard?.promptPayload.type).not.toBe("cloze_recall");
+
+    const submitResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
+      {
+        body: JSON.stringify({
+          latencyMs: 120,
+          text: "pellucid",
+          type: "text",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const errorBody = apiErrorResponseSchema.parse(
+      (await submitResponse.json()) as unknown,
+    );
+
+    expect(submitResponse.status).toBe(409);
+    expect(errorBody.error.code).toBe("REVIEW_CONFLICT");
+  });
+
+  it("accepts legacy persisted choice answer keys without a discriminator", async () => {
+    const email = `legacy-choice-${crypto.randomUUID()}@example.com`;
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email,
+      env: context.env,
+      name: "Legacy Choice",
+    });
+    await createAndEnrichSeed({
+      cookie,
+      email,
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+
+    const startResponse = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const firstCard = startBody.data.cards[0];
+
+    expect(firstCard?.promptPayload.type).not.toBe("cloze_recall");
+
+    const answerKeyResult = await context.database.pool.query<ReviewCardAnswerKeyRow>(
+      `
+        SELECT id, answer_key
+        FROM review_cards
+        WHERE review_session_id = $1
+        ORDER BY position ASC
+      `,
+      [startBody.data.session.id],
+    );
+    const firstRow = answerKeyResult.rows[0];
+    const correctChoiceId =
+      firstRow?.answer_key.type === "choice"
+        ? firstRow.answer_key.correctChoiceId
+        : null;
+
+    expect(firstRow?.answer_key.type).toBe("choice");
+    expect(correctChoiceId).toBeTruthy();
+
+    await context.database.pool.query(
+      `
+        UPDATE review_cards
+        SET answer_key = jsonb_build_object('correctChoiceId', $2::text)
+        WHERE id = $1
+      `,
+      [firstRow?.id, correctChoiceId],
+    );
+
+    const submitResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstRow?.id}/submit`,
+      {
+        body: JSON.stringify({
+          choiceId: correctChoiceId ?? "",
+          latencyMs: 120,
+          type: "choice",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const submitBody = submitReviewCardResponseSchema.parse(
+      (await submitResponse.json()) as unknown,
+    );
+
+    expect(submitResponse.status).toBe(200);
+    expect(submitBody.data.result.correct).toBe(true);
+  });
+
+  it("persists visible fallback traces when live review generation degrades to templates", async () => {
+    const email = `review-fallback-${crypto.randomUUID()}@example.com`;
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email,
+      env: context.env,
+      name: "Fallback Reviewer",
+    });
+    const seedId = await createAndEnrichSeed({
+      cookie,
+      email,
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+    const userResult = await context.database.pool.query<{ id: string }>(
+      `SELECT id FROM "user" WHERE email = $1 LIMIT 1`,
+      [email],
+    );
+    const userId = userResult.rows[0]?.id ?? "";
+
+    await context.database.pool.query(
+      `
+        INSERT INTO review_states (
+          id,
+          seed_id,
+          user_id,
+          recognition_score,
+          distinction_score,
+          usage_score,
+          recognition_due_at,
+          distinction_due_at,
+          usage_due_at,
+          last_reviewed_at,
+          last_session_id,
+          scheduler_version
+        )
+        VALUES (
+          $1, $2, $3,
+          2, 1, 1,
+          NOW() - INTERVAL '2 hours',
+          NOW() + INTERVAL '2 days',
+          NOW() + INTERVAL '2 days',
+          NOW(),
+          NULL,
+          'review-scheduler.v1'
+        )
+      `,
+      ["fallback_state_1", seedId, userId],
+    );
+
+    const fallbackReviewService = createReviewService({
+      db: context.database.db,
+      env: context.env,
+      logger: context.runtime.logger,
+      modelProvider: {
+        generateClozeRecallCard: () =>
+          Promise.reject(new Error("Forced cloze generation failure.")),
+        generateRecognitionFreshSentenceCard: () =>
+          Promise.reject(new Error("Forced recognition generation failure.")),
+        model: "forced-review-failure",
+        provider: "test-provider",
+      },
+      pool: context.database.pool,
+      productEventService: context.runtime.productEventService,
+      requestRateLimitService: context.runtime.requestRateLimitService,
+    });
+
+    const session = await fallbackReviewService.startOrResumeSession({
+      requestId: "fallback-review",
+      userId,
+    });
+    const firstCard = session.cards[0];
+    const traceResult = await context.database.pool.query<{
+      generation_source: string;
+      output_redacted: {
+        fallbackFromModel?: boolean;
+        fallbackReason?: string;
+      };
+      validation_result: {
+        accepted?: boolean;
+        issues?: string[];
+      };
+    }>(
+      `
+        SELECT generation_source, output_redacted, validation_result
+        FROM review_card_traces
+        WHERE review_session_id = $1
+        ORDER BY created_at ASC
+        LIMIT 1
+      `,
+      [session.session.id],
+    );
+    const firstTrace = traceResult.rows[0];
+
+    expect(firstCard?.generationSource).toBe("template");
+    expect(firstTrace?.generation_source).toBe("template");
+    expect(firstTrace?.output_redacted.fallbackFromModel).toBe(true);
+    expect(firstTrace?.output_redacted.fallbackReason).toContain(
+      "Forced cloze generation failure.",
+    );
+    expect(firstTrace?.validation_result.accepted).toBe(false);
+    expect(firstTrace?.validation_result.issues?.[0]).toContain(
+      "fallback_from_model",
+    );
   });
 
   it("does not allow one user to read or submit another user's review session", async () => {
@@ -499,8 +915,9 @@ describe("review integration", () => {
       `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
       {
         body: JSON.stringify({
-          choiceId: firstCard?.promptPayload.choices[0]?.id ?? "",
+          choiceId: "choice_1",
           latencyMs: 100,
+          type: "choice",
         }),
         headers: {
           "content-type": "application/json",

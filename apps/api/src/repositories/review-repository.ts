@@ -145,6 +145,78 @@ const requireRow = <TRow>(row: TRow | undefined, message: string): TRow => {
   return row;
 };
 
+const isChoiceAnswerKeyRecord = (
+  value: unknown,
+): value is {
+  correctChoiceId: string;
+  type: "choice";
+} =>
+  typeof value === "object" &&
+  value !== null &&
+  "type" in value &&
+  "correctChoiceId" in value &&
+  value.type === "choice" &&
+  typeof value.correctChoiceId === "string";
+
+const isTextAnswerKeyRecord = (
+  value: unknown,
+): value is {
+  acceptableAnswers: string[];
+  canonicalAnswer: string;
+  type: "text";
+} =>
+  typeof value === "object" &&
+  value !== null &&
+  "type" in value &&
+  "acceptableAnswers" in value &&
+  "canonicalAnswer" in value &&
+  value.type === "text" &&
+  Array.isArray(value.acceptableAnswers) &&
+  typeof value.canonicalAnswer === "string";
+
+const isLegacyChoiceAnswerKeyRecord = (
+  value: unknown,
+): value is {
+  correctChoiceId: string;
+} =>
+  typeof value === "object" &&
+  value !== null &&
+  "correctChoiceId" in value &&
+  typeof value.correctChoiceId === "string";
+
+const normalizeStoredAnswerKey = (value: unknown): ReviewAnswerKey => {
+  if (isChoiceAnswerKeyRecord(value)) {
+    return {
+      correctChoiceId: value.correctChoiceId,
+      type: "choice",
+    };
+  }
+
+  if (isTextAnswerKeyRecord(value)) {
+    return {
+      acceptableAnswers: value.acceptableAnswers.filter(
+        (answer): answer is string => typeof answer === "string",
+      ),
+      canonicalAnswer: value.canonicalAnswer,
+      type: "text",
+    };
+  }
+
+  if (isLegacyChoiceAnswerKeyRecord(value)) {
+    return {
+      correctChoiceId: value.correctChoiceId,
+      type: "choice",
+    };
+  }
+
+  throw new Error("Persisted review card answer key has an unsupported shape.");
+};
+
+const normalizeReviewCardRow = (row: ReviewCardRow): ReviewCardRow => ({
+  ...row,
+  answerKey: normalizeStoredAnswerKey(row.answerKey),
+});
+
 const loadCardsForSession = async (
   db: GlossDatabase,
   input: {
@@ -152,7 +224,8 @@ const loadCardsForSession = async (
     userId: string;
   },
 ): Promise<ReviewCardRow[]> =>
-  db
+  (
+    await db
     .select()
     .from(reviewCardsTable)
     .where(
@@ -161,7 +234,8 @@ const loadCardsForSession = async (
         eq(reviewCardsTable.userId, input.userId),
       ),
     )
-    .orderBy(reviewCardsTable.position);
+    .orderBy(reviewCardsTable.position)
+  ).map(normalizeReviewCardRow);
 
 export const createReviewRepository = (
   db: GlossDatabase,
@@ -245,7 +319,7 @@ export const createReviewRepository = (
       );
 
       return {
-        cards: sortedCards,
+        cards: sortedCards.map(normalizeReviewCardRow),
         session: createdSession,
       };
     });

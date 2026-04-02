@@ -24,6 +24,7 @@ import type {
 import {
   applyReviewOutcomeToState,
   buildContrastiveChoiceCardDraft,
+  buildDeterministicClozeRecallCardDraft,
   buildDeterministicRecognitionCardDraft,
   buildMeaningInContextCardDraft,
   buildRegisterJudgmentCardDraft,
@@ -33,6 +34,8 @@ import {
   selectDueReviewTargets,
   toReviewQueueSummary,
   toReviewSessionDetail,
+  validateClozePrompt,
+  validateRecognitionPrompt,
 } from "../lib/review-contracts";
 import {
   createReviewModelProvider,
@@ -145,13 +148,84 @@ const buildQueueSummary = async (input: {
   });
 };
 
+const withFallbackTrace = (input: {
+  draft: ReviewCardDraft;
+  error: unknown;
+}): ReviewCardDraft => {
+  const message =
+    input.error instanceof Error
+      ? input.error.message
+      : "Unexpected non-error thrown while generating a review card.";
+
+  return {
+    ...input.draft,
+    trace: {
+      ...input.draft.trace,
+      outputRedacted: {
+        ...input.draft.trace.outputRedacted,
+        fallbackFromModel: true,
+        fallbackReason: message,
+      },
+      validationResult: {
+        accepted: false,
+        issues: [`fallback_from_model:${message}`],
+      },
+    },
+  };
+};
+
 const buildCardDraft = async (input: {
   logger: Logger;
   modelProvider: ReviewModelProvider;
   seed: SeedDetail;
-  exerciseType: "contrastive_choice" | "meaning_in_context" | "recognition_in_fresh_sentence" | "register_judgment";
+  exerciseType:
+    | "cloze_recall"
+    | "contrastive_choice"
+    | "meaning_in_context"
+    | "recognition_in_fresh_sentence"
+    | "register_judgment";
 }): Promise<ReviewCardDraft> => {
   switch (input.exerciseType) {
+    case "cloze_recall":
+      try {
+        const generated = await input.modelProvider.generateClozeRecallCard(
+          input.seed,
+        );
+        validateClozePrompt({
+          capturedSentence:
+            input.seed.primarySentence ?? input.seed.contexts[0]?.text ?? null,
+          promptPayload: generated.promptPayload,
+          word: input.seed.word,
+        });
+
+        return {
+          answerKey: generated.answerKey,
+          dimension: "recognition",
+          exerciseType: "cloze_recall",
+          generationSource: "model",
+          model: input.modelProvider.model,
+          promptPayload: generated.promptPayload,
+          promptTemplateVersion: reviewCardPromptTemplateVersion,
+          provider: input.modelProvider.provider,
+          schemaVersion: "review-card-prompt.v2",
+          seedId: input.seed.id,
+          trace: generated.trace,
+        };
+      } catch (error) {
+        input.logger.warn("review.card_generation_fallback", {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Unexpected non-error thrown while generating a cloze-recall card.",
+          exerciseType: input.exerciseType,
+          seedId: input.seed.id,
+        });
+
+        return withFallbackTrace({
+          draft: buildDeterministicClozeRecallCardDraft(input.seed),
+          error,
+        });
+      }
     case "contrastive_choice":
       return buildContrastiveChoiceCardDraft(input.seed);
     case "register_judgment":
@@ -161,6 +235,11 @@ const buildCardDraft = async (input: {
         const generated = await input.modelProvider.generateRecognitionFreshSentenceCard(
           input.seed,
         );
+        validateRecognitionPrompt({
+          capturedSentence:
+            input.seed.primarySentence ?? input.seed.contexts[0]?.text ?? null,
+          promptPayload: generated.promptPayload,
+        });
 
         return {
           answerKey: generated.answerKey,
@@ -171,7 +250,7 @@ const buildCardDraft = async (input: {
           promptPayload: generated.promptPayload,
           promptTemplateVersion: reviewCardPromptTemplateVersion,
           provider: input.modelProvider.provider,
-          schemaVersion: "review-card-prompt.v1",
+          schemaVersion: "review-card-prompt.v2",
           seedId: input.seed.id,
           trace: generated.trace,
         };
@@ -185,7 +264,10 @@ const buildCardDraft = async (input: {
           seedId: input.seed.id,
         });
 
-        return buildDeterministicRecognitionCardDraft(input.seed);
+        return withFallbackTrace({
+          draft: buildDeterministicRecognitionCardDraft(input.seed),
+          error,
+        });
       }
     case "meaning_in_context":
     default:
@@ -225,6 +307,7 @@ const recordReviewProductEventSafely = async (input: {
         payload: {
           dimension: "distinction" | "recognition" | "usage";
           exerciseType:
+            | "cloze_recall"
             | "contrastive_choice"
             | "meaning_in_context"
             | "recognition_in_fresh_sentence"
@@ -450,6 +533,13 @@ export const createReviewService = (input: {
             );
           }
 
+          if (latestCard.answerKey.type !== submission.type) {
+            throw reviewConflictError(
+              "Review card answer format does not match the current prompt.",
+              requestId,
+            );
+          }
+
           const currentState = await repository.getReviewStateForSeed({
             seedId: latestCard.seedId,
             userId,
@@ -508,9 +598,17 @@ export const createReviewService = (input: {
             result: {
               cardId,
               correct: applied.outcome.correct,
-              correctChoiceId: latestCard.answerKey.correctChoiceId,
               outcome: applied.outcome.outcome,
               seedStage: nextSeedStage,
+              ...(latestCard.answerKey.type === "choice"
+                ? {
+                    correctChoiceId: latestCard.answerKey.correctChoiceId,
+                    submissionType: "choice" as const,
+                  }
+                : {
+                    expectedText: latestCard.answerKey.canonicalAnswer,
+                    submissionType: "text" as const,
+                  }),
             },
             session: nextPersistedSession,
           };

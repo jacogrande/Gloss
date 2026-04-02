@@ -42,6 +42,7 @@ const createCard = (): ReviewCard => ({
     type: "meaning_in_context",
     word: "pellucid",
   },
+  seedId: "seed_1",
   status: "pending",
 });
 
@@ -84,20 +85,57 @@ describe("review presenters", () => {
         correctChoiceId: "choice_1",
         outcome: "incorrect",
         seedStage: "new",
+        submissionType: "choice",
       },
-      selectedChoiceId: "choice_2",
+      submission: {
+        choiceId: "choice_2",
+        type: "choice",
+      },
     });
 
     expect(feedback.title).toBe("Try again");
-    expect(feedback.correctChoiceLabel).toBe(
+    expect(feedback.correctAnswerLabel).toBe(
       "Especially clear and easy to follow.",
     );
-    expect(feedback.selectedChoiceLabel).toBe(
+    expect(feedback.submittedAnswerLabel).toBe(
       "Mostly careless and imprecise.",
     );
     expect(feedback.explanation).toContain("pellucid means");
-    expect(feedback.explanation).toContain("“Especially clear and easy to follow.”");
+    expect(feedback.explanation).toContain("“Especially clear and easy to follow”");
     expect(feedback.message).toContain("Here, the better fit is");
+  });
+
+  it("builds learner-facing feedback for typed recall cards", () => {
+    const card: ReviewCard = {
+      ...createCard(),
+      exerciseType: "cloze_recall",
+      promptPayload: {
+        question:
+          "Type the saved word that best completes the blank. Especially clear and easy to follow.",
+        sentence: "Her explanation was ____ even under pressure.",
+        type: "cloze_recall",
+      },
+    };
+    const feedback = getReviewFeedbackDisplayState({
+      card,
+      result: {
+        cardId: "card_1",
+        correct: false,
+        expectedText: "pellucid",
+        outcome: "incorrect",
+        seedStage: "new",
+        submissionType: "text",
+      },
+      submission: {
+        text: "lucid",
+        type: "text",
+      },
+    });
+
+    expect(feedback.correctAnswerLabel).toBe("pellucid");
+    expect(feedback.submittedAnswerLabel).toBe("lucid");
+    expect(feedback.explanation).toContain("missing word is");
+    expect(feedback.message).toContain("You gave");
   });
 
   it("models route state explicitly", () => {
@@ -120,5 +158,6 @@ describe("review presenters", () => {
 
   it("translates internal exercise types into learner-facing labels", () => {
     expect(formatReviewExerciseLabel("register_judgment")).toBe("Tone");
+    expect(formatReviewExerciseLabel("cloze_recall")).toBe("Recall");
   });
 });

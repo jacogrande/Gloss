@@ -7,5 +7,7 @@ coverage
 .DS_Store
 playwright-report
 test-results
+.playwright-mcp
+sprint8-review-meaning-card.png
 .local
 *.tsbuildinfo

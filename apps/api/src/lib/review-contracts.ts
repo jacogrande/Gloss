@@ -30,7 +30,7 @@ import type {
 import { normalizeWord } from "./seed-contracts";
 
 export const reviewSchedulerVersion = "review-scheduler.v1" as const;
-export const reviewCardPromptTemplateVersion = "review-card.v1" as const;
+export const reviewCardPromptTemplateVersion = "review-card.v2" as const;
 
 type ReviewSeedCandidate = {
   reviewState: ReviewStateRow | null;
@@ -80,6 +80,133 @@ const genericMeaningDistractors = [
 
 const normalizeSentence = (value: string): string =>
   value.trim().replace(/\s+/g, " ");
+
+const normalizeRecallAnswer = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLowerCase();
+
+const normalizeSentenceForComparison = (value: string): string =>
+  normalizeSentence(value).toLocaleLowerCase("en-US");
+
+const createPhrasePattern = (value: string): RegExp => {
+  const tokens = normalizeWord(value)
+    .split(/\s+/u)
+    .filter((token) => token.length > 0)
+    .map(escapeRegExp);
+
+  if (tokens.length === 0) {
+    return /$^/u;
+  }
+
+  return new RegExp(
+    `(^|[^\\p{L}\\p{N}])(${tokens.join("\\s+")})(?=$|[^\\p{L}\\p{N}])`,
+    "iu",
+  );
+};
+
+const containsNormalizedPhrase = (input: {
+  phrase: string;
+  text: string;
+}): boolean => createPhrasePattern(input.phrase).test(normalizeSentence(input.text));
+
+const replaceFirstPhraseOccurrence = (input: {
+  replacement: string;
+  sentence: string;
+  word: string;
+}): string =>
+  input.sentence.replace(
+    createPhrasePattern(input.word),
+    (_, prefix: string) => `${prefix}${input.replacement}`,
+  );
+
+export const isSentenceVerbatimReuse = (input: {
+  candidateSentence: string;
+  capturedSentence: string;
+}): boolean =>
+  normalizeSentenceForComparison(input.candidateSentence) ===
+  normalizeSentenceForComparison(input.capturedSentence);
+
+const createBlankedCapturedSentence = (input: {
+  capturedSentence: string;
+  word: string;
+}): string =>
+  normalizeSentence(
+    replaceFirstPhraseOccurrence({
+      replacement: "____",
+      sentence: input.capturedSentence,
+      word: input.word,
+    }),
+  );
+
+const getRecognitionPromptIssues = (input: {
+  capturedSentence?: string | null;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "recognition_in_fresh_sentence";
+    }
+  >;
+}): string[] => {
+  if (
+    typeof input.capturedSentence !== "string" ||
+    input.capturedSentence.trim().length === 0
+  ) {
+    return [];
+  }
+
+  return isSentenceVerbatimReuse({
+    candidateSentence: input.promptPayload.sentence,
+    capturedSentence: input.capturedSentence,
+  })
+    ? ["Recognition prompt must not repeat the captured sentence."]
+    : [];
+};
+
+const getClozePromptIssues = (input: {
+  capturedSentence?: string | null;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "cloze_recall";
+    }
+  >;
+  word: string;
+}): string[] => {
+  const issues: string[] = [];
+  const normalizedWord = normalizeWord(input.word);
+
+  if (!input.promptPayload.sentence.includes("____")) {
+    issues.push("Cloze recall sentence must include a visible blank marker.");
+  }
+
+  if (
+    containsNormalizedPhrase({
+      phrase: normalizedWord,
+      text: input.promptPayload.question,
+    }) ||
+    containsNormalizedPhrase({
+      phrase: normalizedWord,
+      text: input.promptPayload.sentence,
+    })
+  ) {
+    issues.push("Cloze recall prompt must not leak the answer.");
+  }
+
+  if (
+    typeof input.capturedSentence === "string" &&
+    input.capturedSentence.trim().length > 0 &&
+    normalizeSentenceForComparison(input.promptPayload.sentence) ===
+      normalizeSentenceForComparison(
+        createBlankedCapturedSentence({
+          capturedSentence: input.capturedSentence,
+          word: input.word,
+        }),
+      )
+  ) {
+    issues.push("Cloze recall prompt must not repeat the captured sentence.");
+  }
+
+  return issues;
+};
 
 const toSentenceCase = (value: string): string => {
   const trimmed = value.trim();
@@ -281,6 +408,9 @@ const getSupportedExerciseTypes = (seed: SeedDetail): ReviewExerciseType[] => {
   return [
     "meaning_in_context",
     "recognition_in_fresh_sentence",
+    ...((seed.primarySentence ?? seed.contexts[0]?.text)
+      ? (["cloze_recall"] as const)
+      : []),
     ...(seed.enrichment.payload.contrastiveWord
       ? (["contrastive_choice"] as const)
       : []),
@@ -310,9 +440,11 @@ const chooseExerciseForDimension = (
   return score === 0 &&
     supportedExerciseTypes.includes("meaning_in_context")
     ? "meaning_in_context"
+    : score >= 2 && supportedExerciseTypes.includes("cloze_recall")
+      ? "cloze_recall"
     : supportedExerciseTypes.includes("recognition_in_fresh_sentence")
       ? "recognition_in_fresh_sentence"
-      : supportedExerciseTypes.includes("meaning_in_context")
+        : supportedExerciseTypes.includes("meaning_in_context")
         ? "meaning_in_context"
         : supportedExerciseTypes[0] ?? null;
 };
@@ -430,7 +562,12 @@ export const selectDueReviewTargets = (input: {
 };
 
 const buildMeaningChoices = (seed: SeedDetail): {
-  choices: ReviewCardPromptPayload["choices"];
+  choices: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "meaning_in_context";
+    }
+  >["choices"];
   correctChoiceId: string;
 } => {
   const payload = seed.enrichment?.payload;
@@ -478,6 +615,7 @@ export const buildMeaningInContextCardDraft = (
   return {
     answerKey: {
       correctChoiceId,
+      type: "choice",
     },
     dimension: "recognition",
     exerciseType: "meaning_in_context",
@@ -498,6 +636,7 @@ export const buildMeaningInContextCardDraft = (
       outputRedacted: {
         answerKey: {
           correctChoiceId,
+          type: "choice",
         },
         promptPayload: {
           choices,
@@ -514,6 +653,12 @@ export const buildMeaningInContextCardDraft = (
 export const buildDeterministicRecognitionCardDraft = (
   seed: SeedDetail,
 ): ReviewCardDraft & {
+  answerKey: Extract<
+    ReviewAnswerKey,
+    {
+      type: "choice";
+    }
+  >;
   promptPayload: Extract<
     ReviewCardPromptPayload,
     {
@@ -553,6 +698,7 @@ export const buildDeterministicRecognitionCardDraft = (
   return {
     answerKey: {
       correctChoiceId,
+      type: "choice",
     },
     dimension: "recognition",
     exerciseType: "recognition_in_fresh_sentence",
@@ -573,6 +719,7 @@ export const buildDeterministicRecognitionCardDraft = (
       outputRedacted: {
         answerKey: {
           correctChoiceId,
+          type: "choice",
         },
         promptPayload: {
           choices,
@@ -584,6 +731,113 @@ export const buildDeterministicRecognitionCardDraft = (
       },
     }),
   };
+};
+
+export const buildDeterministicClozeRecallCardDraft = (
+  seed: SeedDetail,
+): ReviewCardDraft & {
+  answerKey: Extract<
+    ReviewAnswerKey,
+    {
+      type: "text";
+    }
+  >;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "cloze_recall";
+    }
+  >;
+} => {
+  const payload = seed.enrichment?.payload;
+
+  if (!payload) {
+    throw new Error("Cloze recall card requires an enrichment payload.");
+  }
+
+  const sentenceTemplates = [
+    "The most fitting word in the margin was ____.",
+    "In her notebook, the clearest single word was ____.",
+    "One exact word carried the meaning here: ____.",
+  ] as const;
+  const sentence = normalizeSentence(
+    sentenceTemplates[normalizeWord(seed.word).length % sentenceTemplates.length] ??
+      sentenceTemplates[0],
+  );
+  const promptPayload = {
+    question: `Type the saved word that best completes the blank. ${toSentenceCase(stripContextualLead(payload.gloss))}`,
+    sentence,
+    type: "cloze_recall" as const,
+  };
+  const promptIssues = getClozePromptIssues({
+    capturedSentence: seed.primarySentence ?? seed.contexts[0]?.text ?? null,
+    promptPayload,
+    word: seed.word,
+  });
+
+  if (promptIssues.length > 0) {
+    throw new Error(promptIssues.join(" "));
+  }
+
+  return {
+    answerKey: {
+      acceptableAnswers: [seed.word],
+      canonicalAnswer: seed.word,
+      type: "text",
+    },
+    dimension: "recognition",
+    exerciseType: "cloze_recall",
+    generationSource: "template",
+    model: null,
+    promptPayload,
+    promptTemplateVersion: reviewCardPromptTemplateVersion,
+    provider: null,
+    schemaVersion: reviewCardPromptPayloadSchemaVersion,
+    seedId: seed.id,
+    trace: createAcceptedTraceDraft({
+      outputRedacted: {
+        answerKey: {
+          acceptableAnswers: [seed.word],
+          canonicalAnswer: seed.word,
+          type: "text",
+        },
+        promptPayload,
+      },
+    }),
+  };
+};
+
+export const validateClozePrompt = (input: {
+  capturedSentence?: string | null;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "cloze_recall";
+    }
+  >;
+  word: string;
+}): void => {
+  const issues = getClozePromptIssues(input);
+
+  if (issues.length > 0) {
+    throw new Error(issues.join(" "));
+  }
+};
+
+export const validateRecognitionPrompt = (input: {
+  capturedSentence?: string | null;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "recognition_in_fresh_sentence";
+    }
+  >;
+}): void => {
+  const issues = getRecognitionPromptIssues(input);
+
+  if (issues.length > 0) {
+    throw new Error(issues.join(" "));
+  }
 };
 
 export const buildContrastiveChoiceCardDraft = (
@@ -621,6 +875,7 @@ export const buildContrastiveChoiceCardDraft = (
   return {
     answerKey: {
       correctChoiceId,
+      type: "choice",
     },
     dimension: "distinction",
     exerciseType: "contrastive_choice",
@@ -641,6 +896,7 @@ export const buildContrastiveChoiceCardDraft = (
       outputRedacted: {
         answerKey: {
           correctChoiceId,
+          type: "choice",
         },
         promptPayload: {
           choices,
@@ -686,6 +942,7 @@ export const buildRegisterJudgmentCardDraft = (
   return {
     answerKey: {
       correctChoiceId,
+      type: "choice",
     },
     dimension: "usage",
     exerciseType: "register_judgment",
@@ -705,6 +962,7 @@ export const buildRegisterJudgmentCardDraft = (
       outputRedacted: {
         answerKey: {
           correctChoiceId,
+          type: "choice",
         },
         promptPayload: {
           choices,
@@ -748,13 +1006,40 @@ export const gradeReviewSubmission = (input: {
 }): {
   correct: boolean;
   outcome: ReviewOutcome;
-} => ({
-  correct: input.submission.choiceId === input.answerKey.correctChoiceId,
-  outcome:
-    input.submission.choiceId === input.answerKey.correctChoiceId
-      ? "correct"
-      : "incorrect",
-});
+} => {
+  if (input.answerKey.type !== input.submission.type) {
+    throw new Error("Review submission type does not match the current card.");
+  }
+
+  if (input.answerKey.type === "choice" && input.submission.type === "choice") {
+    return {
+      correct: input.submission.choiceId === input.answerKey.correctChoiceId,
+      outcome:
+        input.submission.choiceId === input.answerKey.correctChoiceId
+          ? "correct"
+          : "incorrect",
+    };
+  }
+
+  if (input.answerKey.type === "text" && input.submission.type === "text") {
+    const normalizedSubmission = normalizeRecallAnswer(input.submission.text);
+    const acceptedAnswers = input.answerKey.acceptableAnswers.map(
+      normalizeRecallAnswer,
+    );
+
+    return {
+      correct: acceptedAnswers.includes(normalizedSubmission),
+      outcome: acceptedAnswers.includes(normalizedSubmission)
+        ? "correct"
+        : "incorrect",
+    };
+  }
+
+  return {
+    correct: false,
+    outcome: "incorrect",
+  };
+};
 
 export const applyReviewOutcomeToState = (input: {
   answerKey: ReviewAnswerKey;
@@ -883,6 +1168,7 @@ export const toReviewCard = (row: ReviewCardRow): ReviewCard =>
     id: row.id,
     position: row.position,
     promptPayload: row.promptPayload,
+    seedId: row.seedId,
     status: row.status,
   });
 

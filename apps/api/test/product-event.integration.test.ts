@@ -31,9 +31,15 @@ type ProductEventRow = {
 };
 
 type ReviewCardAnswerKeyRow = {
-  answer_key: {
-    correctChoiceId: string;
-  };
+  answer_key:
+    | {
+        correctChoiceId: string;
+        type: "choice";
+      }
+    | {
+        canonicalAnswer: string;
+        type: "text";
+      };
   id: string;
 };
 
@@ -246,10 +252,19 @@ describe("product event integration", () => {
       const submitResponse = await context.app.request(
         `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${row.id}/submit`,
         {
-          body: JSON.stringify({
-            choiceId: row.answer_key.correctChoiceId,
-            latencyMs: 150,
-          }),
+          body: JSON.stringify(
+            row.answer_key.type === "choice"
+              ? {
+                  choiceId: row.answer_key.correctChoiceId,
+                  latencyMs: 150,
+                  type: "choice",
+                }
+              : {
+                  latencyMs: 150,
+                  text: row.answer_key.canonicalAnswer,
+                  type: "text",
+                },
+          ),
           headers: {
             "content-type": "application/json",
             cookie,

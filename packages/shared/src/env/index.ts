@@ -7,6 +7,7 @@ const nodeEnvSchema = z.enum(["development", "test", "production"]);
 const logLevelSchema = z.enum(["debug", "info", "warn", "error"]);
 
 const enrichmentProviderModeSchema = z.enum(["fixture", "live"]);
+const reviewProviderModeSchema = z.enum(["fixture", "live"]);
 
 const cookieDomainSchema = z
   .string()
@@ -68,21 +69,29 @@ export const serverEnvSchema = z.object({
   OPENAI_API_KEY: nonEmptyStringSchema.optional(),
   OPENAI_MODEL: nonEmptyStringSchema.default("gpt-5-mini-2025-08-07"),
   PORT: portSchema,
+  REVIEW_PROVIDER_MODE: reviewProviderModeSchema.optional(),
   WEB_ORIGIN: z.url(),
 }).superRefine((value, context) => {
-  if (value.ENRICHMENT_PROVIDER_MODE !== "live") {
-    return;
-  }
+  const reviewProviderMode =
+    value.REVIEW_PROVIDER_MODE ?? value.ENRICHMENT_PROVIDER_MODE;
 
-  if (!value.OPENAI_API_KEY) {
+  if (
+    (value.ENRICHMENT_PROVIDER_MODE === "live" ||
+      reviewProviderMode === "live") &&
+    !value.OPENAI_API_KEY
+  ) {
     context.addIssue({
       code: "custom",
-      message: "OPENAI_API_KEY is required when ENRICHMENT_PROVIDER_MODE=live.",
+      message:
+        "OPENAI_API_KEY is required when ENRICHMENT_PROVIDER_MODE=live or REVIEW_PROVIDER_MODE=live.",
       path: ["OPENAI_API_KEY"],
     });
   }
 
-  if (!value.MERRIAM_WEBSTER_DICTIONARY_API_KEY) {
+  if (
+    value.ENRICHMENT_PROVIDER_MODE === "live" &&
+    !value.MERRIAM_WEBSTER_DICTIONARY_API_KEY
+  ) {
     context.addIssue({
       code: "custom",
       message:
@@ -91,7 +100,10 @@ export const serverEnvSchema = z.object({
     });
   }
 
-  if (!value.MERRIAM_WEBSTER_THESAURUS_API_KEY) {
+  if (
+    value.ENRICHMENT_PROVIDER_MODE === "live" &&
+    !value.MERRIAM_WEBSTER_THESAURUS_API_KEY
+  ) {
     context.addIssue({
       code: "custom",
       message:
@@ -99,7 +111,10 @@ export const serverEnvSchema = z.object({
       path: ["MERRIAM_WEBSTER_THESAURUS_API_KEY"],
     });
   }
-});
+}).transform((value) => ({
+  ...value,
+  REVIEW_PROVIDER_MODE: value.REVIEW_PROVIDER_MODE ?? value.ENRICHMENT_PROVIDER_MODE,
+}));
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 

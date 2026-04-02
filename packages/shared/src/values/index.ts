@@ -54,6 +54,7 @@ export const reviewDimensionValues = [
 export const reviewExerciseTypeValues = [
   "meaning_in_context",
   "recognition_in_fresh_sentence",
+  "cloze_recall",
   "contrastive_choice",
   "register_judgment",
 ] as const;

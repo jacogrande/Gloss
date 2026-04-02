@@ -4,8 +4,10 @@ import {
   createSeed,
   fetchSeedDetail,
   fetchSeedList,
+  fetchReviewSession,
   fetchSessionSnapshot,
   requestSeedEnrichment,
+  submitReviewCard,
 } from "../src/lib/api-client";
 
 describe("fetchSessionSnapshot", () => {
@@ -319,6 +321,133 @@ describe("fetchSessionSnapshot", () => {
       expect.objectContaining({
         body: JSON.stringify({ force: true }),
         credentials: "include",
+        method: "POST",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("loads a cloze review card through the typed review session contract", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            cards: [
+              {
+                dimension: "recognition",
+                exerciseType: "cloze_recall",
+                generationSource: "model",
+                id: "card_123",
+                position: 0,
+                promptPayload: {
+                  question:
+                    "Type the saved word that best completes the blank. Especially clear and easy to follow.",
+                  sentence: "Her explanation was ____ even under pressure.",
+                  type: "cloze_recall",
+                },
+                seedId: "seed_123",
+                status: "pending",
+              },
+            ],
+            session: {
+              cardCount: 1,
+              completedAt: null,
+              currentCardId: "card_123",
+              id: "session_123",
+              remainingCount: 1,
+              startedAt: "2026-03-26T12:34:56.000Z",
+              status: "active",
+            },
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const data = await fetchReviewSession("http://127.0.0.1:8787", "session_123");
+
+    expect(data.cards[0]?.promptPayload.type).toBe("cloze_recall");
+    expect(data.cards[0]?.seedId).toBe("seed_123");
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/review/sessions/session_123",
+      expect.objectContaining({
+        credentials: "include",
+      }),
+    );
+
+    fetchMock.mockRestore();
+  });
+
+  it("submits and parses typed recall review answers through the client contract", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            result: {
+              cardId: "card_123",
+              correct: true,
+              expectedText: "pellucid",
+              outcome: "correct",
+              seedStage: "stabilizing",
+              submissionType: "text",
+            },
+            session: {
+              cards: [
+                {
+                  dimension: "recognition",
+                  exerciseType: "cloze_recall",
+                  generationSource: "model",
+                  id: "card_123",
+                  position: 0,
+                  promptPayload: {
+                    question:
+                      "Type the saved word that best completes the blank. Especially clear and easy to follow.",
+                    sentence: "Her explanation was ____ even under pressure.",
+                    type: "cloze_recall",
+                  },
+                  seedId: "seed_123",
+                  status: "answered",
+                },
+              ],
+              session: {
+                cardCount: 1,
+                completedAt: "2026-03-26T12:35:10.000Z",
+                currentCardId: null,
+                id: "session_123",
+                remainingCount: 0,
+                startedAt: "2026-03-26T12:34:56.000Z",
+                status: "completed",
+              },
+            },
+          },
+          ok: true,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const data = await submitReviewCard("http://127.0.0.1:8787", {
+      cardId: "card_123",
+      sessionId: "session_123",
+      submission: {
+        text: " pellucid ",
+        type: "text",
+      },
+    });
+
+    expect(data.result.submissionType).toBe("text");
+    if (data.result.submissionType === "text") {
+      expect(data.result.expectedText).toBe("pellucid");
+    }
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8787/review/sessions/session_123/cards/card_123/submit",
+      expect.objectContaining({
+        body: JSON.stringify({
+          text: "pellucid",
+          type: "text",
+        }),
         method: "POST",
       }),
     );

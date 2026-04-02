@@ -18,6 +18,7 @@ describe("environment parsing", () => {
 
     expect(env.PORT).toBe(8787);
     expect(env.LOG_LEVEL).toBe("debug");
+    expect(env.REVIEW_PROVIDER_MODE).toBe("fixture");
   });
 
   it("rejects an invalid server environment", () => {

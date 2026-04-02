@@ -22,6 +22,8 @@ export type BrowserJourneyId =
   | "seed_detail_ready"
   | "weak_evidence_recovery"
   | "review_queue"
+  | "review_recall_card"
+  | "review_recall_feedback"
   | "active_review_feedback"
   | "review_completion"
   | "forced_reauth_deep_link";
@@ -89,6 +91,17 @@ const browserJourneys: BrowserJourneyDefinition[] = [
     description: "The review queue should explain what is due and how to start.",
     id: "review_queue",
     title: "Review queue",
+  },
+  {
+    description: "Established words should surface a typed recall card before advancing.",
+    id: "review_recall_card",
+    title: "Review recall card",
+  },
+  {
+    description:
+      "Typed recall should support keyboard-first submit and show explicit incorrect feedback.",
+    id: "review_recall_feedback",
+    title: "Review recall feedback",
   },
   {
     description: "Submitting a review card should show explicit feedback before advancing.",

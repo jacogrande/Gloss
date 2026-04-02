@@ -49,6 +49,12 @@ import {
 } from "@gloss/shared/values";
 
 type JsonRecord = Record<string, unknown>;
+type ReviewChoice = Extract<
+  ReviewCardPromptPayload,
+  {
+    type: "meaning_in_context";
+  }
+>["choices"][number];
 
 const seedStageValueSet = new Set<SeedStage>(seedStageValues);
 const sourceKindValueSet = new Set<SourceKind>(sourceKindValues);
@@ -74,6 +80,7 @@ const reviewSessionStatusValueSet = new Set<ReviewSessionStatus>(
   reviewSessionStatusValueList,
 );
 const reviewOutcomeValueSet = new Set<ReviewOutcome>(reviewOutcomeValueList);
+const reviewSubmissionTypeValueSet = new Set(["choice", "text"] as const);
 
 const isRecord = (value: unknown): value is JsonRecord =>
   typeof value === "object" && value !== null;
@@ -100,6 +107,30 @@ const readNullableString = (value: unknown): string | null => {
   }
 
   return readString(value);
+};
+
+const readRecallAnswer = (value: unknown): string => {
+  if (typeof value !== "string") {
+    throw new Error("Expected string.");
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0 || trimmed.length > 160) {
+    throw new Error("Expected valid recall answer.");
+  }
+
+  return trimmed;
+};
+
+const readClozeSentence = (value: unknown): string => {
+  const sentence = readString(value);
+
+  if (!sentence.includes("____")) {
+    throw new Error("Expected cloze sentence to include a blank.");
+  }
+
+  return sentence;
 };
 
 const readBoolean = (value: unknown): boolean => {
@@ -304,7 +335,7 @@ const parseSeedDetail = (value: unknown): SeedDetail => {
 
 const parseReviewChoice = (
   value: unknown,
-): ReviewCardPromptPayload["choices"][number] => {
+): ReviewChoice => {
   const record = readRecord(value);
 
   return {
@@ -341,6 +372,12 @@ const parseReviewCardPromptPayload = (
         type,
         word: readString(record.word),
       };
+    case "cloze_recall":
+      return {
+        question: readString(record.question),
+        sentence: readClozeSentence(record.sentence),
+        type,
+      };
     case "contrastive_choice":
       return {
         choices: readArray(record.choices).map(parseReviewChoice),
@@ -374,6 +411,7 @@ const parseReviewCard = (value: unknown): ReviewCard => {
     id: readString(record.id),
     position: readNonNegativeInteger(record.position),
     promptPayload: parseReviewCardPromptPayload(record.promptPayload),
+    seedId: readString(record.seedId),
     status: readEnum(record.status, reviewCardStatusValueSet),
   };
 };
@@ -472,15 +510,30 @@ export const parseSubmitReviewCardResponse = (
   parseApiSuccess(value, (data) => {
     const record = readRecord(data);
     const result = readRecord(record.result);
+    const submissionType = readEnum(
+      result.submissionType,
+      reviewSubmissionTypeValueSet,
+    );
 
     return {
-      result: {
-        cardId: readString(result.cardId),
-        correct: readBoolean(result.correct),
-        correctChoiceId: readString(result.correctChoiceId),
-        outcome: readEnum(result.outcome, reviewOutcomeValueSet),
-        seedStage: readEnum(result.seedStage, seedStageValueSet),
-      },
+      result:
+        submissionType === "choice"
+          ? {
+              cardId: readString(result.cardId),
+              correct: readBoolean(result.correct),
+              correctChoiceId: readString(result.correctChoiceId),
+              outcome: readEnum(result.outcome, reviewOutcomeValueSet),
+              seedStage: readEnum(result.seedStage, seedStageValueSet),
+              submissionType,
+            }
+          : {
+              cardId: readString(result.cardId),
+              correct: readBoolean(result.correct),
+              expectedText: readRecallAnswer(result.expectedText),
+              outcome: readEnum(result.outcome, reviewOutcomeValueSet),
+              seedStage: readEnum(result.seedStage, seedStageValueSet),
+              submissionType,
+            },
       session: parseReviewSessionDetail(record.session),
     };
   });
@@ -521,11 +574,23 @@ export const parseCreateSeedInput = (value: CreateSeedInput): CreateSeedInput =>
 
 export const parseReviewSubmissionInput = (
   value: ReviewSubmissionInput,
-): ReviewSubmissionInput => ({
-  ...(typeof value.latencyMs === "number"
+): ReviewSubmissionInput =>
+  value.type === "choice"
     ? {
-        latencyMs: readNonNegativeInteger(value.latencyMs),
+        ...(typeof value.latencyMs === "number"
+          ? {
+              latencyMs: readNonNegativeInteger(value.latencyMs),
+            }
+          : {}),
+        choiceId: readString(value.choiceId),
+        type: "choice",
       }
-    : {}),
-  choiceId: readString(value.choiceId),
-});
+    : {
+        ...(typeof value.latencyMs === "number"
+          ? {
+              latencyMs: readNonNegativeInteger(value.latencyMs),
+            }
+          : {}),
+        text: readRecallAnswer(value.text),
+        type: "text",
+      };

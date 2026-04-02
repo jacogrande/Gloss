@@ -1,5 +1,7 @@
 import type { ServerEnv } from "@gloss/shared/env";
 import {
+  reviewClozeRecallModelOutputJsonSchema,
+  reviewClozeRecallModelOutputSchema,
   reviewRecognitionFreshSentenceModelOutputJsonSchema,
   reviewRecognitionFreshSentenceModelOutputSchema,
 } from "@gloss/shared/contracts";
@@ -15,6 +17,7 @@ import type {
 import { ZodError } from "zod";
 
 import {
+  buildDeterministicClozeRecallCardDraft,
   buildDeterministicRecognitionCardDraft,
   reviewCardPromptTemplateVersion,
   type ReviewCardTraceDraft,
@@ -41,7 +44,12 @@ type OpenAIResponseBody = {
 };
 
 export type GeneratedRecognitionCard = {
-  answerKey: ReviewAnswerKey;
+  answerKey: Extract<
+    ReviewAnswerKey,
+    {
+      type: "choice";
+    }
+  >;
   promptPayload: Extract<
     ReviewCardPromptPayload,
     {
@@ -51,7 +59,26 @@ export type GeneratedRecognitionCard = {
   trace: ReviewCardTraceDraft;
 };
 
+export type GeneratedClozeRecallCard = {
+  answerKey: Extract<
+    ReviewAnswerKey,
+    {
+      type: "text";
+    }
+  >;
+  promptPayload: Extract<
+    ReviewCardPromptPayload,
+    {
+      type: "cloze_recall";
+    }
+  >;
+  trace: ReviewCardTraceDraft;
+};
+
 export type ReviewModelProvider = {
+  generateClozeRecallCard: (
+    seed: SeedDetail,
+  ) => Promise<GeneratedClozeRecallCard>;
   generateRecognitionFreshSentenceCard: (
     seed: SeedDetail,
   ) => Promise<GeneratedRecognitionCard>;
@@ -124,7 +151,10 @@ const toReviewProviderError = (
 const createDeveloperInstruction = (): string =>
   "Create one recognition-in-a-fresh-sentence review card for an advanced-reader vocabulary app. Return strict JSON only. The sentence must be new, concise, adult, and plausible. Do not repeat the captured sentence. Provide exactly one correct choice and 2 or 3 total choices. Wrong choices should be plausible enough to test meaning, but should not be absurd.";
 
-const createUserInstructionPayload = (
+const createClozeDeveloperInstruction = (): string =>
+  "Create one cloze-recall review card for an advanced-reader vocabulary app. Return strict JSON only. The sentence must be new, concise, adult, and plausible. Replace the target word with four underscores: ____. Do not repeat the captured sentence. Do not leak the answer anywhere else in the prompt.";
+
+const createRecognitionUserInstructionPayload = (
   seed: SeedDetail,
 ): Record<string, unknown> => ({
   lexical_scaffolding: {
@@ -148,6 +178,30 @@ const createUserInstructionPayload = (
   },
 });
 
+const createClozeUserInstructionPayload = (
+  seed: SeedDetail,
+): Record<string, unknown> => ({
+  lexical_scaffolding: {
+    contrastive_word: seed.enrichment?.payload?.contrastiveWord ?? null,
+    gloss: seed.enrichment?.payload?.gloss ?? null,
+    register_note: seed.enrichment?.payload?.registerNote ?? null,
+    related_word: seed.enrichment?.payload?.relatedWord ?? null,
+  },
+  prompt_template_version: reviewCardPromptTemplateVersion,
+  rules: {
+    avoid_verbatim_capture_sentence: true,
+    keep_sentence_under_characters: 220,
+    output_schema: "review-cloze-recall.v1",
+    visible_blank_token: "____",
+  },
+  task: "Create one cloze_recall review card.",
+  word_seed: {
+    captured_sentence: seed.primarySentence,
+    source_title: seed.source?.title ?? null,
+    word: seed.word,
+  },
+});
+
 const createAcceptedTrace = (input: {
   inputRedacted: Record<string, unknown> | null;
   outputRedacted: Record<string, unknown>;
@@ -161,12 +215,29 @@ const createAcceptedTrace = (input: {
 });
 
 const createFixtureReviewModelProvider = (): ReviewModelProvider => ({
+  generateClozeRecallCard(seed) {
+    const draft = buildDeterministicClozeRecallCardDraft(seed);
+    const developerInstruction = createClozeDeveloperInstruction();
+    const userInstruction = createClozeUserInstructionPayload(seed);
+
+    return Promise.resolve<GeneratedClozeRecallCard>({
+      answerKey: draft.answerKey,
+      promptPayload: draft.promptPayload,
+      trace: createAcceptedTrace({
+        inputRedacted: {
+          developerInstruction,
+          userInstruction,
+        },
+        outputRedacted: draft.trace.outputRedacted,
+      }),
+    });
+  },
   generateRecognitionFreshSentenceCard(seed) {
     const draft = buildDeterministicRecognitionCardDraft(seed);
     const developerInstruction = createDeveloperInstruction();
-    const userInstruction = createUserInstructionPayload(seed);
+    const userInstruction = createRecognitionUserInstructionPayload(seed);
 
-    return Promise.resolve({
+    return Promise.resolve<GeneratedRecognitionCard>({
       answerKey: draft.answerKey,
       promptPayload: draft.promptPayload,
       trace: createAcceptedTrace({
@@ -183,6 +254,102 @@ const createFixtureReviewModelProvider = (): ReviewModelProvider => ({
 });
 
 const createLiveReviewModelProvider = (env: ServerEnv): ReviewModelProvider => ({
+  async generateClozeRecallCard(seed) {
+    const timeoutMs = 12_000;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+    const developerInstruction = createClozeDeveloperInstruction();
+    const userInstructionPayload = createClozeUserInstructionPayload(seed);
+
+    try {
+      const response = await fetch("https://api.openai.com/v1/responses", {
+        body: JSON.stringify({
+          input: [
+            {
+              content: [
+                {
+                  text: developerInstruction,
+                  type: "input_text",
+                },
+              ],
+              role: "developer",
+            },
+            {
+              content: [
+                {
+                  text: JSON.stringify(userInstructionPayload, null, 2),
+                  type: "input_text",
+                },
+              ],
+              role: "user",
+            },
+          ],
+          model: env.OPENAI_MODEL,
+          text: {
+            format: {
+              name: "review_cloze_recall",
+              schema: reviewClozeRecallModelOutputJsonSchema,
+              strict: true,
+              type: "json_schema",
+            },
+          },
+        }),
+        headers: {
+          authorization: `Bearer ${env.OPENAI_API_KEY}`,
+          "content-type": "application/json",
+        },
+        method: "POST",
+        signal: controller.signal,
+      });
+
+      await ensureResponseOk(response, "OpenAI Responses");
+
+      const body = (await response.json()) as OpenAIResponseBody;
+      const outputText = extractOutputText(body);
+
+      if (!outputText) {
+        throw reviewProviderError(
+          "OpenAI Responses returned no readable structured output.",
+        );
+      }
+
+      const parsed = reviewClozeRecallModelOutputSchema.parse(
+        JSON.parse(outputText) as unknown,
+      );
+
+      return {
+        answerKey: {
+          acceptableAnswers: [seed.word],
+          canonicalAnswer: seed.word,
+          type: "text",
+        },
+        promptPayload: parsed.promptPayload,
+        trace: createAcceptedTrace({
+          inputRedacted: {
+            developerInstruction,
+            userInstruction: userInstructionPayload,
+          },
+          outputRedacted: parsed,
+        }),
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.name === "AbortError" ||
+          /aborted|timed out/iu.test(error.message))
+      ) {
+        throw reviewProviderError(
+          `OpenAI Responses timed out after ${timeoutMs}ms.`,
+        );
+      }
+
+      throw toReviewProviderError(error);
+    } finally {
+      clearTimeout(timeout);
+    }
+  },
   async generateRecognitionFreshSentenceCard(seed) {
     const timeoutMs = 12_000;
     const controller = new AbortController();
@@ -190,7 +357,7 @@ const createLiveReviewModelProvider = (env: ServerEnv): ReviewModelProvider => (
       controller.abort();
     }, timeoutMs);
     const developerInstruction = createDeveloperInstruction();
-    const userInstructionPayload = createUserInstructionPayload(seed);
+    const userInstructionPayload = createRecognitionUserInstructionPayload(seed);
 
     try {
       const response = await fetch("https://api.openai.com/v1/responses", {
@@ -251,6 +418,7 @@ const createLiveReviewModelProvider = (env: ServerEnv): ReviewModelProvider => (
       return {
         answerKey: {
           correctChoiceId: parsed.correctChoiceId,
+          type: "choice",
         },
         promptPayload: parsed.promptPayload,
         trace: createAcceptedTrace({
@@ -284,6 +452,6 @@ const createLiveReviewModelProvider = (env: ServerEnv): ReviewModelProvider => (
 export const createReviewModelProvider = (
   env: ServerEnv,
 ): ReviewModelProvider =>
-  env.ENRICHMENT_PROVIDER_MODE === "live"
+  env.REVIEW_PROVIDER_MODE === "live"
     ? createLiveReviewModelProvider(env)
     : createFixtureReviewModelProvider();

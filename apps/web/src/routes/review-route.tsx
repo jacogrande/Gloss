@@ -8,7 +8,9 @@ import {
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import type {
+  ReviewCard,
   ReviewSessionDetail,
+  ReviewSubmissionInput,
   ReviewSubmissionResult,
 } from "@gloss/shared/types";
 
@@ -16,6 +18,7 @@ import {
   formatReviewExerciseLabel,
   formatReviewProgressLabel,
   formatReviewRemainingLabel,
+  getReviewCardHeading,
   getReviewCompletionDisplayState,
   getReviewFeedbackDisplayState,
   getReviewQueueDisplayState,
@@ -44,7 +47,7 @@ type SubmitSuccess = {
 
 const createFeedbackSnapshot = (input: {
   response: SubmitSuccess;
-  selectedChoiceId: string;
+  submission: ReviewSubmissionInput;
 }): ReviewFeedbackSnapshot | null => {
   const answeredCard = input.response.session.cards.find(
     (card) => card.id === input.response.result.cardId,
@@ -57,7 +60,7 @@ const createFeedbackSnapshot = (input: {
   return {
     card: answeredCard,
     result: input.response.result,
-    selectedChoiceId: input.selectedChoiceId,
+    submission: input.submission,
   };
 };
 
@@ -70,10 +73,12 @@ export const ReviewRoute = (): JSX.Element => {
     null,
   );
   const [queueMessage, setQueueMessage] = useState<string | null>(null);
-  const [sessionMessage, setSessionMessage] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
+  const [textAnswer, setTextAnswer] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const cardStartedAt = useRef<number>(Date.now());
   const lastLoadedSessionId = useRef<string | null>(null);
@@ -109,7 +114,8 @@ export const ReviewRoute = (): JSX.Element => {
       if (!session?.session.id) {
         setFeedbackState(null);
         setSession(null);
-        setSessionMessage(message);
+        setSessionError(null);
+        setSessionNotice(message);
         refreshQueue();
         return;
       }
@@ -120,12 +126,13 @@ export const ReviewRoute = (): JSX.Element => {
           session.session.id,
         );
 
-        setFeedbackState(null);
-        setSession(nextSession);
-        setSessionMessage(message);
-        setSelectedChoiceId(null);
-        cardStartedAt.current = Date.now();
-        lastLoadedSessionId.current = nextSession.session.id;
+      setFeedbackState(null);
+      setSession(nextSession);
+      setSessionError(null);
+      setSessionNotice(message);
+      setSelectedChoiceId(null);
+      cardStartedAt.current = Date.now();
+      lastLoadedSessionId.current = nextSession.session.id;
         refreshQueue();
       } catch (error) {
         if (
@@ -138,7 +145,9 @@ export const ReviewRoute = (): JSX.Element => {
 
         setFeedbackState(null);
         setSession(null);
-        setSessionMessage(message);
+        setSessionError("Unable to load the latest review session.");
+        setSessionNotice(message);
+        lastLoadedSessionId.current = null;
         refreshQueue();
       }
     },
@@ -153,7 +162,8 @@ export const ReviewRoute = (): JSX.Element => {
 
       setFeedbackState(null);
       setSession(nextSession);
-      setSessionMessage(null);
+      setSessionError(null);
+      setSessionNotice(null);
       setSelectedChoiceId(null);
       cardStartedAt.current = Date.now();
       lastLoadedSessionId.current = sessionId;
@@ -166,11 +176,15 @@ export const ReviewRoute = (): JSX.Element => {
         return;
       }
 
-      setSessionMessage(
+      setFeedbackState(null);
+      setSession(null);
+      setSessionNotice(null);
+      setSessionError(
         error instanceof Error
           ? error.message
           : "Unable to load this review session.",
       );
+      lastLoadedSessionId.current = null;
     }
   });
 
@@ -197,19 +211,22 @@ export const ReviewRoute = (): JSX.Element => {
 
     cardStartedAt.current = Date.now();
     setSelectedChoiceId(null);
+    setTextAnswer("");
   }, [feedbackState, session?.session.currentCardId]);
 
   const startSession = async (): Promise<void> => {
     setIsStarting(true);
     setQueueMessage(null);
-    setSessionMessage(null);
+    setSessionError(null);
+    setSessionNotice(null);
 
     try {
       const nextSession = await startReviewSession(webEnv.VITE_API_BASE_URL);
 
       setFeedbackState(null);
       setSession(nextSession);
-      setSessionMessage(null);
+      setSessionError(null);
+      setSessionNotice(null);
       lastLoadedSessionId.current = nextSession.session.id;
       refreshQueue();
     } catch (error) {
@@ -231,34 +248,48 @@ export const ReviewRoute = (): JSX.Element => {
     }
   };
 
-  const submitCurrentCard = async (
-    card: ReviewFeedbackSnapshot["card"],
-  ): Promise<void> => {
-    if (!selectedChoiceId || isSubmitting) {
+  const submitCurrentCard = async (card: ReviewCard): Promise<void> => {
+    const submission: ReviewSubmissionInput =
+      card.promptPayload.type === "cloze_recall"
+        ? {
+            latencyMs: Math.max(Date.now() - cardStartedAt.current, 0),
+            text: textAnswer.trim(),
+            type: "text",
+          }
+        : {
+            choiceId: selectedChoiceId ?? "",
+            latencyMs: Math.max(Date.now() - cardStartedAt.current, 0),
+            type: "choice",
+          };
+
+    if (
+      isSubmitting ||
+      (submission.type === "choice" && submission.choiceId.length === 0) ||
+      (submission.type === "text" && submission.text.length === 0)
+    ) {
       return;
     }
 
     setIsSubmitting(true);
-    setSessionMessage(null);
+    setSessionError(null);
 
     try {
       const response = await submitReviewCard(webEnv.VITE_API_BASE_URL, {
         cardId: card.id,
         sessionId: session?.session.id ?? "",
-        submission: {
-          choiceId: selectedChoiceId,
-          latencyMs: Math.max(Date.now() - cardStartedAt.current, 0),
-        },
+        submission,
       });
 
       setSession(response.session);
       setFeedbackState(
         createFeedbackSnapshot({
           response,
-          selectedChoiceId,
+          submission,
         }),
       );
+      setSessionNotice(null);
       setSelectedChoiceId(null);
+      setTextAnswer("");
       refreshQueue();
     } catch (error) {
       if (
@@ -279,7 +310,7 @@ export const ReviewRoute = (): JSX.Element => {
         return;
       }
 
-      setSessionMessage(
+      setSessionError(
         error instanceof Error
           ? error.message
           : "Unable to submit this answer right now.",
@@ -292,9 +323,26 @@ export const ReviewRoute = (): JSX.Element => {
   const clearSessionState = (): void => {
     setFeedbackState(null);
     setSelectedChoiceId(null);
-    setSessionMessage(null);
+    setSessionError(null);
+    setSessionNotice(null);
     setSession(null);
+    lastLoadedSessionId.current = null;
     refreshQueue();
+  };
+
+  const resumeActiveSession = async (): Promise<void> => {
+    if (!queue?.activeSessionId) {
+      return;
+    }
+
+    setIsStarting(true);
+    setSessionError(null);
+
+    try {
+      await loadSession(queue.activeSessionId);
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   const reviewState = getReviewRouteState({
@@ -334,12 +382,18 @@ export const ReviewRoute = (): JSX.Element => {
           </div>
         </div>
 
-        <section className="review-card">
+        <form
+          className="review-card"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitCurrentCard(reviewState.card);
+          }}
+        >
           <div className="review-card__header">
             <p className="panel__eyebrow">
               {formatReviewExerciseLabel(reviewState.card.exerciseType)}
             </p>
-            <h2>{reviewState.card.promptPayload.word}</h2>
+            <h2>{getReviewCardHeading(reviewState.card)}</h2>
           </div>
 
           {"sentence" in reviewState.card.promptPayload ? (
@@ -352,53 +406,75 @@ export const ReviewRoute = (): JSX.Element => {
             {reviewState.card.promptPayload.question}
           </p>
 
-          <div className="review-card__choices" role="radiogroup">
-            {reviewState.card.promptPayload.choices.map((choice) => {
-              const isSelected = selectedChoiceId === choice.id;
+          {"choices" in reviewState.card.promptPayload ? (
+            <div className="review-card__choices" role="radiogroup">
+              {reviewState.card.promptPayload.choices.map((choice) => {
+                const isSelected = selectedChoiceId === choice.id;
 
-              return (
-                <button
-                  aria-checked={isSelected}
-                  className={
-                    isSelected
-                      ? "review-card__choice review-card__choice--selected"
-                      : "review-card__choice"
-                  }
-                  key={choice.id}
-                  onClick={() => {
-                    setSelectedChoiceId(choice.id);
-                  }}
-                  role="radio"
-                  type="button"
-                >
-                  <span className="review-card__choice-label">{choice.label}</span>
-                  {choice.detail ? (
-                    <span className="review-card__choice-detail">{choice.detail}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+                return (
+                  <button
+                    aria-checked={isSelected}
+                    className={
+                      isSelected
+                        ? "review-card__choice review-card__choice--selected"
+                        : "review-card__choice"
+                    }
+                    key={choice.id}
+                    onClick={() => {
+                      setSelectedChoiceId(choice.id);
+                    }}
+                    role="radio"
+                    type="button"
+                  >
+                    <span className="review-card__choice-label">{choice.label}</span>
+                    {choice.detail ? (
+                      <span className="review-card__choice-detail">{choice.detail}</span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="capture-form__field">
+              <label htmlFor="review-text-answer">Your answer</label>
+              <input
+                autoComplete="off"
+                autoFocus
+                id="review-text-answer"
+                onChange={(event) => {
+                  setTextAnswer(event.target.value);
+                }}
+                placeholder="Type the saved word"
+                type="text"
+                value={textAnswer}
+              />
+            </div>
+          )}
 
-          {sessionMessage ? (
+          {sessionError ? (
             <p className="capture-form__error" role="alert">
-              {sessionMessage}
+              {sessionError}
             </p>
+          ) : null}
+          {sessionNotice ? (
+            <p className="capture-form__hint">{sessionNotice}</p>
           ) : null}
 
           <div className="review-card__actions">
             <button
               className="capture-form__submit"
-              disabled={!selectedChoiceId || isSubmitting}
-              onClick={() => {
-                void submitCurrentCard(reviewState.card);
-              }}
-              type="button"
+              disabled={
+                isSubmitting ||
+                ("choices" in reviewState.card.promptPayload
+                  ? !selectedChoiceId
+                  : textAnswer.trim().length === 0)
+              }
+              type="submit"
             >
               {isSubmitting ? "Submitting..." : "Submit"}
             </button>
           </div>
-        </section>
+        </form>
       </section>
     );
   }
@@ -437,9 +513,11 @@ export const ReviewRoute = (): JSX.Element => {
             <p className="panel__copy">{feedbackDisplay.message}</p>
           </div>
 
-          <p className="review-feedback__word">
-            {reviewState.feedback.card.promptPayload.word}
-          </p>
+          {"word" in reviewState.feedback.card.promptPayload ? (
+            <p className="review-feedback__word">
+              {reviewState.feedback.card.promptPayload.word}
+            </p>
+          ) : null}
 
           {"sentence" in reviewState.feedback.card.promptPayload ? (
             <p className="review-card__sentence">
@@ -448,17 +526,17 @@ export const ReviewRoute = (): JSX.Element => {
           ) : null}
 
           <div className="review-feedback__grid">
-            {feedbackDisplay.selectedChoiceLabel &&
+            {feedbackDisplay.submittedAnswerLabel &&
             !reviewState.feedback.result.correct ? (
               <section className="review-feedback__choice-block">
                 <h3>Your answer</h3>
-                <p>{feedbackDisplay.selectedChoiceLabel}</p>
+                <p>{feedbackDisplay.submittedAnswerLabel}</p>
               </section>
             ) : null}
 
             <section className="review-feedback__choice-block">
               <h3>Correct answer</h3>
-              <p>{feedbackDisplay.correctChoiceLabel}</p>
+              <p>{feedbackDisplay.correctAnswerLabel}</p>
             </section>
           </div>
 
@@ -570,11 +648,23 @@ export const ReviewRoute = (): JSX.Element => {
         <p className="panel__copy">{queueDisplayState.message}</p>
 
         {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
-        {sessionMessage ? <p className="capture-form__hint">{sessionMessage}</p> : null}
+        {sessionError ? <p className="capture-form__error">{sessionError}</p> : null}
+        {sessionNotice ? <p className="capture-form__hint">{sessionNotice}</p> : null}
         {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
 
         <div className="capture-form__actions">
-          {queueDisplayState.canStart && queueDisplayState.actionLabel ? (
+          {queue?.activeSessionId && !session ? (
+            <button
+              className="capture-form__submit"
+              disabled={isStarting}
+              onClick={() => {
+                void resumeActiveSession();
+              }}
+              type="button"
+            >
+              {isStarting ? "Loading..." : "Resume review"}
+            </button>
+          ) : queueDisplayState.canStart && queueDisplayState.actionLabel ? (
             <button
               className="capture-form__submit"
               disabled={isStarting}

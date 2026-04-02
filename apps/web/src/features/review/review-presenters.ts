@@ -2,12 +2,24 @@ import type {
   ReviewCard,
   ReviewQueueSummary,
   ReviewSessionDetail,
+  ReviewSubmissionInput,
   ReviewSubmissionResult,
 } from "@gloss/shared/types";
 
 import { toDictionaryDefinition } from "../../lib/contextual-gloss";
 
-type ReviewChoice = ReviewCard["promptPayload"]["choices"][number];
+type ChoicePromptPayload = Extract<
+  ReviewCard["promptPayload"],
+  {
+    type:
+      | "contrastive_choice"
+      | "meaning_in_context"
+      | "recognition_in_fresh_sentence"
+      | "register_judgment";
+  }
+>;
+
+type ReviewChoice = ChoicePromptPayload["choices"][number];
 
 type ReviewActionLink = {
   href: string;
@@ -29,14 +41,14 @@ export type ReviewQueueDisplayState = {
 export type ReviewFeedbackSnapshot = {
   card: ReviewCard;
   result: ReviewSubmissionResult;
-  selectedChoiceId: string;
+  submission: ReviewSubmissionInput;
 };
 
 export type ReviewFeedbackDisplayState = {
-  correctChoiceLabel: string;
+  correctAnswerLabel: string;
   explanation: string;
   message: string;
-  selectedChoiceLabel: string | null;
+  submittedAnswerLabel: string | null;
   status: "correct" | "incorrect";
   title: string;
 };
@@ -86,7 +98,9 @@ const getChoiceById = (
   card: ReviewCard,
   choiceId: string,
 ): ReviewChoice | null =>
-  card.promptPayload.choices.find((choice) => choice.id === choiceId) ?? null;
+  "choices" in card.promptPayload
+    ? card.promptPayload.choices.find((choice) => choice.id === choiceId) ?? null
+    : null;
 
 const getChoiceDisplayLabel = (choice: ReviewChoice | null): string =>
   choice?.detail ?? choice?.label ?? "Unavailable";
@@ -112,7 +126,7 @@ const trimTerminalPunctuation = (value: string): string =>
 const toSentenceCase = (value: string): string =>
   value.length === 0 ? value : `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 
-const toQuotedSentence = (value: string): string => `“${trimTerminalPunctuation(value)}.”`;
+const toQuotedText = (value: string): string => `“${trimTerminalPunctuation(value)}”`;
 
 const formatDueDimensions = (
   dueByDimension: ReviewQueueSummary["dueByDimension"],
@@ -136,6 +150,8 @@ export const formatReviewExerciseLabel = (
       return "Meaning in context";
     case "recognition_in_fresh_sentence":
       return "Fresh sentence";
+    case "cloze_recall":
+      return "Recall";
     case "contrastive_choice":
       return "Contrast";
     case "register_judgment":
@@ -268,21 +284,23 @@ export const getReviewQueueDisplayState = (
 
 const buildReviewFeedbackExplanation = (input: {
   card: ReviewCard;
-  correctChoiceLabel: string;
+  correctAnswerLabel: string;
 }): string => {
-  switch (input.card.exerciseType) {
+  switch (input.card.promptPayload.type) {
     case "contrastive_choice":
-      return `${toSentenceCase(input.correctChoiceLabel)} fits this sentence better.`;
+      return `${toSentenceCase(input.correctAnswerLabel)} fits this sentence better.`;
+    case "cloze_recall":
+      return `The missing word is ${toQuotedText(input.correctAnswerLabel)}. It is the word this sentence is trying to recover.`;
     case "register_judgment":
-      return `${toQuotedSentence(input.correctChoiceLabel)} is the less natural tone here.`;
+      return `${toQuotedText(input.correctAnswerLabel)} is the less natural tone here.`;
     case "recognition_in_fresh_sentence":
-      return `In this fresh sentence, ${input.card.promptPayload.word} means ${toQuotedSentence(
-        toDictionaryDefinition(input.correctChoiceLabel),
+      return `In this fresh sentence, ${input.card.promptPayload.word} means ${toQuotedText(
+        toDictionaryDefinition(input.correctAnswerLabel),
       )}`;
     case "meaning_in_context":
     default:
-      return `Here, ${input.card.promptPayload.word} means ${toQuotedSentence(
-        toDictionaryDefinition(input.correctChoiceLabel),
+      return `Here, ${input.card.promptPayload.word} means ${toQuotedText(
+        toDictionaryDefinition(input.correctAnswerLabel),
       )}`;
   }
 };
@@ -290,35 +308,43 @@ const buildReviewFeedbackExplanation = (input: {
 export const getReviewFeedbackDisplayState = (
   feedback: ReviewFeedbackSnapshot,
 ): ReviewFeedbackDisplayState => {
-  const selectedChoice = getChoiceById(
-    feedback.card,
-    feedback.selectedChoiceId,
-  );
-  const correctChoice = getChoiceById(
-    feedback.card,
-    feedback.result.correctChoiceId,
-  );
-  const correctChoiceLabel = getChoiceDisplayLabel(correctChoice);
+  const submittedAnswerLabel =
+    feedback.submission.type === "choice"
+      ? getChoiceDisplayLabel(
+          getChoiceById(feedback.card, feedback.submission.choiceId),
+        )
+      : feedback.submission.text;
+  const correctAnswerLabel =
+    feedback.result.submissionType === "choice"
+      ? getChoiceDisplayLabel(
+          getChoiceById(feedback.card, feedback.result.correctChoiceId),
+        )
+      : feedback.result.expectedText;
 
   return {
-    correctChoiceLabel,
+    correctAnswerLabel,
     explanation: buildReviewFeedbackExplanation({
       card: feedback.card,
-      correctChoiceLabel,
+      correctAnswerLabel,
     }),
     message: feedback.result.correct
-      ? "You matched the meaning this card was testing."
-      : `You picked ${toQuotedSentence(
-          getChoiceDisplayLabel(selectedChoice),
-        )}. Here, the better fit is ${toQuotedSentence(correctChoiceLabel)}`,
-    selectedChoiceLabel: getChoiceDisplayLabel(selectedChoice),
+      ? feedback.result.submissionType === "text"
+        ? "You recalled the right word for this sentence."
+        : "You matched the meaning this card was testing."
+      : `You gave ${toQuotedText(
+          submittedAnswerLabel ?? "Unavailable",
+        )}. Here, the better fit is ${toQuotedText(correctAnswerLabel)}`,
+    submittedAnswerLabel,
     status: feedback.result.correct ? "correct" : "incorrect",
     title: feedback.result.correct ? "You’ve got it" : "Try again",
   };
 };
 
 const getReviewSessionWordCount = (session: ReviewSessionDetail): number =>
-  new Set(session.cards.map((card) => card.promptPayload.word)).size;
+  new Set(session.cards.map((card) => card.seedId)).size;
+
+export const getReviewCardHeading = (card: ReviewCard): string =>
+  "word" in card.promptPayload ? card.promptPayload.word : "Recall the word";
 
 export const getReviewCompletionDisplayState = (input: {
   session: ReviewSessionDetail;

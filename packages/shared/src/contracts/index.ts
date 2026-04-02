@@ -209,7 +209,7 @@ export const reviewGenerationSourceSchema = z.enum(reviewGenerationSourceValues)
 
 export const reviewOutcomeSchema = z.enum(reviewOutcomeValues);
 
-export const reviewCardPromptPayloadSchemaVersion = "review-card-prompt.v1";
+export const reviewCardPromptPayloadSchemaVersion = "review-card-prompt.v2";
 
 export const reviewChoiceSchema = z
   .object({
@@ -222,11 +222,18 @@ export const reviewChoiceSchema = z
 const reviewBaseCardPromptSchema = z
   .object({
     question: z.string().trim().min(1).max(320),
+  })
+  .strict();
+
+const reviewWordCardPromptSchema = reviewBaseCardPromptSchema
+  .extend({
     word: wordSchema,
   })
   .strict();
 
-export const reviewMeaningInContextCardPromptSchema = reviewBaseCardPromptSchema
+const reviewRecallAnswerSchema = wordSchema;
+
+export const reviewMeaningInContextCardPromptSchema = reviewWordCardPromptSchema
   .extend({
     choices: z.array(reviewChoiceSchema).min(3).max(4),
     sentence: z.string().trim().min(1).max(320),
@@ -235,7 +242,7 @@ export const reviewMeaningInContextCardPromptSchema = reviewBaseCardPromptSchema
   .strict();
 
 export const reviewRecognitionFreshSentenceCardPromptSchema =
-  reviewBaseCardPromptSchema
+  reviewWordCardPromptSchema
     .extend({
       choices: z.array(reviewChoiceSchema).min(3).max(4),
       sentence: z.string().trim().min(1).max(320),
@@ -243,8 +250,24 @@ export const reviewRecognitionFreshSentenceCardPromptSchema =
     })
     .strict();
 
+export const reviewClozeRecallCardPromptSchema = reviewBaseCardPromptSchema
+  .extend({
+    sentence: z.string().trim().min(1).max(320),
+    type: z.literal("cloze_recall"),
+  })
+  .superRefine((value, context) => {
+    if (!value.sentence.includes("____")) {
+      context.addIssue({
+        code: "custom",
+        message: "Cloze recall sentence must contain a visible blank marker.",
+        path: ["sentence"],
+      });
+    }
+  })
+  .strict();
+
 export const reviewContrastiveChoiceCardPromptSchema =
-  reviewBaseCardPromptSchema
+  reviewWordCardPromptSchema
     .extend({
       choices: z.array(reviewChoiceSchema).length(2),
       sentence: z.string().trim().min(1).max(320),
@@ -252,7 +275,7 @@ export const reviewContrastiveChoiceCardPromptSchema =
     })
     .strict();
 
-export const reviewRegisterJudgmentCardPromptSchema = reviewBaseCardPromptSchema
+export const reviewRegisterJudgmentCardPromptSchema = reviewWordCardPromptSchema
   .extend({
     choices: z.array(reviewChoiceSchema).length(2),
     type: z.literal("register_judgment"),
@@ -262,6 +285,7 @@ export const reviewRegisterJudgmentCardPromptSchema = reviewBaseCardPromptSchema
 export const reviewCardPromptPayloadSchema = z.discriminatedUnion("type", [
   reviewMeaningInContextCardPromptSchema,
   reviewRecognitionFreshSentenceCardPromptSchema,
+  reviewClozeRecallCardPromptSchema,
   reviewContrastiveChoiceCardPromptSchema,
   reviewRegisterJudgmentCardPromptSchema,
 ]);
@@ -300,11 +324,49 @@ export const reviewRecognitionFreshSentenceModelOutputSchema = z
 export const reviewRecognitionFreshSentenceModelOutputJsonSchema =
   z.toJSONSchema(reviewRecognitionFreshSentenceModelOutputSchema);
 
-export const reviewAnswerKeySchema = z
+export const reviewClozeRecallModelOutputSchema = z
   .object({
-    correctChoiceId: z.string().trim().min(1).max(80),
+    promptPayload: reviewClozeRecallCardPromptSchema,
   })
   .strict();
+
+export const reviewClozeRecallModelOutputJsonSchema = z.toJSONSchema(
+  reviewClozeRecallModelOutputSchema,
+);
+
+export const reviewChoiceAnswerKeySchema = z
+  .object({
+    correctChoiceId: z.string().trim().min(1).max(80),
+    type: z.literal("choice"),
+  })
+  .strict();
+
+export const reviewTextAnswerKeySchema = z
+  .object({
+    acceptableAnswers: z.array(reviewRecallAnswerSchema).min(1).max(4),
+    canonicalAnswer: reviewRecallAnswerSchema,
+    type: z.literal("text"),
+  })
+  .superRefine((value, context) => {
+    const normalizedAnswers = value.acceptableAnswers.map((answer) =>
+      answer.trim().toLowerCase(),
+    );
+
+    if (!normalizedAnswers.includes(value.canonicalAnswer.trim().toLowerCase())) {
+      context.addIssue({
+        code: "custom",
+        message:
+          "canonicalAnswer must be present in acceptableAnswers for typed recall cards.",
+        path: ["canonicalAnswer"],
+      });
+    }
+  })
+  .strict();
+
+export const reviewAnswerKeySchema = z.discriminatedUnion("type", [
+  reviewChoiceAnswerKeySchema,
+  reviewTextAnswerKeySchema,
+]);
 
 export const reviewStateDimensionSchema = z
   .object({
@@ -364,6 +426,7 @@ export const reviewCardSchema = z
     id: z.string().min(1),
     position: z.number().int().nonnegative(),
     promptPayload: reviewCardPromptPayloadSchema,
+    seedId: z.string().min(1),
     status: reviewCardStatusSchema,
   })
   .strict();
@@ -376,21 +439,45 @@ export const reviewSessionDetailSchema = z
   .strict();
 
 export const reviewSubmissionInputSchema = z
-  .object({
-    choiceId: z.string().trim().min(1).max(80),
-    latencyMs: z.number().int().min(0).max(600_000).optional(),
-  })
-  .strict();
+  .discriminatedUnion("type", [
+    z
+      .object({
+        choiceId: z.string().trim().min(1).max(80),
+        latencyMs: z.number().int().min(0).max(600_000).optional(),
+        type: z.literal("choice"),
+      })
+      .strict(),
+    z
+      .object({
+        latencyMs: z.number().int().min(0).max(600_000).optional(),
+        text: reviewRecallAnswerSchema,
+        type: z.literal("text"),
+      })
+      .strict(),
+  ]);
 
-export const reviewSubmissionResultSchema = z
-  .object({
-    cardId: z.string().min(1),
-    correct: z.boolean(),
-    correctChoiceId: z.string().trim().min(1).max(80),
-    outcome: reviewOutcomeSchema,
-    seedStage: seedStageSchema,
-  })
-  .strict();
+export const reviewSubmissionResultSchema = z.discriminatedUnion("submissionType", [
+  z
+    .object({
+      cardId: z.string().min(1),
+      correct: z.boolean(),
+      correctChoiceId: z.string().trim().min(1).max(80),
+      outcome: reviewOutcomeSchema,
+      seedStage: seedStageSchema,
+      submissionType: z.literal("choice"),
+    })
+    .strict(),
+  z
+    .object({
+      cardId: z.string().min(1),
+      correct: z.boolean(),
+      expectedText: reviewRecallAnswerSchema,
+      outcome: reviewOutcomeSchema,
+      seedStage: seedStageSchema,
+      submissionType: z.literal("text"),
+    })
+    .strict(),
+]);
 
 export const seedSummarySchema = z.object({
   createdAt: apiTimestampSchema,

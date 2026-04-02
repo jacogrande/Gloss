@@ -22,9 +22,15 @@ import {
 } from "./helpers";
 
 type ReviewCardAnswerKeyRow = {
-  answer_key: {
-    correctChoiceId: string;
-  };
+  answer_key:
+    | {
+        correctChoiceId: string;
+        type: "choice";
+      }
+    | {
+        canonicalAnswer: string;
+        type: "text";
+      };
   id: string;
 };
 
@@ -433,10 +439,19 @@ describe("request rate limits", () => {
     const firstSubmit = await context.app.request(
       `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
       {
-        body: JSON.stringify({
-          choiceId: firstCard?.answer_key.correctChoiceId,
-          latencyMs: 180,
-        }),
+        body: JSON.stringify(
+          firstCard?.answer_key.type === "choice"
+            ? {
+                choiceId: firstCard.answer_key.correctChoiceId,
+                latencyMs: 180,
+                type: "choice",
+              }
+            : {
+                latencyMs: 180,
+                text: firstCard?.answer_key.canonicalAnswer ?? "",
+                type: "text",
+              },
+        ),
         headers: {
           "content-type": "application/json",
           cookie,
@@ -448,10 +463,19 @@ describe("request rate limits", () => {
     const secondSubmit = await context.app.request(
       `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${secondCard?.id}/submit`,
       {
-        body: JSON.stringify({
-          choiceId: secondCard?.answer_key.correctChoiceId,
-          latencyMs: 160,
-        }),
+        body: JSON.stringify(
+          secondCard?.answer_key.type === "choice"
+            ? {
+                choiceId: secondCard.answer_key.correctChoiceId,
+                latencyMs: 160,
+                type: "choice",
+              }
+            : {
+                latencyMs: 160,
+                text: secondCard?.answer_key.canonicalAnswer ?? "",
+                type: "text",
+              },
+        ),
         headers: {
           "content-type": "application/json",
           cookie,

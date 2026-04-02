@@ -14,6 +14,7 @@ import {
 import { apiErrorResponseSchema } from "@gloss/shared/schemas";
 import type {
   CreateSeedInput,
+  ReviewExerciseType,
   SeedStage,
   SourceKind,
 } from "@gloss/shared/types";
@@ -74,12 +75,14 @@ type ReviewJourneyCase = {
     error_code: string | null;
     final_seed_stage_in?: SeedStage[];
     minimum_card_count?: number;
+    required_exercise_type?: ReviewExerciseType;
     status: "not_reviewable" | "reviewable";
     wrong_answer_feedback?: boolean;
   };
   id: string;
   input: {
     context_sentence: string | null;
+    recognition_score_override?: number | null;
     source_title: string | null;
     source_type: SourceKind | null;
     word: string;
@@ -88,9 +91,16 @@ type ReviewJourneyCase = {
 };
 
 type ReviewCardAnswerKeyRow = {
-  answer_key: {
-    correctChoiceId: string;
-  };
+  answer_key:
+    | {
+        correctChoiceId: string;
+        type: "choice";
+      }
+    | {
+        acceptableAnswers: string[];
+        canonicalAnswer: string;
+        type: "text";
+      };
   id: string;
 };
 
@@ -101,6 +111,24 @@ const getWrongChoiceId = (input: {
   correctChoiceId: string;
 }): string | null =>
   input.choices.find((choice) => choice.id !== input.correctChoiceId)?.id ?? null;
+
+const normalizeEvalWord = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+
+const normalizeSentenceForComparison = (value: string): string =>
+  value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+
+const createBlankedCapturedSentence = (input: {
+  capturedSentence: string;
+  word: string;
+}): string =>
+  input.capturedSentence.replace(
+    new RegExp(`(^|[^\\p{L}\\p{N}])(${escapeRegExp(input.word)})(?=$|[^\\p{L}\\p{N}])`, "iu"),
+    (_, prefix: string) => `${prefix}____`,
+  );
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const captureDatasetPath = path.join(
@@ -250,6 +278,60 @@ const createAndEnrichSeedForEval = async (input: {
     enrichment: enrichBody.data,
     seedId: createBody.data.id,
   };
+};
+
+const upsertRecognitionReviewState = async (input: {
+  database: ReturnType<typeof prepareLocalHarness>["runtime"]["database"];
+  recognitionScore: number;
+  seedId: string;
+  userId: string;
+}): Promise<void> => {
+  await input.database.pool.query(
+    `
+      INSERT INTO review_states (
+        id,
+        seed_id,
+        user_id,
+        recognition_score,
+        distinction_score,
+        usage_score,
+        recognition_due_at,
+        distinction_due_at,
+        usage_due_at,
+        last_reviewed_at,
+        last_session_id,
+        scheduler_version
+      )
+      VALUES (
+        $1, $2, $3,
+        $4, 1, 1,
+        NOW() - INTERVAL '2 hours',
+        NOW() + INTERVAL '2 days',
+        NOW() + INTERVAL '2 days',
+        NOW(),
+        NULL,
+        'review-scheduler.v1'
+      )
+      ON CONFLICT (seed_id, user_id)
+      DO UPDATE SET
+        recognition_score = EXCLUDED.recognition_score,
+        distinction_score = EXCLUDED.distinction_score,
+        usage_score = EXCLUDED.usage_score,
+        recognition_due_at = EXCLUDED.recognition_due_at,
+        distinction_due_at = EXCLUDED.distinction_due_at,
+        usage_due_at = EXCLUDED.usage_due_at,
+        last_reviewed_at = EXCLUDED.last_reviewed_at,
+        last_session_id = EXCLUDED.last_session_id,
+        scheduler_version = EXCLUDED.scheduler_version,
+        updated_at = NOW()
+    `,
+    [
+      `eval_review_state_${crypto.randomUUID()}`,
+      input.seedId,
+      input.userId,
+      input.recognitionScore,
+    ],
+  );
 };
 
 const logSummary = (input: {
@@ -718,6 +800,15 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
         continue;
       }
 
+      if (typeof testCase.input.recognition_score_override === "number") {
+        await upsertRecognitionReviewState({
+          database: runtime.database,
+          recognitionScore: testCase.input.recognition_score_override,
+          seedId,
+          userId,
+        });
+      }
+
       const queueResponse = await runtime.app.request(
         new URL("/review/queue", `${env.API_ORIGIN}/`).toString(),
         {
@@ -815,6 +906,80 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
         });
       }
 
+      if (
+        testCase.expected.required_exercise_type &&
+        startBody.data.cards[0]?.exerciseType !== testCase.expected.required_exercise_type
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "exercise_type",
+          journey: testCase.journey,
+          message:
+            `Expected the first review card to use ${testCase.expected.required_exercise_type}, received ${startBody.data.cards[0]?.exerciseType ?? "none"}.`,
+          severity: "critical",
+        });
+      }
+
+      const firstCard = startBody.data.cards[0];
+
+      for (const card of startBody.data.cards) {
+        if (
+          testCase.input.context_sentence &&
+          "sentence" in card.promptPayload
+        ) {
+          const promptSentence = normalizeSentenceForComparison(
+            card.promptPayload.sentence,
+          );
+          const capturedSentence = normalizeSentenceForComparison(
+            testCase.input.context_sentence,
+          );
+          const blankedCapturedSentence = normalizeSentenceForComparison(
+            createBlankedCapturedSentence({
+              capturedSentence: testCase.input.context_sentence,
+              word: testCase.input.word,
+            }),
+          );
+
+          const reusesCapturedSentence =
+            (card.promptPayload.type === "recognition_in_fresh_sentence" &&
+              promptSentence === capturedSentence) ||
+            (card.promptPayload.type === "cloze_recall" &&
+              promptSentence === blankedCapturedSentence);
+
+          if (!reusesCapturedSentence) {
+            continue;
+          }
+
+          failures.push({
+            caseId: testCase.id,
+            category: "fresh_sentence_reuse",
+            journey: testCase.journey,
+            message:
+              "Expected review cards to avoid reusing the captured sentence verbatim.",
+            severity: "critical",
+          });
+          break;
+        }
+      }
+
+      if (
+        firstCard?.promptPayload.type === "cloze_recall" &&
+        (normalizeEvalWord(firstCard.promptPayload.question).includes(
+          normalizeEvalWord(testCase.input.word),
+        ) ||
+          normalizeEvalWord(firstCard.promptPayload.sentence).includes(
+            normalizeEvalWord(testCase.input.word),
+          ))
+      ) {
+        failures.push({
+          caseId: testCase.id,
+          category: "cloze_answer_leak",
+          journey: testCase.journey,
+          message: "Expected cloze recall prompts to avoid leaking the answer.",
+          severity: "critical",
+        });
+      }
+
       const answerKeyResult = await runtime.database.pool.query<ReviewCardAnswerKeyRow>(
         `
           SELECT id, answer_key
@@ -832,24 +997,49 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
         const firstRow = answerKeyResult.rows[0];
         const firstCard = startBody.data.cards[0];
 
-        if (!firstRow || !firstCard || !("choices" in firstCard.promptPayload)) {
+        if (
+          !firstRow ||
+          !firstCard
+        ) {
           failures.push({
             caseId: testCase.id,
             category: "wrong_answer_setup",
             journey: testCase.journey,
             message:
-              "Expected the first review card to expose choices for a wrong-answer feedback check.",
+              "Expected the first review card to exist for a wrong-answer feedback check.",
             severity: "critical",
           });
           continue;
         }
 
-        const wrongChoiceId = getWrongChoiceId({
-          choices: firstCard.promptPayload.choices,
-          correctChoiceId: firstRow.answer_key.correctChoiceId,
-        });
+        const wrongSubmission =
+          firstRow.answer_key.type === "choice"
+            ? (() => {
+                const wrongChoiceId = getWrongChoiceId({
+                  choices:
+                    "choices" in firstCard.promptPayload
+                      ? firstCard.promptPayload.choices
+                      : [],
+                  correctChoiceId: firstRow.answer_key.correctChoiceId,
+                });
 
-        if (!wrongChoiceId) {
+                if (!wrongChoiceId) {
+                  return null;
+                }
+
+                return {
+                  choiceId: wrongChoiceId,
+                  latencyMs: 250,
+                  type: "choice" as const,
+                };
+              })()
+            : {
+                latencyMs: 250,
+                text: `${firstRow.answer_key.canonicalAnswer}-wrong`,
+                type: "text" as const,
+              };
+
+        if (!wrongSubmission) {
           failures.push({
             caseId: testCase.id,
             category: "wrong_answer_setup",
@@ -867,10 +1057,7 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
             `${env.API_ORIGIN}/`,
           ).toString(),
           {
-            body: JSON.stringify({
-              choiceId: wrongChoiceId,
-              latencyMs: 250,
-            }),
+            body: JSON.stringify(wrongSubmission),
             headers: {
               "content-type": "application/json",
               cookie,
@@ -898,14 +1085,22 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
 
         if (
           wrongSubmitBody.data.result.correct !== false ||
-          wrongSubmitBody.data.result.correctChoiceId !== firstRow.answer_key.correctChoiceId
+          wrongSubmitBody.data.result.submissionType !== firstRow.answer_key.type ||
+          (wrongSubmitBody.data.result.submissionType === "choice" &&
+            firstRow.answer_key.type === "choice" &&
+            wrongSubmitBody.data.result.correctChoiceId !==
+              firstRow.answer_key.correctChoiceId) ||
+          (wrongSubmitBody.data.result.submissionType === "text" &&
+            firstRow.answer_key.type === "text" &&
+            wrongSubmitBody.data.result.expectedText !==
+              firstRow.answer_key.canonicalAnswer)
         ) {
           failures.push({
             caseId: testCase.id,
             category: "wrong_answer_feedback",
             journey: testCase.journey,
             message:
-              "Expected a wrong review answer to return incorrect feedback with the correct choice id.",
+              "Expected a wrong review answer to return incorrect feedback with the correct answer payload.",
             severity: "critical",
           });
         }
@@ -921,10 +1116,19 @@ const runReviewJourneyEvaluations = async (): Promise<EvalFailure[]> => {
             `${env.API_ORIGIN}/`,
           ).toString(),
           {
-            body: JSON.stringify({
-              choiceId: row.answer_key.correctChoiceId,
-              latencyMs: 250,
-            }),
+            body: JSON.stringify(
+              row.answer_key.type === "choice"
+                ? {
+                    choiceId: row.answer_key.correctChoiceId,
+                    latencyMs: 250,
+                    type: "choice",
+                  }
+                : {
+                    latencyMs: 250,
+                    text: row.answer_key.canonicalAnswer,
+                    type: "text",
+                  },
+            ),
             headers: {
               "content-type": "application/json",
               cookie,
