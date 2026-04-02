@@ -28,6 +28,7 @@ type SeedContextEditorProps = {
   isPending: boolean;
   statusMessage: string | null;
   onSubmit: (value: ReturnType<typeof toUpdateSeedInput>) => void;
+  submitLabel?: string;
   sentenceLabel?: string;
   sentencePlaceholder: string;
   seed: Pick<SeedDetail, "id" | "primarySentence" | "source">;
@@ -63,6 +64,7 @@ export const SeedContextEditor = ({
   isPending,
   statusMessage,
   onSubmit,
+  submitLabel = "Save context",
   sentenceLabel = "Sentence (optional)",
   sentencePlaceholder,
   seed,
@@ -134,7 +136,7 @@ export const SeedContextEditor = ({
   };
 
   return (
-    <section className="panel panel--compact seed-detail__recovery">
+    <section className="surface surface--inset panel panel--compact seed-detail__recovery">
       <div className="panel__header">
         <h2>{title}</h2>
       </div>
@@ -237,13 +239,13 @@ export const SeedContextEditor = ({
           </p>
         ) : null}
 
-        <div className="capture-form__actions">
+        <div className="action-row capture-form__actions">
           <button
-            className="capture-form__submit"
+            className="button button--primary capture-form__submit"
             disabled={isPending || !hasAnyContextValues(values) || !hasChanges}
             type="submit"
           >
-            {isPending ? "Saving..." : "Save context"}
+            {isPending ? "Saving..." : submitLabel}
           </button>
         </div>
       </form>

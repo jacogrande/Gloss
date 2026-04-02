@@ -14,7 +14,7 @@ type SeedCardProps = {
 };
 
 export const SeedCard = ({ seed }: SeedCardProps): JSX.Element => (
-  <article className="seed-card">
+  <article className="surface surface--primary seed-card">
     <div className="seed-card__header">
       <div className="seed-card__annotations">
         <p className="seed-card__stage" data-stage={seed.stage}>

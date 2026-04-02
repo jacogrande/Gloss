@@ -60,8 +60,10 @@ test("private alpha capture flow validates empty words and keeps seeds private",
   await expect(page.getByRole("heading", { name: "Save a word" })).toBeVisible();
 
   await page.getByLabel("Word or phrase").fill("   ");
-  await page.getByRole("button", { name: "Add context" }).click();
-  await page.getByLabel("Sentence (optional)").fill("The room felt austere but calm.");
+  await page.getByRole("button", { name: "Add sentence or source" }).click();
+  await page
+    .getByLabel("Sentence from your reading (recommended)")
+    .fill("The room felt austere but calm.");
   await page.getByRole("button", { name: "Save word" }).click();
   await expect(page.getByRole("alert")).toHaveText("Enter a word or phrase.");
 
@@ -126,7 +128,7 @@ test("private alpha review recovers from stale-card conflicts and completes sess
       .poll(async () => {
         if (
           await secondPage
-            .getByRole("heading", { name: "Session finished" })
+            .getByRole("heading", { name: "Nice work" })
             .isVisible()
             .catch(() => false)
         ) {
@@ -142,7 +144,7 @@ test("private alpha review recovers from stale-card conflicts and completes sess
     for (let index = 0; index < 4; index += 1) {
       if (
         await page
-          .getByRole("heading", { name: "Session finished" })
+          .getByRole("heading", { name: "Nice work" })
           .isVisible()
           .catch(() => false)
       ) {
@@ -153,7 +155,7 @@ test("private alpha review recovers from stale-card conflicts and completes sess
     }
 
     await expect(
-      page.getByRole("heading", { name: "Session finished" }),
+      page.getByRole("heading", { name: "Nice work" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Back to review queue" }).click();
     await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();

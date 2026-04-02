@@ -62,7 +62,11 @@ export const AppShell = ({
                 {accountLabel}
               </p>
             </div>
-            <button className="shell__signout" onClick={onSignOut} type="button">
+            <button
+              className="button button--ghost shell__signout"
+              onClick={onSignOut}
+              type="button"
+            >
               Sign out
             </button>
           </div>

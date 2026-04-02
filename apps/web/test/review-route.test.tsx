@@ -275,9 +275,11 @@ describe("ReviewRoute", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
-    expect(screen.getByText("1 word due now")).toBeVisible();
+    expect(screen.getByText("1 word ready now")).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a short session" }),
+    );
 
     expect(await screen.findByRole("heading", { name: "pellucid" })).toBeVisible();
     await userEvent.click(
@@ -296,7 +298,7 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Continue" }));
 
     await waitFor(() => {
-      expect(screen.getByText("Session finished")).toBeVisible();
+      expect(screen.getByText("Nice work")).toBeVisible();
     });
 
     expect(screen.getByText("1 card across 1 word")).toBeVisible();
@@ -345,7 +347,9 @@ describe("ReviewRoute", () => {
     );
 
     await screen.findByRole("heading", { name: "Review" });
-    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a short session" }),
+    );
     await screen.findByRole("heading", { name: "pellucid" });
 
     await userEvent.click(
@@ -356,7 +360,7 @@ describe("ReviewRoute", () => {
     await userEvent.click(screen.getByRole("button", { name: "Submit" }));
 
     await waitFor(() => {
-      expect(screen.getByRole("heading", { name: "Try again" })).toBeVisible();
+      expect(screen.getByRole("heading", { name: "Not quite yet" })).toBeVisible();
     });
 
     expect(screen.getByText("Your answer")).toBeVisible();
@@ -407,7 +411,9 @@ describe("ReviewRoute", () => {
     );
 
     await screen.findByRole("heading", { name: "Review" });
-    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a short session" }),
+    );
 
     expect(
       await screen.findByRole("heading", { name: "Recall the word" }),
@@ -460,7 +466,9 @@ describe("ReviewRoute", () => {
     );
 
     await screen.findByRole("heading", { name: "Review" });
-    await userEvent.click(screen.getByRole("button", { name: "Start review" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Start a short session" }),
+    );
     await screen.findByRole("heading", { name: "pellucid" });
 
     await userEvent.click(
@@ -577,7 +585,7 @@ describe("ReviewRoute", () => {
     expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
     expect(
       screen.getByText(
-        "Your saved words are still being prepared for review. Give them a moment, or browse your library.",
+        "Your saved words are still being prepared for review. Browse the library now, or come back once the first word is ready.",
       ),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Browse your words" })).toHaveAttribute(
@@ -647,7 +655,7 @@ describe("ReviewRoute", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
-    expect(screen.getByText("1 word due now")).toBeVisible();
+    expect(screen.getByText("1 word ready now")).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
@@ -658,6 +666,6 @@ describe("ReviewRoute", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Showing the last known queue for now.",
     );
-    expect(screen.getByText("1 word due now")).toBeVisible();
+    expect(screen.getByText("1 word ready now")).toBeVisible();
   });
 });

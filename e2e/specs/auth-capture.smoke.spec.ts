@@ -41,10 +41,12 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   await page.getByRole("link", { name: "Capture" }).click();
   await expect(page).toHaveURL(/\/capture$/);
   await page.getByLabel("Word or phrase").fill("pellucid");
-  await expect(page.getByLabel("Sentence (optional)")).toHaveCount(0);
-  await page.getByRole("button", { name: "Add context" }).click();
+  await expect(
+    page.getByLabel("Sentence from your reading (recommended)"),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Add sentence or source" }).click();
   await page
-    .getByLabel("Sentence (optional)")
+    .getByLabel("Sentence from your reading (recommended)")
     .fill("Her explanation was pellucid even under pressure.");
   await page.getByLabel("Source type").selectOption("book");
   await page.getByLabel("Source title").fill("On Style");
@@ -54,7 +56,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
   await expect(page).toHaveURL(/\/seeds\/.+/);
   await expect(page.getByRole("heading", { name: "pellucid" })).toBeVisible();
   await expect(page.locator(".seed-detail__evidence .seed-detail__evidence-title")).toHaveText(
-    "Context",
+    "From your reading",
   );
   await expect(page.locator(".seed-detail__sentence")).toHaveText(
     "Her explanation was pellucid even under pressure.",
@@ -127,8 +129,8 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     .click();
   await expect(page).toHaveURL(/\/review$/);
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
-  await expect(page.getByText(/\d+ words? due now/)).toBeVisible();
-  await page.getByRole("button", { name: "Start review" }).click();
+  await expect(page.getByText(/\d+ words? ready now/)).toBeVisible();
+  await page.getByRole("button", { name: "Start a short session" }).click();
 
   await expect(page.locator(".review-card__question")).toBeVisible();
 
@@ -145,7 +147,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     .poll(async () => {
       if (
         await page
-          .getByRole("heading", { name: "Session finished" })
+          .getByRole("heading", { name: "Nice work" })
           .isVisible()
           .catch(() => false)
       ) {
@@ -184,7 +186,7 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
       .poll(async () => {
         if (
           await page
-            .getByRole("heading", { name: "Session finished" })
+            .getByRole("heading", { name: "Nice work" })
             .isVisible()
             .catch(() => false)
         ) {
@@ -221,9 +223,9 @@ test("@smoke typed recall cards render and accept text answers", async ({
 
   await page.goto("/capture");
   await page.getByLabel("Word or phrase").fill("pellucid");
-  await page.getByRole("button", { name: "Add context" }).click();
+  await page.getByRole("button", { name: "Add sentence or source" }).click();
   await page
-    .getByLabel("Sentence (optional)")
+    .getByLabel("Sentence from your reading (recommended)")
     .fill("Her explanation was pellucid even under pressure.");
   await page.getByRole("button", { name: "Save word" }).click();
 
@@ -248,6 +250,6 @@ test("@smoke typed recall cards render and accept text answers", async ({
   await page.getByRole("button", { name: "Submit" }).click();
   await expect(page.getByText("Correct answer")).toBeVisible();
   await expect(
-    page.getByText("You recalled the right word for this sentence."),
+    page.getByText("You pulled back the right word from the sentence."),
   ).toBeVisible();
 });

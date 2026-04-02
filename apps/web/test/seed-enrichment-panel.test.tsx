@@ -75,7 +75,9 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
+        primarySentence="Her explanation was pellucid even under pressure."
         showManualRefresh={false}
+        word="pellucid"
       />,
     );
 
@@ -107,7 +109,9 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={onRetry}
+        primarySentence="Her explanation was pellucid even under pressure."
         showManualRefresh={false}
+        word="pellucid"
       />,
     );
 
@@ -130,7 +134,9 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={onRetry}
+        primarySentence={null}
         showManualRefresh={false}
+        word="pellucid"
       />,
     );
 
@@ -158,11 +164,13 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
+        primarySentence={null}
         showManualRefresh={false}
+        word="pellucid"
       />,
     );
 
-    expect(screen.getByText(/not enough context yet/i)).toBeVisible();
+    expect(screen.getByText(/still needs the sentence where you saw it/i)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
@@ -181,12 +189,17 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
+        primarySentence="Her explanation was pellucid even under pressure."
         showManualRefresh={false}
+        word="pellucid"
       />,
     );
 
     expect(
-      screen.getByText(/Opening Merriam-Webster and locating the right headword\./i),
+      screen.getByText(/Gloss is grounding pellucid in Merriam-Webster first/i),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/You do not need to wait here\./i),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Refresh now" })).toBeNull();
   });
@@ -207,7 +220,9 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={onRefresh}
         onRetry={vi.fn()}
+        primarySentence="Her explanation was pellucid even under pressure."
         showManualRefresh={true}
+        word="pellucid"
       />,
     );
 
@@ -235,7 +250,9 @@ describe("SeedEnrichmentPanel", () => {
         isRefreshing={false}
         onRefresh={onRefresh}
         onRetry={vi.fn()}
+        primarySentence="Her explanation was pellucid even under pressure."
         showManualRefresh={true}
+        word="pellucid"
       />,
     );
 

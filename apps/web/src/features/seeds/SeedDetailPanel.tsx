@@ -59,7 +59,7 @@ export const SeedDetailPanel = ({
   const stageBadge = getSeedStageBadge(seed.stage);
 
   return (
-    <section className="seed-detail">
+    <section className="page page--detail seed-detail">
       <div className="seed-detail__topline">
         <Link className="seed-detail__back" to="/library">
           Back to library
@@ -77,38 +77,9 @@ export const SeedDetailPanel = ({
         </div>
       </header>
 
-      {captureNotice ? (
-        <section className="panel panel--compact seed-detail__notice">
-          <p className="panel__eyebrow">{captureNotice.title}</p>
-          <p className="panel__copy">{captureNotice.message}</p>
-        </section>
-      ) : null}
-
-      {loadNotice ? (
-        <section
-          className="panel panel--compact seed-detail__notice"
-          role="alert"
-        >
-          <p className="panel__eyebrow">{loadNotice.title}</p>
-          <p className="panel__copy">{loadNotice.message}</p>
-        </section>
-      ) : null}
-
-      <section className="seed-detail__definition-panel">
-        <SeedEnrichmentPanel
-          enrichment={seed.enrichment}
-          errorMessage={enrichmentErrorMessage}
-          isEnriching={isEnriching}
-          isRefreshing={isRefreshingEnrichmentStatus}
-          onRefresh={onRefreshEnrichmentStatus}
-          onRetry={onRetryEnrichment}
-          showManualRefresh={showPendingRefreshFallback}
-        />
-      </section>
-
       {seed.primarySentence || seed.source ? (
-        <section className="seed-detail__evidence">
-          <h2 className="seed-detail__evidence-title">Context</h2>
+        <section className="surface surface--inset seed-detail__evidence">
+          <h2 className="seed-detail__evidence-title">From your reading</h2>
           {seed.primarySentence ? (
             <p className="seed-detail__sentence">{seed.primarySentence}</p>
           ) : null}
@@ -118,12 +89,44 @@ export const SeedDetailPanel = ({
         </section>
       ) : null}
 
+      {captureNotice ? (
+        <section className="surface surface--notice panel panel--compact seed-detail__notice">
+          <p className="panel__eyebrow">{captureNotice.title}</p>
+          <p className="panel__copy">{captureNotice.message}</p>
+        </section>
+      ) : null}
+
+      {loadNotice ? (
+        <section
+          className="surface surface--notice panel panel--compact seed-detail__notice"
+          role="alert"
+        >
+          <p className="panel__eyebrow">{loadNotice.title}</p>
+          <p className="panel__copy">{loadNotice.message}</p>
+        </section>
+      ) : null}
+
+      <section className="surface surface--primary seed-detail__definition-panel">
+        <SeedEnrichmentPanel
+          enrichment={seed.enrichment}
+          errorMessage={enrichmentErrorMessage}
+          isEnriching={isEnriching}
+          isRefreshing={isRefreshingEnrichmentStatus}
+          onRefresh={onRefreshEnrichmentStatus}
+          onRetry={onRetryEnrichment}
+          primarySentence={seed.primarySentence}
+          showManualRefresh={showPendingRefreshFallback}
+          word={seed.word}
+        />
+      </section>
+
       {recoveryState ? (
         <SeedContextEditor
           errorMessage={contextUpdateErrorMessage}
           helperMessage={recoveryState.message}
           isPending={isUpdatingContext}
           onSubmit={onSaveContext}
+          submitLabel={recoveryState.actionLabel}
           sentenceLabel={recoveryState.sentenceLabel}
           sentencePlaceholder={recoveryState.sentencePlaceholder}
           seed={seed}
@@ -133,7 +136,7 @@ export const SeedDetailPanel = ({
       ) : null}
 
       {compareItems.length > 0 ? (
-        <section className="seed-detail__compare-panel">
+        <section className="surface surface--inset seed-detail__compare-panel">
           <h2 className="seed-detail__panel-title">Compare</h2>
           <dl className="seed-detail__compare-list">
             {compareItems.map((item) => (
@@ -152,13 +155,16 @@ export const SeedDetailPanel = ({
       ) : null}
 
       {actionState ? (
-        <section className="seed-detail__actions">
-          <Link className="seed-detail__action-primary" to={actionState.primary.href}>
+        <section className="action-row seed-detail__actions">
+          <Link
+            className="button button--primary seed-detail__action-primary"
+            to={actionState.primary.href}
+          >
             {actionState.primary.label}
           </Link>
           {actionState.secondary ? (
             <Link
-              className="seed-detail__action-secondary"
+              className="button button--secondary seed-detail__action-secondary"
               to={actionState.secondary.href}
             >
               {actionState.secondary.label}

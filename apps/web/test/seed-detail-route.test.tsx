@@ -202,7 +202,7 @@ describe("SeedDetailRoute", () => {
     expect(screen.getByText("Saved")).toBeVisible();
     expect(
       screen.getByText(
-        "Your word is saved. Merriam-Webster lands first. Add a sentence if you want Gloss to shape the meaning to your reading.",
+        "Your word is saved. Merriam-Webster lands first. Add the sentence where you found it if you want the meaning shaped to your reading.",
       ),
     ).toBeVisible();
 
@@ -308,7 +308,7 @@ describe("SeedDetailRoute", () => {
         "clear and easy to understand",
       ),
     ).toBeVisible();
-    expect(screen.getByText("Context")).toBeVisible();
+    expect(screen.getByText("From your reading")).toBeVisible();
     expect(screen.getByText("In your sentence")).toBeVisible();
     expect(screen.getByText("Compare")).toBeVisible();
     expect(screen.getByText("Similar")).toBeVisible();
@@ -410,22 +410,24 @@ describe("SeedDetailRoute", () => {
     );
 
     expect(
-      await screen.findByRole("heading", { name: "Give this word more context" }),
+      await screen.findByRole("heading", { name: "Help Gloss finish this word" }),
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Paste the sentence where you found this word, or add source details. Gloss needs that context to try again.",
+        "Gloss found the dictionary entry, but it could not safely adapt the meaning to your reading yet. Add the sentence where you saw this word, or add source details.",
       ),
     ).toBeVisible();
     expect(
-      screen.getByRole("textbox", { name: "Sentence from your reading" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading (recommended)" }),
     ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
 
     await userEvent.type(
-      screen.getByRole("textbox", { name: "Sentence from your reading" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading (recommended)" }),
       "Her reply was pellucid even under pressure.",
     );
-    await userEvent.click(screen.getByRole("button", { name: "Save context" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save context and try again" }),
+    );
 
     expect(updateSeed).toHaveBeenCalledWith(
       "http://127.0.0.1:8787",
@@ -508,7 +510,7 @@ describe("SeedDetailRoute", () => {
       "/review",
     );
     await userEvent.type(
-      screen.getByRole("textbox", { name: "Sentence from your reading" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading (recommended)" }),
       "Her reply was pellucid even under pressure.",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save context" }));

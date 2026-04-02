@@ -77,12 +77,13 @@ describe("seed presenters", () => {
     });
 
     expect(recoveryState?.title).toBe("Give this word more context");
-    expect(recoveryState?.sentenceLabel).toBe("Sentence from your reading");
+    expect(recoveryState?.actionLabel).toBe("Save context");
+    expect(recoveryState?.sentenceLabel).toBe("Sentence from your reading (recommended)");
     expect(recoveryState?.sentencePlaceholder).toBe(
       "Paste the sentence where you saw this word.",
     );
     expect(recoveryState?.message).toBe(
-      "Paste the sentence where you found this word, or add source details. Gloss uses that context to build the definition and review cards.",
+      "Add the sentence where you found this word, or add source details. That gives Gloss the strongest footing for the final meaning and review cards.",
     );
     expect(
       getSeedActionState({
@@ -126,10 +127,11 @@ describe("seed presenters", () => {
       },
     });
 
-    expect(recoveryState?.title).toBe("Give this word more context");
-    expect(recoveryState?.sentenceLabel).toBe("Sentence from your reading");
+    expect(recoveryState?.title).toBe("Help Gloss finish this word");
+    expect(recoveryState?.actionLabel).toBe("Save context and try again");
+    expect(recoveryState?.sentenceLabel).toBe("Sentence from your reading (recommended)");
     expect(recoveryState?.message).toBe(
-      "Paste the sentence where you found this word, or add source details. Gloss needs that context to try again.",
+      "Gloss found the dictionary entry, but it could not safely adapt the meaning to your reading yet. Add the sentence where you saw this word, or add source details.",
     );
   });
 

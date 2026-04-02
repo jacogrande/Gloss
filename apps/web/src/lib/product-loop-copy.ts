@@ -1,18 +1,18 @@
 const productLoopLine =
-  "Gloss builds the definition first. When a word is ready, it enters review.";
+  "Save a word. Merriam-Webster grounds it first. Gloss brings it back in review.";
 
 export const getAuthHelperCopy = (
   mode: "sign-in" | "sign-up",
 ): string =>
   mode === "sign-in"
     ? `Sign in to keep saving words from real reading. ${productLoopLine}`
-    : `Save words from real reading. ${productLoopLine}`;
+    : `Start with a word from real reading. ${productLoopLine}`;
 
 export const getCaptureHelperCopy = (): string =>
-  `Word first. Add context only if it helps. ${productLoopLine}`;
+  "Save the word first. Add the sentence where you found it for the strongest definition.";
 
 export const getCaptureOutcomeCopy = (): string =>
-  "Save now. Gloss builds the meaning first. When this word is ready, it enters review.";
+  "Save now. Merriam-Webster lands first. Gloss then tunes the meaning to your reading and prepares review.";
 
 export const getCaptureContextToggleLabel = (input: {
   hasContext: boolean;
@@ -22,11 +22,11 @@ export const getCaptureContextToggleLabel = (input: {
     return "Hide context";
   }
 
-  return input.hasContext ? "Edit context" : "Add context";
+  return input.hasContext ? "Edit sentence or source" : "Add sentence or source";
 };
 
 export const getCaptureContextHelperCopy = (): string =>
-  "A sentence or source helps when the meaning is thin.";
+  "Best results come from the sentence where you found the word. Source details help when the sentence is thin.";
 
 export const getEmptyLibraryMessage = (): string =>
   `Save your first word from real reading. ${productLoopLine}`;

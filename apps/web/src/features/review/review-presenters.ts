@@ -142,6 +142,29 @@ const formatDueDimensions = (
   return labels.length > 0 ? labels.join(", ") : "Meaning";
 };
 
+const getApproximateReviewCardCount = (
+  dueByDimension: ReviewQueueSummary["dueByDimension"],
+  dueCount: number,
+): number => {
+  const dimensionCount = dueByDimension.recognition +
+    dueByDimension.distinction +
+    dueByDimension.usage;
+
+  return Math.max(dueCount, Math.min(dimensionCount, dueCount * 2));
+};
+
+const formatReviewSessionEstimate = (cardCount: number): string => {
+  if (cardCount <= 1) {
+    return "Under a minute";
+  }
+
+  if (cardCount <= 3) {
+    return "About 1 minute";
+  }
+
+  return "About 2 minutes";
+};
+
 export const formatReviewExerciseLabel = (
   exerciseType: ReviewCard["exerciseType"],
 ): string => {
@@ -206,8 +229,17 @@ export const getReviewQueueDisplayState = (
   }
 
   if ((queue?.dueCount ?? 0) > 0) {
+    const approximateCardCount = getApproximateReviewCardCount(
+      queue?.dueByDimension ?? {
+        distinction: 0,
+        recognition: 0,
+        usage: 0,
+      },
+      queue?.dueCount ?? 0,
+    );
+
     return {
-      actionLabel: "Start review",
+      actionLabel: "Start a short session",
       canStart: true,
       facts: [
         {
@@ -215,21 +247,27 @@ export const getReviewQueueDisplayState = (
           value: pluralize(queue?.dueCount ?? 0, "word"),
         },
         {
-          label: "Focus",
+          label: "You’ll practice",
           value: formatDueDimensions(queue?.dueByDimension ?? {
             distinction: 0,
             recognition: 0,
             usage: 0,
           }),
         },
+        {
+          label: "Session",
+          value: `${pluralize(approximateCardCount, "card")} · ${formatReviewSessionEstimate(
+            approximateCardCount,
+          )}`,
+        },
       ],
       message:
-        "Start a short session from the words due now. Gloss will ask for meaning, comparison, and usage only where each word is ready for it.",
+        "Start a short session from the words due now. Gloss will move from meaning to comparison or usage only where each word is ready for it.",
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
       },
-      summary: `${pluralize(queue?.dueCount ?? 0, "word")} due now`,
+      summary: `${pluralize(queue?.dueCount ?? 0, "word")} ready now`,
     };
   }
 
@@ -259,7 +297,7 @@ export const getReviewQueueDisplayState = (
         },
       ],
       message:
-        "Your saved words are still being prepared for review. Give them a moment, or browse your library.",
+        "Your saved words are still being prepared for review. Browse the library now, or come back once the first word is ready.",
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -329,14 +367,14 @@ export const getReviewFeedbackDisplayState = (
     }),
     message: feedback.result.correct
       ? feedback.result.submissionType === "text"
-        ? "You recalled the right word for this sentence."
+        ? "You pulled back the right word from the sentence."
         : "You matched the meaning this card was testing."
-      : `You gave ${toQuotedText(
+      : `Not quite. You gave ${toQuotedText(
           submittedAnswerLabel ?? "Unavailable",
         )}. Here, the better fit is ${toQuotedText(correctAnswerLabel)}`,
     submittedAnswerLabel,
     status: feedback.result.correct ? "correct" : "incorrect",
-    title: feedback.result.correct ? "You’ve got it" : "Try again",
+    title: feedback.result.correct ? "You’ve got it" : "Not quite yet",
   };
 };
 
@@ -352,11 +390,11 @@ export const getReviewCompletionDisplayState = (input: {
   const wordCount = getReviewSessionWordCount(input.session);
 
   return {
-    actionLabel: "Back to review queue",
+    actionLabel: "Back to the queue",
     message: `You finished ${pluralize(
       input.session.session.cardCount,
       "card",
-    )}. Gloss updated when ${pluralize(
+    )}. Gloss has already adjusted when ${pluralize(
       wordCount,
       "word",
     )} should come back next.`,
@@ -368,7 +406,7 @@ export const getReviewCompletionDisplayState = (input: {
       href: "/library",
       label: "Browse your words",
     },
-    title: "Session finished",
+    title: "Nice work",
   };
 };
 

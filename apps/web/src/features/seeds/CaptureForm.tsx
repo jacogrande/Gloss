@@ -76,7 +76,7 @@ export const CaptureForm = ({
   }, [errorMessage, hasContext, isContextOpen]);
 
   return (
-    <section className="panel panel--capture">
+    <section className="page page--form surface surface--primary panel panel--capture">
       <div className="panel__header">
         <h2>Save a word</h2>
         <p className="panel__copy">{getCaptureHelperCopy()}</p>
@@ -98,11 +98,15 @@ export const CaptureForm = ({
             />
           </label>
           <div className="capture-form__actions">
-            <button className="capture-form__submit" disabled={isPending} type="submit">
+            <button
+              className="button button--primary capture-form__submit"
+              disabled={isPending}
+              type="submit"
+            >
               {isPending ? "Saving..." : "Save word"}
             </button>
             <button
-              className="capture-form__secondary-link"
+              className="button button--ghost capture-form__secondary-link"
               onClick={() => {
                 setIsContextOpen((current) => !current);
               }}
@@ -121,14 +125,14 @@ export const CaptureForm = ({
         {isContextOpen ? (
           <section className="capture-form__context-panel">
             <div className="capture-form__context-header">
-              <p className="capture-form__context-title">Context</p>
+              <p className="capture-form__context-title">Best results start here</p>
               <p className="capture-form__context-copy">
                 {getCaptureContextHelperCopy()}
               </p>
             </div>
 
             <label className="capture-form__field">
-              <span>Sentence (optional)</span>
+              <span>Sentence from your reading (recommended)</span>
               <textarea
                 name="sentence"
                 onChange={(event) => {

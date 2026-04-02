@@ -61,19 +61,34 @@ const createSession = (): ReviewSessionDetail => ({
 
 describe("review presenters", () => {
   it("describes due words without implying a direct card count", () => {
-    expect(
-      getReviewQueueDisplayState({
-        activeSessionId: null,
-        availableCount: 1,
-        capturedCount: 2,
-        dueByDimension: {
-          distinction: 1,
-          recognition: 1,
-          usage: 0,
-        },
-        dueCount: 2,
-      }).summary,
-    ).toBe("2 words due now");
+    const display = getReviewQueueDisplayState({
+      activeSessionId: null,
+      availableCount: 1,
+      capturedCount: 2,
+      dueByDimension: {
+        distinction: 1,
+        recognition: 1,
+        usage: 0,
+      },
+      dueCount: 2,
+    });
+
+    expect(display.summary).toBe("2 words ready now");
+    expect(display.actionLabel).toBe("Start a short session");
+    expect(display.facts).toEqual([
+      {
+        label: "Ready now",
+        value: "2 words",
+      },
+      {
+        label: "You’ll practice",
+        value: "Compare, Meaning",
+      },
+      {
+        label: "Session",
+        value: "2 cards · About 1 minute",
+      },
+    ]);
   });
 
   it("builds learner-facing feedback from a submitted card", () => {
@@ -93,7 +108,7 @@ describe("review presenters", () => {
       },
     });
 
-    expect(feedback.title).toBe("Try again");
+    expect(feedback.title).toBe("Not quite yet");
     expect(feedback.correctAnswerLabel).toBe(
       "Especially clear and easy to follow.",
     );
@@ -135,7 +150,7 @@ describe("review presenters", () => {
     expect(feedback.correctAnswerLabel).toBe("pellucid");
     expect(feedback.submittedAnswerLabel).toBe("lucid");
     expect(feedback.explanation).toContain("missing word is");
-    expect(feedback.message).toContain("You gave");
+    expect(feedback.message).toContain("Not quite");
   });
 
   it("models route state explicitly", () => {

@@ -29,7 +29,7 @@ export const AuthForm = ({
   const helperCopy = getAuthHelperCopy(mode);
 
   return (
-    <section className="auth-card" data-mode={mode}>
+    <section className="page page--form surface surface--primary auth-card" data-mode={mode}>
       <header className="auth-card__header">
         <p className="auth-card__eyebrow">Gloss</p>
         <h1>{mode === "sign-in" ? "Sign in" : "Create your account"}</h1>
@@ -121,7 +121,11 @@ export const AuthForm = ({
           </p>
         ) : null}
 
-        <button className="auth-card__submit" disabled={isPending} type="submit">
+        <button
+          className="button button--primary auth-card__submit"
+          disabled={isPending}
+          type="submit"
+        >
           {isPending
             ? mode === "sign-in"
               ? "Signing in..."

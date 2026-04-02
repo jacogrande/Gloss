@@ -129,8 +129,8 @@ export const LibraryRoute = (): JSX.Element => {
   const showLibraryControls = stageFilter !== "all" || hasAnyWords;
 
   return (
-    <section className="library">
-      <div className="panel panel--compact">
+    <section className="page page--list library">
+      <div className="surface surface--primary panel panel--compact">
         <div className="library__header">
           <div>
             <h2>Your words</h2>
@@ -157,7 +157,7 @@ export const LibraryRoute = (): JSX.Element => {
               <p className="library__summary">{total} word(s)</p>
               {showLibraryControls ? (
                 <button
-                  className="capture-form__secondary-link"
+                  className="button button--ghost"
                   onClick={() => {
                     reload();
                   }}
@@ -172,25 +172,25 @@ export const LibraryRoute = (): JSX.Element => {
       </div>
 
       {isLoading && items.length === 0 ? (
-        <section className="panel">
+        <section className="surface surface--primary panel">
           <p className="panel__copy">Loading your library...</p>
         </section>
       ) : null}
 
       {isRefreshing && items.length > 0 ? (
-        <section className="panel panel--compact" aria-live="polite">
+        <section className="surface surface--notice panel panel--compact" aria-live="polite">
           <p className="panel__copy">Refreshing your library...</p>
         </section>
       ) : null}
 
       {errorMessage && items.length === 0 ? (
-        <section className="panel">
+        <section className="surface surface--primary panel">
           <p className="capture-form__error" role="alert">
             {errorMessage}
           </p>
-          <div className="panel__actions">
+          <div className="action-row panel__actions">
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               onClick={() => {
                 reload();
               }}
@@ -203,14 +203,14 @@ export const LibraryRoute = (): JSX.Element => {
       ) : null}
 
       {errorMessage && items.length > 0 ? (
-        <section className="panel panel--compact" role="alert">
+        <section className="surface surface--notice panel panel--compact" role="alert">
           <p className="panel__eyebrow">Couldn’t refresh</p>
           <p className="panel__copy">
             {errorMessage} Showing the last loaded library for now.
           </p>
-          <div className="panel__actions">
+          <div className="action-row panel__actions">
             <button
-              className="capture-form__secondary-link"
+              className="button button--ghost"
               onClick={() => {
                 reload();
               }}
@@ -223,17 +223,20 @@ export const LibraryRoute = (): JSX.Element => {
       ) : null}
 
       {items.length === 0 && !errorMessage && !isLoading ? (
-        <section className="panel">
+        <section className="surface surface--primary panel">
           <h3>{emptyState.title}</h3>
           <p className="panel__copy">{emptyState.message}</p>
-          <div className="panel__actions">
+          <div className="action-row panel__actions">
             {emptyState.primaryAction.kind === "link" ? (
-              <Link className="capture-form__submit" to={emptyState.primaryAction.href}>
+              <Link
+                className="button button--primary"
+                to={emptyState.primaryAction.href}
+              >
                 {emptyState.primaryAction.label}
               </Link>
             ) : (
               <button
-                className="capture-form__submit"
+                className="button button--primary"
                 onClick={() => {
                   setStageFilter("all");
                 }}
@@ -245,14 +248,14 @@ export const LibraryRoute = (): JSX.Element => {
 
             {emptyState.secondaryAction?.kind === "link" ? (
               <Link
-                className="capture-form__secondary-link"
+                className="button button--ghost"
                 to={emptyState.secondaryAction.href}
               >
                 {emptyState.secondaryAction.label}
               </Link>
             ) : emptyState.secondaryAction?.kind === "reset-filter" ? (
               <button
-                className="capture-form__secondary-link"
+                className="button button--ghost"
                 onClick={() => {
                   setStageFilter("all");
                 }}

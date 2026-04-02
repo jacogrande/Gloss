@@ -8,6 +8,7 @@ import {
 } from "../../lib/contextual-gloss";
 import {
   getSeedEnrichmentFallbackView,
+  getSeedEnrichmentLoadingNarrative,
   getSeedEnrichmentLoadingSteps,
 } from "./seed-presenters";
 
@@ -18,18 +19,29 @@ type SeedEnrichmentPanelProps = {
   isRefreshing: boolean;
   onRefresh: () => void;
   onRetry: () => void;
+  primarySentence: string | null;
   showManualRefresh: boolean;
+  word: string;
 };
 
 const SeedEnrichmentLoadingWizard = (input: {
   isRefreshing: boolean;
   lexicalPreview: SeedEnrichment["lexicalPreview"];
   onRefresh: () => void;
+  primarySentence: string | null;
   showManualRefresh: boolean;
+  word: string;
 }): JSX.Element => {
   const steps = getSeedEnrichmentLoadingSteps({
     isRefreshing: input.isRefreshing,
     lexicalPreview: input.lexicalPreview ?? null,
+    primarySentence: input.primarySentence,
+  });
+  const narrative = getSeedEnrichmentLoadingNarrative({
+    isRefreshing: input.isRefreshing,
+    lexicalPreview: input.lexicalPreview ?? null,
+    primarySentence: input.primarySentence,
+    word: input.word,
   });
 
   return (
@@ -37,11 +49,7 @@ const SeedEnrichmentLoadingWizard = (input: {
       aria-live="polite"
       className="seed-enrichment__wizard"
     >
-      <p className="seed-enrichment__wizard-intro">
-        {input.lexicalPreview
-          ? "The dictionary meaning is here. Gloss is turning it toward the exact line you saved."
-          : "Gloss is looking the word up first, then shaping the meaning to your sentence."}
-      </p>
+      <p className="seed-enrichment__wizard-intro">{narrative.intro}</p>
       <ol className="seed-enrichment__wizard-steps">
         {steps.map((step, index) => (
           <li
@@ -57,9 +65,10 @@ const SeedEnrichmentLoadingWizard = (input: {
           </li>
         ))}
       </ol>
+      <p className="seed-enrichment__wizard-note">{narrative.reassurance}</p>
       {input.showManualRefresh ? (
         <button
-          className="seed-enrichment__refresh-link"
+          className="button button--ghost seed-enrichment__refresh-link"
           disabled={input.isRefreshing}
           onClick={input.onRefresh}
           type="button"
@@ -78,7 +87,9 @@ export const SeedEnrichmentPanel = ({
   isRefreshing,
   onRefresh,
   onRetry,
+  primarySentence,
   showManualRefresh,
+  word,
 }: SeedEnrichmentPanelProps): JSX.Element => {
   const lexicalPreview = enrichment?.lexicalPreview ?? null;
   const payload = enrichment?.status === "ready" ? enrichment.payload : null;
@@ -128,7 +139,9 @@ export const SeedEnrichmentPanel = ({
           isRefreshing={isRefreshing}
           lexicalPreview={lexicalPreview}
           onRefresh={onRefresh}
+          primarySentence={primarySentence}
           showManualRefresh={showManualRefresh}
+          word={word}
         />
         {fallbackView?.variant === "pending" &&
         (!primaryDefinition || Boolean(errorMessage)) ? (
@@ -165,20 +178,20 @@ export const SeedEnrichmentPanel = ({
         ) : null}
         <p className="seed-enrichment__state-copy">
           {fallbackView.variant === "pending" && isRefreshing
-            ? "Checking for the latest definition..."
+            ? "Checking again for the reading-specific pass..."
             : fallbackView.message}
         </p>
         {fallbackView.variant === "pending" && isRefreshing ? (
           <p aria-live="polite" className="capture-form__hint">
-            Gloss is checking again in the background.
+            Gloss is still working in the background.
           </p>
         ) : null}
         {fallbackView.canAct && fallbackView.actionLabel ? (
           <button
             className={
               fallbackView.actionKind === "refresh"
-                ? "seed-enrichment__refresh-link"
-                : "seed-enrichment__retry"
+                ? "button button--ghost seed-enrichment__refresh-link"
+                : "button button--primary seed-enrichment__retry"
             }
             disabled={fallbackView.actionKind === "refresh" && isRefreshing}
             onClick={

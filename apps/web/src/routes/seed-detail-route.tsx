@@ -380,7 +380,7 @@ export const SeedDetailRoute = (): JSX.Element => {
 
   if (isLoading && !seed) {
     return (
-      <section className="panel">
+      <section className="page page--detail surface surface--primary panel">
         <p className="panel__copy">Loading this word...</p>
       </section>
     );
@@ -388,7 +388,7 @@ export const SeedDetailRoute = (): JSX.Element => {
 
   if (!seedId || (!seed && errorMessage) || !seed) {
     return (
-      <section className="panel">
+      <section className="page page--detail surface surface--primary panel">
         <h2>{errorMessage ?? (!seedId ? "Missing seed id." : "Seed unavailable.")}</h2>
         <p className="panel__copy">
           Return to the <Link to="/library">library</Link> and choose another seed.

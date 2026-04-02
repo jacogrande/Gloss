@@ -580,7 +580,7 @@ Expected result:
 
 #### 22. Start A Review Session
 
-1. On `/review`, click `Start review`.
+1. On `/review`, click `Start a short session`.
 
 Expected result:
 
@@ -622,7 +622,7 @@ Expected result:
 
 Expected result:
 
-- the page shows `Session finished`
+- the page shows `Nice work`
 - the completion state reports the number of completed cards
 - returning to `/review` shows updated queue counts
 

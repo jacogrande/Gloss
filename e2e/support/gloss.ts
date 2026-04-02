@@ -72,7 +72,7 @@ export const waitForSeedDetailState = async (input: {
   expectRecovery?: boolean;
   page: Page;
 }): Promise<"failed" | "ready"> => {
-  const recoveryHeadingPattern = /Give this word more context|Add the sentence/;
+  const recoveryHeadingPattern = /Help Gloss finish this word|Give this word more context|Add the sentence/;
   const timeoutMs = process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 60_000 : 15_000;
   const enrichmentPanel = input.page.locator(".seed-enrichment");
   const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
@@ -189,11 +189,13 @@ export const captureSeedThroughUi = async (input: {
     input.sourceUrl !== undefined;
 
   if (hasSourceDetails) {
-    await input.page.getByRole("button", { name: "Add context" }).click();
+    await input.page.getByRole("button", { name: "Add sentence or source" }).click();
   }
 
   if (input.sentence !== undefined) {
-    await input.page.getByLabel("Sentence (optional)").fill(input.sentence);
+    await input.page
+      .getByLabel("Sentence from your reading (recommended)")
+      .fill(input.sentence);
   }
 
   if (input.sourceKind !== undefined) {
@@ -273,7 +275,7 @@ export const answerCurrentReviewCard = async (
     .poll(async () => {
       if (
         await page
-          .getByRole("heading", { name: "Session finished" })
+          .getByRole("heading", { name: "Nice work" })
           .isVisible()
           .catch(() => false)
       ) {
@@ -312,7 +314,7 @@ export const answerCurrentReviewCard = async (
       .poll(async () => {
         if (
           await page
-            .getByRole("heading", { name: "Session finished" })
+            .getByRole("heading", { name: "Nice work" })
             .isVisible()
             .catch(() => false)
         ) {
@@ -347,7 +349,7 @@ export const completeReviewSession = async (input: {
   for (let index = 0; index < maxCards; index += 1) {
     if (
       await input.page
-        .getByRole("heading", { name: "Session finished" })
+        .getByRole("heading", { name: "Nice work" })
         .isVisible()
         .catch(() => false)
     ) {
@@ -360,14 +362,14 @@ export const completeReviewSession = async (input: {
   }
 
   await expect(
-    input.page.getByRole("heading", { name: "Session finished" }),
+    input.page.getByRole("heading", { name: "Nice work" }),
   ).toBeVisible();
 };
 
 export const openReviewSession = async (page: Page): Promise<void> => {
   await page.goto("/review");
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
-  const startButton = page.getByRole("button", { name: "Start review" });
+  const startButton = page.getByRole("button", { name: "Start a short session" });
   const resumeButton = page.getByRole("button", { name: "Resume review" });
 
   if (
@@ -398,7 +400,7 @@ export const openReviewSession = async (page: Page): Promise<void> => {
 
       if (
         await page
-          .getByRole("heading", { name: "Session finished" })
+          .getByRole("heading", { name: "Nice work" })
           .isVisible()
           .catch(() => false)
       ) {

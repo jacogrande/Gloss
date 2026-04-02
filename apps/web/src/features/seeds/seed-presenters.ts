@@ -61,6 +61,7 @@ export type SeedCaptureNotice = {
 };
 
 export type SeedRecoveryState = {
+  actionLabel: string;
   message: string;
   sentenceLabel: string;
   sentencePlaceholder: string;
@@ -97,6 +98,11 @@ export type SeedEnrichmentLoadingStep = {
   body: string;
   status: "active" | "complete" | "pending";
   title: string;
+};
+
+type SeedEnrichmentLoadingNarrative = {
+  intro: string;
+  reassurance: string;
 };
 
 const hasWeakEnrichmentFailure = (
@@ -139,8 +145,8 @@ export const getSeedEnrichmentFallbackView = (input: {
       actionKind: input.showManualRefresh ? "refresh" : null,
       canAct: input.showManualRefresh,
       message: input.showManualRefresh
-        ? "Still loading? Check again."
-        : "Building the definition. It will appear here automatically.",
+        ? "Still shaping this word? Check again."
+        : "Building this word now. The definition will update here automatically.",
       title: "Definition",
       variant: "pending",
     };
@@ -152,7 +158,7 @@ export const getSeedEnrichmentFallbackView = (input: {
       (() => {
         switch (input.enrichment?.errorCode) {
           case "ENRICHMENT_EVIDENCE_UNAVAILABLE":
-            return "Not enough context yet.";
+            return "Gloss found the word, but it still needs the sentence where you saw it before it can safely adapt the meaning.";
           case "ENRICHMENT_SCHEMA_INVALID":
             return "The response was invalid.";
           case "ENRICHMENT_PROVIDER_ERROR":
@@ -199,14 +205,14 @@ export const getSeedCaptureNotice = (input: {
   if (!input.seed.primarySentence && !input.seed.source) {
     return {
       message:
-        "Your word is saved. Merriam-Webster lands first. Add a sentence if you want Gloss to shape the meaning to your reading.",
+        "Your word is saved. Merriam-Webster lands first. Add the sentence where you found it if you want the meaning shaped to your reading.",
       title: "Saved",
     };
   }
 
   return {
     message:
-      "Your word is saved. Merriam-Webster lands first, then Gloss shapes the meaning to your sentence and sends it to review.",
+      "Your word is saved. Merriam-Webster lands first, then Gloss tunes the meaning to what you were reading and prepares review.",
     title: "Saved",
   };
 };
@@ -218,19 +224,21 @@ export const getSeedRecoveryState = (
 ): SeedRecoveryState | null => {
   if (hasWeakEnrichmentFailure(input.seed.enrichment)) {
     return {
+      actionLabel: "Save context and try again",
       message:
-        "Paste the sentence where you found this word, or add source details. Gloss needs that context to try again.",
-      sentenceLabel: "Sentence from your reading",
+        "Gloss found the dictionary entry, but it could not safely adapt the meaning to your reading yet. Add the sentence where you saw this word, or add source details.",
+      sentenceLabel: "Sentence from your reading (recommended)",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
-      title: "Give this word more context",
+      title: "Help Gloss finish this word",
     };
   }
 
   if (!input.seed.primarySentence && !input.seed.source) {
     return {
+      actionLabel: "Save context",
       message:
-        "Paste the sentence where you found this word, or add source details. Gloss uses that context to build the definition and review cards.",
-      sentenceLabel: "Sentence from your reading",
+        "Add the sentence where you found this word, or add source details. That gives Gloss the strongest footing for the final meaning and review cards.",
+      sentenceLabel: "Sentence from your reading (recommended)",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
       title: "Give this word more context",
     };
@@ -238,9 +246,10 @@ export const getSeedRecoveryState = (
 
   if (!input.seed.primarySentence) {
     return {
+      actionLabel: "Save context",
       message:
-        "Paste the sentence where you found this word. Gloss can rebuild the definition once you save it.",
-      sentenceLabel: "Sentence from your reading",
+        "Paste the sentence where you found this word. Gloss can rebuild the final meaning once you save it.",
+      sentenceLabel: "Sentence from your reading (recommended)",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
       title: "Add the sentence",
     };
@@ -259,26 +268,72 @@ export const getSeedLoadNotice = (
       }
     : null;
 
+const toSentenceExcerpt = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (trimmed.length === 0) {
+    return null;
+  }
+
+  return trimmed.length > 88 ? `${trimmed.slice(0, 85)}...` : trimmed;
+};
+
+export const getSeedEnrichmentLoadingNarrative = (input: {
+  isRefreshing: boolean;
+  lexicalPreview: SeedEnrichmentLexicalPreview | null;
+  primarySentence: string | null;
+  word: string;
+}): SeedEnrichmentLoadingNarrative => {
+  const sentenceExcerpt = toSentenceExcerpt(input.primarySentence);
+
+  if (!input.lexicalPreview) {
+    return {
+      intro: sentenceExcerpt
+        ? `Gloss is grounding ${input.word} in Merriam-Webster first, then turning it back toward “${sentenceExcerpt}”.`
+        : `Gloss is grounding ${input.word} in Merriam-Webster first, then shaping it for your reading.`,
+      reassurance: "You do not need to wait here. Gloss will keep building this word in the background.",
+    };
+  }
+
+  return {
+    intro: sentenceExcerpt
+      ? `The dictionary meaning is here. Gloss is now tuning it to “${sentenceExcerpt}”.`
+      : `The dictionary meaning is here. Gloss is now tuning it to your reading.`,
+    reassurance: input.isRefreshing
+      ? "Still checking for the reading-specific pass."
+      : "You can return to the library while Gloss finishes this word.",
+  };
+};
+
 export const getSeedEnrichmentLoadingSteps = (input: {
   isRefreshing: boolean;
   lexicalPreview: SeedEnrichmentLexicalPreview | null;
+  primarySentence: string | null;
 }): SeedEnrichmentLoadingStep[] => {
+  const sentenceExcerpt = toSentenceExcerpt(input.primarySentence);
+
   if (!input.lexicalPreview) {
     return [
       {
-        body: "Opening Merriam-Webster and locating the right headword.",
+        body: "Finding the right Merriam-Webster entry for this word.",
         status: "active",
         title: "Finding the word",
       },
       {
         body: "The first grounded definition will appear here as soon as it lands.",
         status: "pending",
-        title: "Lifting the clean definition",
+        title: "Lifting the first clean sense",
       },
       {
-        body: "After that, Gloss reshapes the meaning to match your sentence.",
+        body: sentenceExcerpt
+          ? `After that, Gloss reshapes the meaning to match “${sentenceExcerpt}”.`
+          : "After that, Gloss reshapes the meaning to match your reading.",
         status: "pending",
-        title: "Reading your context",
+        title: "Turning it toward your reading",
       },
     ];
   }
@@ -296,10 +351,12 @@ export const getSeedEnrichmentLoadingSteps = (input: {
     },
     {
       body: input.isRefreshing
-        ? "Checking again for the contextual pass."
-        : "Gloss is shaping that definition to the exact sentence you saved.",
+        ? "Checking again for the reading-specific pass."
+        : sentenceExcerpt
+          ? `Gloss is shaping that definition to match “${sentenceExcerpt}”.`
+          : "Gloss is shaping that definition to match your reading.",
       status: "active",
-      title: "Reading your context",
+      title: "Turning it toward your reading",
     },
   ];
 };

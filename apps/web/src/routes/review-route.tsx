@@ -355,16 +355,16 @@ export const ReviewRoute = (): JSX.Element => {
 
   if (reviewState.kind === "loading") {
     return (
-      <section className="panel">
-        <p className="panel__copy">Loading your review queue...</p>
+      <section className="page page--review surface surface--primary panel">
+        <p className="panel__copy">Loading your next review...</p>
       </section>
     );
   }
 
   if (reviewState.kind === "card") {
     return (
-      <section className="review">
-        <div className="panel panel--compact review__queue-panel">
+      <section className="page page--review review">
+        <div className="surface surface--primary panel panel--compact review__queue-panel">
           <div className="review__queue-header">
             <div>
               <h2>Review</h2>
@@ -385,7 +385,7 @@ export const ReviewRoute = (): JSX.Element => {
         </div>
 
         <form
-          className="review-card"
+          className="surface surface--primary review-card"
           onSubmit={(event) => {
             event.preventDefault();
             void submitCurrentCard(reviewState.card);
@@ -464,7 +464,7 @@ export const ReviewRoute = (): JSX.Element => {
 
           <div className="review-card__actions">
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               disabled={
                 isSubmitting ||
                 ("choices" in reviewState.card.promptPayload
@@ -485,8 +485,8 @@ export const ReviewRoute = (): JSX.Element => {
     const feedbackDisplay = getReviewFeedbackDisplayState(reviewState.feedback);
 
     return (
-      <section className="review">
-        <div className="panel panel--compact review__queue-panel">
+      <section className="page page--review review">
+        <div className="surface surface--primary panel panel--compact review__queue-panel">
           <div className="review__queue-header">
             <div>
               <h2>Review</h2>
@@ -506,7 +506,9 @@ export const ReviewRoute = (): JSX.Element => {
           </div>
         </div>
 
-        <section className={`review-card review-feedback review-feedback--${feedbackDisplay.status}`}>
+        <section
+          className={`surface surface--primary review-card review-feedback review-feedback--${feedbackDisplay.status}`}
+        >
           <div className="review-card__header">
             <p className="panel__eyebrow">
               {formatReviewExerciseLabel(reviewState.feedback.card.exerciseType)}
@@ -548,7 +550,7 @@ export const ReviewRoute = (): JSX.Element => {
 
           <div className="review-card__actions">
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               onClick={() => {
                 setFeedbackState(null);
               }}
@@ -568,17 +570,17 @@ export const ReviewRoute = (): JSX.Element => {
     });
 
     return (
-      <section className="review">
-        <section className="panel">
+      <section className="page page--review review">
+        <section className="surface surface--primary panel">
           <div className="panel__header">
             <p className="panel__eyebrow">Review complete</p>
             <h2>{completionState.title}</h2>
             <p className="panel__copy">{completionState.summary}</p>
           </div>
           <p className="panel__copy">{completionState.message}</p>
-          <div className="capture-form__actions">
+          <div className="action-row capture-form__actions">
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               onClick={() => {
                 clearSessionState();
               }}
@@ -587,7 +589,7 @@ export const ReviewRoute = (): JSX.Element => {
               {completionState.actionLabel}
             </button>
             <Link
-              className="capture-form__secondary-link"
+              className="button button--ghost"
               to={completionState.secondaryAction.href}
             >
               {completionState.secondaryAction.label}
@@ -600,8 +602,8 @@ export const ReviewRoute = (): JSX.Element => {
 
   if (errorMessage && !queue) {
     return (
-      <section className="review">
-        <section className="panel review__queue-panel">
+      <section className="page page--review review">
+        <section className="surface surface--primary panel review__queue-panel">
           <div className="review__queue-header">
             <div>
               <p className="panel__eyebrow">Queue</p>
@@ -613,9 +615,9 @@ export const ReviewRoute = (): JSX.Element => {
             {errorMessage}
           </p>
 
-          <div className="capture-form__actions">
+          <div className="action-row capture-form__actions">
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               onClick={() => {
                 reload();
               }}
@@ -623,7 +625,7 @@ export const ReviewRoute = (): JSX.Element => {
             >
               Try again
             </button>
-            <Link className="capture-form__secondary-link" to="/library">
+            <Link className="button button--ghost" to="/library">
               Browse your words
             </Link>
           </div>
@@ -635,8 +637,8 @@ export const ReviewRoute = (): JSX.Element => {
   const queueDisplayState = getReviewQueueDisplayState(queue);
 
   return (
-    <section className="review">
-      <section className="panel review__queue-panel">
+    <section className="page page--review review">
+      <section className="surface surface--primary panel review__queue-panel">
         <div className="review__queue-header">
           <div>
             <p className="panel__eyebrow">Queue</p>
@@ -664,7 +666,7 @@ export const ReviewRoute = (): JSX.Element => {
           </p>
         ) : null}
         {errorMessage ? (
-          <section className="panel panel--compact" role="alert">
+          <section className="surface surface--notice panel panel--compact" role="alert">
             <p className="panel__eyebrow">Couldn’t refresh</p>
             <p className="panel__copy">
               {errorMessage} Showing the last known queue for now.
@@ -678,7 +680,7 @@ export const ReviewRoute = (): JSX.Element => {
         <div className="capture-form__actions">
           {errorMessage ? (
             <button
-              className="capture-form__secondary-link"
+              className="button button--ghost"
               onClick={() => {
                 reload();
               }}
@@ -689,7 +691,7 @@ export const ReviewRoute = (): JSX.Element => {
           ) : null}
           {queue?.activeSessionId && !session ? (
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               disabled={isStarting}
               onClick={() => {
                 void resumeActiveSession();
@@ -700,7 +702,7 @@ export const ReviewRoute = (): JSX.Element => {
             </button>
           ) : queueDisplayState.canStart && queueDisplayState.actionLabel ? (
             <button
-              className="capture-form__submit"
+              className="button button--primary"
               disabled={isStarting}
               onClick={() => {
                 void startSession();
@@ -712,7 +714,7 @@ export const ReviewRoute = (): JSX.Element => {
           ) : null}
           {queue ? (
             <button
-              className="capture-form__secondary-link"
+              className="button button--ghost"
               onClick={() => {
                 reload();
               }}
@@ -723,7 +725,7 @@ export const ReviewRoute = (): JSX.Element => {
           ) : null}
           {queueDisplayState.secondaryAction ? (
             <Link
-              className="capture-form__secondary-link"
+              className="button button--ghost"
               to={queueDisplayState.secondaryAction.href}
             >
               {queueDisplayState.secondaryAction.label}

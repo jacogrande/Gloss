@@ -33,8 +33,8 @@ describe("CaptureForm", () => {
     fireEvent.change(screen.getByLabelText("Word or phrase"), {
       target: { value: "lapidary" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
-    fireEvent.change(screen.getByLabelText("Sentence (optional)"), {
+    fireEvent.click(screen.getByRole("button", { name: "Add sentence or source" }));
+    fireEvent.change(screen.getByLabelText("Sentence from your reading (recommended)"), {
       target: {
         value: "The prose became unexpectedly lapidary by the final chapter.",
       },
@@ -70,11 +70,11 @@ describe("CaptureForm", () => {
 
     expect(
       screen.getByText(
-        /Gloss builds the definition first\. When a word is ready, it enters review\./i,
+        /Save the word first\. Add the sentence where you found it for the strongest definition\./i,
       ),
     ).toBeVisible();
     expect(
-      screen.getByText(/When this word is ready, it enters review\./i),
+      screen.getByText(/Merriam-Webster lands first\./i),
     ).toBeVisible();
   });
 
@@ -87,14 +87,14 @@ describe("CaptureForm", () => {
       />,
     );
 
-    expect(screen.queryByLabelText("Sentence (optional)")).toBeNull();
-    expect(screen.getByRole("button", { name: "Add context" })).toBeVisible();
+    expect(screen.queryByLabelText("Sentence from your reading (recommended)")).toBeNull();
+    expect(screen.getByRole("button", { name: "Add sentence or source" })).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add sentence or source" }));
 
-    expect(screen.getByLabelText("Sentence (optional)")).toBeVisible();
+    expect(screen.getByLabelText("Sentence from your reading (recommended)")).toBeVisible();
     expect(
-      screen.getByText(/A sentence or source helps when the meaning is thin\./i),
+      screen.getByText(/Best results come from the sentence where you found the word\./i),
     ).toBeVisible();
   });
 
@@ -107,7 +107,7 @@ describe("CaptureForm", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Add context" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add sentence or source" }));
     fireEvent.change(screen.getByLabelText("URL"), {
       target: { value: "not-a-url" },
     });

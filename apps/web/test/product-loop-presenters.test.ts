@@ -13,11 +13,13 @@ describe("product loop presenters", () => {
     const sharedLine = getProductLoopLine();
 
     expect(getAuthHelperCopy("sign-up")).toContain(sharedLine);
-    expect(getCaptureHelperCopy()).toContain(sharedLine);
     expect(getEmptyLibraryMessage()).toContain(sharedLine);
+    expect(getCaptureHelperCopy()).toContain(
+      "Add the sentence where you found it for the strongest definition.",
+    );
   });
 
   it("keeps capture outcome copy focused on the user-visible result", () => {
-    expect(getCaptureOutcomeCopy()).toContain("When this word is ready");
+    expect(getCaptureOutcomeCopy()).toContain("Merriam-Webster lands first");
   });
 });

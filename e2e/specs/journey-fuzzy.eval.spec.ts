@@ -180,7 +180,7 @@ const runJourney = async (input: {
 
       await expect(input.page.getByRole("heading", { name: word })).toBeVisible();
       await expect(
-        input.page.getByRole("heading", { name: "Context", exact: true }),
+        input.page.getByRole("heading", { name: "From your reading", exact: true }),
       ).toBeVisible();
       await expect(input.page.locator(".seed-enrichment__gloss")).toBeVisible();
       await expect(input.page.getByRole("link", { name: "Review queue" })).toHaveAttribute(
@@ -210,23 +210,23 @@ const runJourney = async (input: {
       ).toBe("failed");
 
       await expect(
-        input.page.getByRole("heading", { name: "Give this word more context" }),
+        input.page.getByRole("heading", { name: "Help Gloss finish this word" }),
       ).toBeVisible();
       await expect(
-        input.page.getByRole("textbox", { name: "Sentence from your reading" }),
+        input.page.getByRole("textbox", { name: "Sentence from your reading (recommended)" }),
       ).toHaveValue(
         "",
       );
       await expect(
-        input.page.getByRole("textbox", { name: "Sentence from your reading" }),
+        input.page.getByRole("textbox", { name: "Sentence from your reading (recommended)" }),
       ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
       await expect(
-        input.page.getByRole("button", { name: "Save context" }),
+        input.page.getByRole("button", { name: "Save context and try again" }),
       ).toBeVisible();
       await input.page
-        .getByRole("textbox", { name: "Sentence from your reading" })
+        .getByRole("textbox", { name: "Sentence from your reading (recommended)" })
         .fill("The sentence makes it sound measured and restrained.");
-      await input.page.getByRole("button", { name: "Save context" }).click();
+      await input.page.getByRole("button", { name: "Save context and try again" }).click();
       await expect(
         input.page.getByText(/Context saved\./u),
       ).toBeVisible();
@@ -241,7 +241,7 @@ const runJourney = async (input: {
 
           if (
             await input.page
-              .getByRole("heading", { name: "Give this word more context" })
+              .getByRole("heading", { name: "Help Gloss finish this word" })
               .isVisible()
               .catch(() => false)
           ) {
@@ -271,9 +271,9 @@ const runJourney = async (input: {
 
       await input.page.goto("/review");
       await expect(input.page.getByRole("heading", { name: "Review" })).toBeVisible();
-      await expect(input.page.getByText(/\d+ word due now|\d+ words due now/)).toBeVisible();
+      await expect(input.page.getByText(/\d+ word ready now|\d+ words ready now/)).toBeVisible();
       await expect(
-        input.page.getByRole("button", { name: "Start review" }),
+        input.page.getByRole("button", { name: "Start a short session" }),
       ).toBeVisible();
       return;
     }
@@ -310,7 +310,7 @@ const runJourney = async (input: {
       });
       await expect(input.page.getByText("Correct answer")).toBeVisible();
       await expect(
-        input.page.getByText("You recalled the right word for this sentence."),
+        input.page.getByText("You pulled back the right word from the sentence."),
       ).toBeVisible();
       return;
     }
@@ -345,7 +345,7 @@ const runJourney = async (input: {
       });
       await expect(input.page.getByText("Correct answer")).toBeVisible();
       await expect(
-        input.page.getByText("Try again"),
+        input.page.getByText("Not quite yet"),
       ).toBeVisible();
       await expect(
         input.page.getByText(/Here, the better fit is/u),
@@ -409,7 +409,7 @@ const runJourney = async (input: {
         strategy: "first",
       });
       await expect(
-        input.page.getByRole("heading", { name: "Session finished" }),
+        input.page.getByRole("heading", { name: "Nice work" }),
       ).toBeVisible();
       return;
     }

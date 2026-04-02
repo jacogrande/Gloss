@@ -12,16 +12,16 @@ export const SessionUnavailablePanel = ({
   onRetry,
 }: SessionUnavailablePanelProps): JSX.Element => (
   <main className="screen screen--centered">
-    <section className="panel panel--status">
+    <section className="page page--notice surface surface--notice panel panel--status">
       <div className="panel__header">
         <p className="panel__eyebrow">Connection</p>
         <h2>Gloss is unavailable</h2>
         <p className="panel__copy">{message}</p>
       </div>
 
-      <div className="panel__actions">
+      <div className="action-row panel__actions">
         <button
-          className="capture-form__submit"
+          className="button button--primary"
           disabled={isRetrying}
           onClick={onRetry}
           type="button"
@@ -46,12 +46,14 @@ export const SessionConnectionBanner = ({
 }: SessionConnectionBannerProps): JSX.Element => (
   <section
     aria-live="polite"
-    className="panel panel--compact shell__connection-banner"
+    className="surface surface--notice panel panel--compact shell__connection-banner"
   >
-    <p className="panel__eyebrow">Connection</p>
-    <p className="panel__copy">{message}</p>
+    <div className="shell__connection-copy">
+      <p className="panel__eyebrow">Connection</p>
+      <p className="panel__copy">{message}</p>
+    </div>
     <button
-      className="capture-form__secondary-link"
+      className="button button--ghost"
       disabled={isRetrying}
       onClick={onRetry}
       type="button"
