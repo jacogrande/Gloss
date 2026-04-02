@@ -150,6 +150,12 @@ const runJourney = async (input: {
 
       await expect(input.page.getByRole("heading", { name: word })).toBeVisible();
       await expect(
+        input.page.locator(".seed-detail__notice .panel__eyebrow"),
+      ).toHaveText("Saved");
+      await expect(
+        input.page.getByText(/Your word is saved\./u),
+      ).toBeVisible();
+      await expect(
         input.page.getByRole("link", { name: "Save another word" }),
       ).toHaveAttribute("href", "/capture");
       return;
@@ -207,16 +213,44 @@ const runJourney = async (input: {
         input.page.getByRole("heading", { name: "Give this word more context" }),
       ).toBeVisible();
       await expect(
-        input.page.getByRole("textbox", { name: "Sentence (optional)" }),
+        input.page.getByRole("textbox", { name: "Sentence from your reading" }),
       ).toHaveValue(
         "",
       );
       await expect(
-        input.page.getByRole("textbox", { name: "Sentence (optional)" }),
+        input.page.getByRole("textbox", { name: "Sentence from your reading" }),
       ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
       await expect(
         input.page.getByRole("button", { name: "Save context" }),
       ).toBeVisible();
+      await input.page
+        .getByRole("textbox", { name: "Sentence from your reading" })
+        .fill("The sentence makes it sound measured and restrained.");
+      await input.page.getByRole("button", { name: "Save context" }).click();
+      await expect(
+        input.page.getByText(/Context saved\./u),
+      ).toBeVisible();
+      await expect(
+        input.page.locator(".seed-detail__sentence"),
+      ).toHaveText("The sentence makes it sound measured and restrained.");
+      await expect
+        .poll(async () => {
+          if (await glossIsVisible(input.page)) {
+            return "ready";
+          }
+
+          if (
+            await input.page
+              .getByRole("heading", { name: "Give this word more context" })
+              .isVisible()
+              .catch(() => false)
+          ) {
+            return "failed";
+          }
+
+          return "pending";
+        })
+        .not.toBe("pending");
       return;
     }
 
@@ -423,6 +457,9 @@ const runJourney = async (input: {
 const browserJourneyTimeoutMs =
   process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 90_000 : 30_000;
 const browserJourneyScreenshotDir = process.env.PLAYWRIGHT_JOURNEY_SCREENSHOT_DIR;
+
+const glossIsVisible = async (page: Page): Promise<boolean> =>
+  page.locator(".seed-enrichment__gloss").isVisible().catch(() => false);
 
 test.describe("browser journey fuzz evals", () => {
   for (const journey of browserJourneyDefinitions) {

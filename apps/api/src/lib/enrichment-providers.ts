@@ -500,6 +500,51 @@ const ensureResponseOk = async (
   );
 };
 
+const fetchJsonWithTimeout = async <TValue>(input: {
+  headers: Record<string, string>;
+  method?: "GET" | "POST";
+  providerName: string;
+  timeoutMs: number;
+  url: URL | string;
+  body?: string;
+}): Promise<TValue> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, input.timeoutMs);
+
+  try {
+    const response = await fetch(input.url, {
+      ...(input.body
+        ? {
+            body: input.body,
+          }
+        : {}),
+      headers: input.headers,
+      method: input.method ?? "GET",
+      signal: controller.signal,
+    });
+
+    await ensureResponseOk(response, input.providerName);
+
+    return (await response.json()) as TValue;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.name === "AbortError" ||
+        /aborted|timed out/iu.test(error.message))
+    ) {
+      throw enrichmentProviderError(
+        `${input.providerName} timed out after ${input.timeoutMs}ms.`,
+      );
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 const parseDictionaryEntries = (
   value: unknown,
 ): MerriamDictionaryEntry[] =>
@@ -527,6 +572,7 @@ const createLiveLexicalEvidenceProvider = (
   env: ServerEnv,
 ): LexicalEvidenceProvider => ({
   async getDictionaryEntry(word) {
+    const timeoutMs = 8_000;
     const url = new URL(
       `/api/v3/references/collegiate/json/${encodeURIComponent(word)}`,
       "https://www.dictionaryapi.com",
@@ -534,15 +580,17 @@ const createLiveLexicalEvidenceProvider = (
 
     url.searchParams.set("key", env.MERRIAM_WEBSTER_DICTIONARY_API_KEY ?? "");
 
-    const response = await fetch(url, {
-      headers: {
-        accept: "application/json",
-      },
-    });
+    const entries = parseDictionaryEntries(
+      await fetchJsonWithTimeout<unknown>({
+        headers: {
+          accept: "application/json",
+        },
+        providerName: "Merriam-Webster dictionary",
+        timeoutMs,
+        url,
+      }),
+    );
 
-    await ensureResponseOk(response, "Merriam-Webster dictionary");
-
-    const entries = parseDictionaryEntries((await response.json()) as unknown);
     const firstEntry = entries.find(
       (entry) => Array.isArray(entry.shortdef) && entry.shortdef.length > 0,
     );
@@ -575,6 +623,7 @@ const createLiveLexicalEvidenceProvider = (
     };
   },
   async getRelationCandidates(word) {
+    const timeoutMs = 8_000;
     const thesaurusUrl = new URL(
       `/api/v3/references/thesaurus/json/${encodeURIComponent(word)}`,
       "https://www.dictionaryapi.com",
@@ -595,37 +644,35 @@ const createLiveLexicalEvidenceProvider = (
     datamuseContrastUrl.searchParams.set("rel_ant", word);
     datamuseContrastUrl.searchParams.set("max", "6");
 
-    const [thesaurusResponse, relatedResponse, contrastResponse] =
-      await Promise.all([
-        fetch(thesaurusUrl, {
-          headers: {
-            accept: "application/json",
-          },
-        }),
-        fetch(datamuseRelatedUrl, {
-          headers: {
-            accept: "application/json",
-          },
-        }),
-        fetch(datamuseContrastUrl, {
-          headers: {
-            accept: "application/json",
-          },
-        }),
-      ]);
-
-    await Promise.all([
-      ensureResponseOk(thesaurusResponse, "Merriam-Webster thesaurus"),
-      ensureResponseOk(relatedResponse, "Datamuse related"),
-      ensureResponseOk(contrastResponse, "Datamuse contrast"),
+    const [thesaurusJson, relatedJson, contrastJson] = await Promise.all([
+      fetchJsonWithTimeout<unknown>({
+        headers: {
+          accept: "application/json",
+        },
+        providerName: "Merriam-Webster thesaurus",
+        timeoutMs,
+        url: thesaurusUrl,
+      }),
+      fetchJsonWithTimeout<unknown>({
+        headers: {
+          accept: "application/json",
+        },
+        providerName: "Datamuse related",
+        timeoutMs,
+        url: datamuseRelatedUrl,
+      }),
+      fetchJsonWithTimeout<unknown>({
+        headers: {
+          accept: "application/json",
+        },
+        providerName: "Datamuse contrast",
+        timeoutMs,
+        url: datamuseContrastUrl,
+      }),
     ]);
 
-    const thesaurusEntries = parseThesaurusEntries(
-      (await thesaurusResponse.json()) as unknown,
-    );
+    const thesaurusEntries = parseThesaurusEntries(thesaurusJson);
     const firstThesaurusEntry = thesaurusEntries[0];
-    const relatedJson = (await relatedResponse.json()) as unknown;
-    const contrastJson = (await contrastResponse.json()) as unknown;
     const datamuseRelated = Array.isArray(relatedJson)
       ? relatedJson
           .map((entry) => (entry as DatamuseEntry).word)
@@ -668,7 +715,8 @@ const extractOutputText = (body: OpenAIResponseBody): string | null => {
 
 const createLiveModelProvider = (env: ServerEnv): EnrichmentModelProvider => ({
   async generate(input) {
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const timeoutMs = 30_000;
+    const body = await fetchJsonWithTimeout<OpenAIResponseBody>({
       body: JSON.stringify({
         input: [
           {
@@ -705,11 +753,10 @@ const createLiveModelProvider = (env: ServerEnv): EnrichmentModelProvider => ({
         "content-type": "application/json",
       },
       method: "POST",
+      providerName: "OpenAI Responses",
+      timeoutMs,
+      url: "https://api.openai.com/v1/responses",
     });
-
-    await ensureResponseOk(response, "OpenAI Responses");
-
-    const body = (await response.json()) as OpenAIResponseBody;
     const outputText = extractOutputText(body);
 
     if (!outputText) {

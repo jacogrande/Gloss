@@ -359,11 +359,11 @@ describe("seed integration", () => {
 
   it("exposes split-origin CORS headers on product routes", async () => {
     const preflightResponse = await context.app.request(
-      "http://127.0.0.1:8787/capture/seeds",
+      "http://127.0.0.1:8787/seeds/seed_for_preflight",
       {
         headers: {
           "access-control-request-headers": "content-type",
-          "access-control-request-method": "POST",
+          "access-control-request-method": "PATCH",
           origin: context.env.WEB_ORIGIN,
         },
         method: "OPTIONS",
@@ -384,6 +384,9 @@ describe("seed integration", () => {
 
     expect(preflightResponse.headers.get("access-control-allow-origin")).toBe(
       context.env.WEB_ORIGIN,
+    );
+    expect(preflightResponse.headers.get("access-control-allow-methods")).toContain(
+      "PATCH",
     );
     expect(
       preflightResponse.headers.get("access-control-allow-credentials"),
@@ -414,6 +417,49 @@ describe("seed integration", () => {
     expect(body.error.code).toBe("AUTH_UNAUTHORIZED");
     expect(body.error.requestId).toBeTruthy();
     expect(response.headers.get("x-request-id")).toBeTruthy();
+  });
+
+  it("returns a validation error for malformed JSON seed updates", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "malformed-update@example.com",
+      env: context.env,
+      name: "Malformed Update",
+    });
+    const createResponse = await context.app.request(
+      "http://127.0.0.1:8787/capture/seeds",
+      {
+        body: JSON.stringify({
+          word: "reticent",
+        }),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const createBody = createSeedResponseSchema.parse(
+      (await createResponse.json()) as unknown,
+    );
+    const response = await context.app.request(
+      `http://127.0.0.1:8787/seeds/${createBody.data.id}`,
+      {
+        body: '{"sentence":',
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "PATCH",
+      },
+    );
+    const body = apiErrorResponseSchema.parse((await response.json()) as unknown);
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.message).toBe("Request body must be valid JSON.");
   });
 
   it("enriches a seed for the owner and exposes the enrichment on seed detail", async () => {

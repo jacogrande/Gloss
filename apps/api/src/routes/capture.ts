@@ -5,7 +5,10 @@ import {
 
 import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
-import { jsonSuccess } from "../lib/http";
+import {
+  jsonSuccess,
+  parseJsonBody,
+} from "../lib/http";
 import { requireSession } from "../lib/session";
 import type { RequestRateLimitService } from "../services/request-rate-limit-service";
 import type { SeedService } from "../services/seed-service";
@@ -34,7 +37,7 @@ export const registerCaptureRoutes = (
       policyKey: "capture.create",
       requestId: context.get("requestId"),
     });
-    const body = createSeedInputSchema.parse(await context.req.json());
+    const body = createSeedInputSchema.parse(await parseJsonBody(context));
     const dbStartedAt = performance.now();
     const createdSeed = await dependencies.seedService.createSeed({
       capture: body,

@@ -178,4 +178,82 @@ describe("LibraryRoute", () => {
 
     expect(sessionState.setSession).toHaveBeenCalledWith(null);
   });
+
+  it("keeps the current library visible when a manual refresh fails", async () => {
+    fetchSeedList
+      .mockResolvedValueOnce({
+        items: [
+          {
+            createdAt: "2026-03-31T00:00:00.000Z",
+            id: "seed_1",
+            primarySentence: "The explanation was pellucid.",
+            source: null,
+            stage: "new",
+            updatedAt: "2026-03-31T00:00:00.000Z",
+            word: "pellucid",
+          },
+        ],
+        total: 1,
+      })
+      .mockRejectedValueOnce(new Error("Library refresh failed."));
+
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route element={<LibraryRoute />} path="/library" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("link", { name: "pellucid" })).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Library refresh failed.");
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Showing the last loaded library for now.",
+    );
+    expect(screen.getByRole("link", { name: "pellucid" })).toBeVisible();
+  });
+
+  it("shows a blocking error instead of stale words when a filter change fails", async () => {
+    fetchSeedList
+      .mockResolvedValueOnce({
+        items: [
+          {
+            createdAt: "2026-03-31T00:00:00.000Z",
+            id: "seed_1",
+            primarySentence: "The explanation was pellucid.",
+            source: null,
+            stage: "new",
+            updatedAt: "2026-03-31T00:00:00.000Z",
+            word: "pellucid",
+          },
+        ],
+        total: 1,
+      })
+      .mockRejectedValueOnce(new Error("Filtered library unavailable."));
+
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route element={<LibraryRoute />} path="/library" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("link", { name: "pellucid" })).toBeVisible();
+
+    await userEvent.selectOptions(screen.getAllByLabelText("Stage")[0]!, "mature");
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Filtered library unavailable.");
+    });
+
+    expect(screen.queryByRole("link", { name: "pellucid" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
+  });
 });

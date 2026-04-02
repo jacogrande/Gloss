@@ -10,7 +10,10 @@ import {
 
 import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
-import { jsonSuccess } from "../lib/http";
+import {
+  jsonSuccess,
+  parseJsonBody,
+} from "../lib/http";
 import { requireSession } from "../lib/session";
 import type { EnrichmentService } from "../services/enrichment-service";
 import type { SeedService } from "../services/seed-service";
@@ -93,7 +96,9 @@ export const registerSeedRoutes = (
     const seedId = context.req.param("seedId");
     context.set("seedId", seedId);
     const body = requestSeedEnrichmentInputSchema.parse(
-      await context.req.json().catch(() => ({})),
+      await parseJsonBody<unknown>(context, {
+        defaultValue: {},
+      }),
     );
 
     const enrichment = await dependencies.enrichmentService.requestSeedEnrichment({
@@ -138,7 +143,7 @@ export const registerSeedRoutes = (
     context.set("sessionId", String(session.session.id));
     const seedId = context.req.param("seedId");
     context.set("seedId", seedId);
-    const body = updateSeedInputSchema.parse(await context.req.json());
+    const body = updateSeedInputSchema.parse(await parseJsonBody(context));
     const dbStartedAt = performance.now();
     const seedDetail = await dependencies.seedService.updateSeed({
       patch: body,

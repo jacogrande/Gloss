@@ -14,8 +14,16 @@ import { fetchSessionSnapshot } from "../../lib/api-client";
 import { webEnv } from "../../lib/env";
 
 type SessionStatus = "loading" | "authenticated" | "anonymous";
+type SessionConnectionStatus = "online" | "reconnecting" | "unavailable";
+
+const unavailableSessionMessage =
+  "Gloss can’t reach the server right now. Try again in a moment.";
+const reconnectingSessionMessage =
+  "Gloss is reconnecting. Showing your last saved session for now.";
 
 type SessionContextValue = {
+  connectionMessage: string | null;
+  connectionStatus: SessionConnectionStatus;
   refreshSession: () => Promise<SessionData | null>;
   session: SessionData | null;
   setSession: (value: SessionData | null) => void;
@@ -92,33 +100,53 @@ export const SessionProvider = ({
   const [status, setStatus] = useState<SessionStatus>(() =>
     readStoredSession() ? "authenticated" : "loading",
   );
+  const [connectionStatus, setConnectionStatus] =
+    useState<SessionConnectionStatus>("online");
+  const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
 
-  const setSession = (value: SessionData | null): void => {
+  const commitSession = (value: SessionData | null): void => {
     setSessionState(value);
     setStatus(value ? "authenticated" : "anonymous");
     writeStoredSession(value);
+  };
+
+  const clearConnectionIssue = (): void => {
+    setConnectionStatus("online");
+    setConnectionMessage(null);
+  };
+
+  const setSession = (value: SessionData | null): void => {
+    commitSession(value);
+    clearConnectionIssue();
   };
 
   const refreshSession = async (): Promise<SessionData | null> => {
     try {
       const nextSession = await fetchSessionSnapshot(webEnv.VITE_API_BASE_URL);
 
-      setSession(nextSession);
+      commitSession(nextSession);
+      clearConnectionIssue();
 
       return nextSession;
     } catch (error) {
       if (isUnauthorizedAuthError(error)) {
-        setSession(null);
+        commitSession(null);
+        clearConnectionIssue();
         return null;
       }
 
       const storedSession = readStoredSession();
 
       if (storedSession) {
-        setSession(storedSession);
+        commitSession(storedSession);
+        setConnectionStatus("reconnecting");
+        setConnectionMessage(reconnectingSessionMessage);
         return storedSession;
       }
 
+      commitSession(null);
+      setConnectionStatus("unavailable");
+      setConnectionMessage(unavailableSessionMessage);
       throw error;
     }
   };
@@ -134,25 +162,31 @@ export const SessionProvider = ({
           return;
         }
 
-        setSession(nextSession);
+        commitSession(nextSession);
+        clearConnectionIssue();
       } catch (error) {
         if (isCancelled) {
           return;
         }
 
         if (isUnauthorizedAuthError(error)) {
-          setSession(null);
+          commitSession(null);
+          clearConnectionIssue();
           return;
         }
 
         const storedSession = readStoredSession();
 
         if (storedSession) {
-          setSession(storedSession);
+          commitSession(storedSession);
+          setConnectionStatus("reconnecting");
+          setConnectionMessage(reconnectingSessionMessage);
           return;
         }
 
-        setStatus("anonymous");
+        commitSession(null);
+        setConnectionStatus("unavailable");
+        setConnectionMessage(unavailableSessionMessage);
       }
     })();
 
@@ -164,6 +198,8 @@ export const SessionProvider = ({
   return (
     <SessionContext.Provider
       value={{
+        connectionMessage,
+        connectionStatus,
         refreshSession,
         session,
         setSession,

@@ -1,4 +1,7 @@
-import type { Pool } from "pg";
+import type {
+  Pool,
+  PoolClient,
+} from "pg";
 
 const hashLockKey = (value: string): number => {
   let hash = 0;
@@ -16,7 +19,7 @@ export const withPostgresAdvisoryLock = async <TValue>(input: {
   namespace: string;
   pollIntervalMs?: number;
   pool: Pool;
-  run: () => Promise<TValue>;
+  run: (client: PoolClient) => Promise<TValue>;
   timeoutMs?: number;
 }): Promise<TValue> => {
   const namespaceKey = hashLockKey(input.namespace);
@@ -59,7 +62,7 @@ export const withPostgresAdvisoryLock = async <TValue>(input: {
       }
 
       try {
-        return await input.run();
+        return await input.run(client);
       } finally {
         try {
           await client.query("SELECT pg_advisory_unlock($1, $2)", [

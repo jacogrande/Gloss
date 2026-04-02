@@ -174,6 +174,11 @@ describe("SeedDetailRoute", () => {
     expect(screen.getByRole("heading", { name: "pellucid" })).toBeVisible();
     expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
     expect(screen.getByText("Saved")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Add a sentence or source details if you want a stronger definition and better review prompts.",
+      ),
+    ).toBeVisible();
 
     deferredSeed.resolve(
       createSeedDetail({
@@ -462,15 +467,15 @@ describe("SeedDetailRoute", () => {
     ).toBeVisible();
     expect(
       screen.getByText(
-        "Add the sentence where you found it, or a source note. Gloss will rebuild the definition after you save.",
+        "Paste the sentence where you found this word, or add source details. Gloss needs that context to try again.",
       ),
     ).toBeVisible();
     expect(
-      screen.getByRole("textbox", { name: "Sentence (optional)" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading" }),
     ).toHaveAttribute("placeholder", "Paste the sentence where you saw this word.");
 
     await userEvent.type(
-      screen.getByRole("textbox", { name: "Sentence (optional)" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading" }),
       "Her reply was pellucid even under pressure.",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save context" }));
@@ -574,7 +579,7 @@ describe("SeedDetailRoute", () => {
       "/review",
     );
     await userEvent.type(
-      screen.getByRole("textbox", { name: "Sentence (optional)" }),
+      screen.getByRole("textbox", { name: "Sentence from your reading" }),
       "Her reply was pellucid even under pressure.",
     );
     await userEvent.click(screen.getByRole("button", { name: "Save context" }));
@@ -602,7 +607,7 @@ describe("SeedDetailRoute", () => {
       </MemoryRouter>,
     );
 
-    await screen.findByText("Loading...");
+    await screen.findByText("Loading this word...");
 
     await waitFor(() => {
       expect(

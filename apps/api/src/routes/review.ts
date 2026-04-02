@@ -8,7 +8,10 @@ import {
 
 import type { GlossApp } from "../app";
 import type { GlossAuth } from "../lib/auth";
-import { jsonSuccess } from "../lib/http";
+import {
+  jsonSuccess,
+  parseJsonBody,
+} from "../lib/http";
 import { requireSession } from "../lib/session";
 import type { RequestRateLimitService } from "../services/request-rate-limit-service";
 import type { ReviewService } from "../services/review-service";
@@ -55,7 +58,9 @@ export const registerReviewRoutes = (
     context.set("actorTag", String(session.user.id));
     context.set("sessionId", String(session.session.id));
     const input = createReviewSessionInputSchema.parse(
-      (await context.req.json().catch(() => ({}))) as unknown,
+      await parseJsonBody<unknown>(context, {
+        defaultValue: {},
+      }),
     );
     const reviewSession = await dependencies.reviewService.startOrResumeSession({
       requestId: context.get("requestId"),
@@ -115,7 +120,7 @@ export const registerReviewRoutes = (
       requestId: context.get("requestId"),
     });
     const input = reviewSubmissionInputSchema.parse(
-      (await context.req.json()) as unknown,
+      await parseJsonBody(context),
     );
     const response = await dependencies.reviewService.submitCardAnswer({
       cardId: context.req.param("cardId"),

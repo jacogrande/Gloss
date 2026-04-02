@@ -47,8 +47,11 @@ export const LibraryRoute = (): JSX.Element => {
     error,
     errorMessage,
     isLoading,
+    isRefreshing,
+    reload,
   } = useAsyncResource<{
     items: SeedSummary[];
+    requestedStage: StageFilter;
     total: number;
   }>({
     dependencies: [stageFilter],
@@ -64,6 +67,7 @@ export const LibraryRoute = (): JSX.Element => {
 
         return {
           items: response.items,
+          requestedStage: stageFilter,
           total: response.total,
         };
       }
@@ -78,12 +82,15 @@ export const LibraryRoute = (): JSX.Element => {
 
       return {
         items: filteredResponse.items,
+        requestedStage: stageFilter,
         total: filteredResponse.total,
       };
     },
+    preserveDataOnError: "reload-only",
   });
-  const items = data?.items ?? [];
-  const total = data?.total ?? 0;
+  const isCurrentStageSnapshot = data?.requestedStage === stageFilter;
+  const items = isCurrentStageSnapshot ? (data?.items ?? []) : [];
+  const total = isCurrentStageSnapshot ? (data?.total ?? 0) : 0;
 
   useEffect(() => {
     if (stageFilter !== "all" || !data) {
@@ -148,20 +155,74 @@ export const LibraryRoute = (): JSX.Element => {
               </label>
 
               <p className="library__summary">{total} word(s)</p>
+              {showLibraryControls ? (
+                <button
+                  className="capture-form__secondary-link"
+                  onClick={() => {
+                    reload();
+                  }}
+                  type="button"
+                >
+                  Refresh
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
       </div>
 
-      {isLoading ? (
+      {isLoading && items.length === 0 ? (
         <section className="panel">
           <p className="panel__copy">Loading your library...</p>
         </section>
-      ) : errorMessage ? (
-        <section className="panel">
-          <p className="capture-form__error">{errorMessage}</p>
+      ) : null}
+
+      {isRefreshing && items.length > 0 ? (
+        <section className="panel panel--compact" aria-live="polite">
+          <p className="panel__copy">Refreshing your library...</p>
         </section>
-      ) : items.length === 0 ? (
+      ) : null}
+
+      {errorMessage && items.length === 0 ? (
+        <section className="panel">
+          <p className="capture-form__error" role="alert">
+            {errorMessage}
+          </p>
+          <div className="panel__actions">
+            <button
+              className="capture-form__submit"
+              onClick={() => {
+                reload();
+              }}
+              type="button"
+            >
+              Try again
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {errorMessage && items.length > 0 ? (
+        <section className="panel panel--compact" role="alert">
+          <p className="panel__eyebrow">Couldn’t refresh</p>
+          <p className="panel__copy">
+            {errorMessage} Showing the last loaded library for now.
+          </p>
+          <div className="panel__actions">
+            <button
+              className="capture-form__secondary-link"
+              onClick={() => {
+                reload();
+              }}
+              type="button"
+            >
+              Try again
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {items.length === 0 && !errorMessage && !isLoading ? (
         <section className="panel">
           <h3>{emptyState.title}</h3>
           <p className="panel__copy">{emptyState.message}</p>
@@ -202,13 +263,15 @@ export const LibraryRoute = (): JSX.Element => {
             ) : null}
           </div>
         </section>
-      ) : (
+      ) : null}
+
+      {items.length > 0 ? (
         <section className="library__grid">
           {items.map((seed) => (
             <SeedCard key={seed.id} seed={seed} />
           ))}
         </section>
-      )}
+      ) : null}
     </section>
   );
 };

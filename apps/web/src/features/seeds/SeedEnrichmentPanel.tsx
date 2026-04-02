@@ -14,6 +14,7 @@ type SeedEnrichmentPanelProps = {
   enrichment: SeedEnrichment | null | undefined;
   errorMessage: string | null;
   isEnriching: boolean;
+  isRefreshing: boolean;
   onRefresh: () => void;
   onRetry: () => void;
   showManualRefresh: boolean;
@@ -23,6 +24,7 @@ export const SeedEnrichmentPanel = ({
   enrichment,
   errorMessage,
   isEnriching,
+  isRefreshing,
   onRefresh,
   onRetry,
   showManualRefresh,
@@ -38,7 +40,16 @@ export const SeedEnrichmentPanel = ({
     return (
       <section className={`seed-enrichment seed-enrichment--${fallbackView.variant}`}>
         <p className="seed-enrichment__kicker">{fallbackView.title}</p>
-        <p className="seed-enrichment__state-copy">{fallbackView.message}</p>
+        <p className="seed-enrichment__state-copy">
+          {fallbackView.variant === "pending" && isRefreshing
+            ? "Checking for the latest definition..."
+            : fallbackView.message}
+        </p>
+        {fallbackView.variant === "pending" && isRefreshing ? (
+          <p aria-live="polite" className="capture-form__hint">
+            Gloss is checking again in the background.
+          </p>
+        ) : null}
         {fallbackView.canAct && fallbackView.actionLabel ? (
           <button
             className={
@@ -46,12 +57,15 @@ export const SeedEnrichmentPanel = ({
                 ? "seed-enrichment__refresh-link"
                 : "seed-enrichment__retry"
             }
+            disabled={fallbackView.actionKind === "refresh" && isRefreshing}
             onClick={
               fallbackView.actionKind === "refresh" ? onRefresh : onRetry
             }
             type="button"
           >
-            {fallbackView.actionLabel}
+            {fallbackView.actionKind === "refresh" && isRefreshing
+              ? "Checking..."
+              : fallbackView.actionLabel}
           </button>
         ) : null}
       </section>

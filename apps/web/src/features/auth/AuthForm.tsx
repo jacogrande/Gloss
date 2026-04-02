@@ -123,7 +123,9 @@ export const AuthForm = ({
 
         <button className="auth-card__submit" disabled={isPending} type="submit">
           {isPending
-            ? "Working..."
+            ? mode === "sign-in"
+              ? "Signing in..."
+              : "Creating account..."
             : mode === "sign-in"
               ? "Sign in"
               : "Create account"}

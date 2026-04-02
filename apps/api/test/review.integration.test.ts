@@ -655,6 +655,64 @@ describe("review integration", () => {
     expect(errorBody.error.code).toBe("REVIEW_CONFLICT");
   });
 
+  it("returns a validation error for malformed review submissions", async () => {
+    const cookie = await signUpTestUser({
+      app: context.app,
+      email: "malformed-review-submit@example.com",
+      env: context.env,
+      name: "Malformed Review Submit",
+    });
+    await createAndEnrichSeed({
+      cookie,
+      email: "malformed-review-submit@example.com",
+      sentence: "Her explanation was pellucid even under pressure.",
+      source: {
+        kind: "book",
+        title: "On Style",
+      },
+      word: "pellucid",
+    });
+
+    const startResponse = await context.app.request(
+      "http://127.0.0.1:8787/review/sessions",
+      {
+        body: JSON.stringify({}),
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const startBody = reviewSessionResponseSchema.parse(
+      (await startResponse.json()) as unknown,
+    );
+    const firstCard = startBody.data.cards[0];
+
+    expect(firstCard).toBeTruthy();
+
+    const submitResponse = await context.app.request(
+      `http://127.0.0.1:8787/review/sessions/${startBody.data.session.id}/cards/${firstCard?.id}/submit`,
+      {
+        body: '{"type":',
+        headers: {
+          "content-type": "application/json",
+          cookie,
+          origin: context.env.WEB_ORIGIN,
+        },
+        method: "POST",
+      },
+    );
+    const submitBody = apiErrorResponseSchema.parse(
+      (await submitResponse.json()) as unknown,
+    );
+
+    expect(submitResponse.status).toBe(400);
+    expect(submitBody.error.code).toBe("VALIDATION_ERROR");
+    expect(submitBody.error.message).toBe("Request body must be valid JSON.");
+  });
+
   it("accepts legacy persisted choice answer keys without a discriminator", async () => {
     const email = `legacy-choice-${crypto.randomUUID()}@example.com`;
     const cookie = await signUpTestUser({

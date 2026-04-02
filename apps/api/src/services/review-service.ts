@@ -13,7 +13,11 @@ import type {
 } from "@gloss/shared/types";
 import type { Pool } from "pg";
 
-import type { DatabaseClient, GlossDatabase } from "../lib/db";
+import {
+  createDatabaseHandle,
+  type DatabaseClient,
+  type GlossDatabase,
+} from "../lib/db";
 import type { Logger } from "../lib/logger";
 import { withPostgresAdvisoryLock } from "../lib/postgres-lock";
 import type {
@@ -147,6 +151,25 @@ const buildQueueSummary = async (input: {
     dueCount,
   });
 };
+
+const selectReviewTargetsForRecords = (input: {
+  candidates: Awaited<ReturnType<ReviewRepository["listReviewCandidates"]>>;
+  limit: number;
+  now: Date;
+}): ReturnType<typeof selectDueReviewTargets> =>
+  selectDueReviewTargets({
+    candidates: input.candidates.map((candidate) => ({
+      reviewState: candidate.reviewState,
+      seed: toReviewSeedDetail({
+        contexts: candidate.primaryContext ? [candidate.primaryContext] : [],
+        enrichment: candidate.enrichment,
+        seed: candidate.seed,
+        source: candidate.source,
+      }),
+    })),
+    limit: input.limit,
+    now: input.now,
+  });
 
 const withFallbackTrace = (input: {
   draft: ReviewCardDraft;
@@ -350,7 +373,9 @@ export const createReviewService = (input: {
   requestRateLimitService: RequestRateLimitService;
   repository?: ReviewRepository;
 }): ReviewService => {
-  const repository = input.repository ?? createReviewRepository(input.db);
+  const createScopedRepository = (db: GlossDatabase): ReviewRepository =>
+    input.repository ?? createReviewRepository(db);
+  const repository = createScopedRepository(input.db);
   const modelProvider = input.modelProvider ?? createReviewModelProvider(input.env);
 
   return {
@@ -373,28 +398,26 @@ export const createReviewService = (input: {
       return toReviewSessionDetail(persisted);
     },
     async startOrResumeSession({ limit = defaultSessionLimit, requestId, userId }) {
-      return withPostgresAdvisoryLock({
+      const sessionStartState = await withPostgresAdvisoryLock({
         key: userId,
         namespace: "review.session.start",
         pool: input.pool,
-        run: async () => {
-          const activeSession = await repository.getActiveSession({ userId });
+        run: async (client) => {
+          const lockedRepository = createScopedRepository(
+            createDatabaseHandle(client),
+          );
+          const activeSession = await lockedRepository.getActiveSession({ userId });
 
           if (activeSession) {
-            return toReviewSessionDetail(activeSession);
+            return {
+              kind: "existing" as const,
+              session: activeSession,
+            };
           }
 
-          const candidates = await repository.listReviewCandidates({ userId });
-          const reviewTargets = selectDueReviewTargets({
-            candidates: candidates.map((candidate) => ({
-              reviewState: candidate.reviewState,
-              seed: toReviewSeedDetail({
-                contexts: candidate.primaryContext ? [candidate.primaryContext] : [],
-                enrichment: candidate.enrichment,
-                seed: candidate.seed,
-                source: candidate.source,
-              }),
-            })),
+          const candidates = await lockedRepository.listReviewCandidates({ userId });
+          const reviewTargets = selectReviewTargetsForRecords({
+            candidates,
             limit,
             now: new Date(),
           });
@@ -406,68 +429,91 @@ export const createReviewService = (input: {
             );
           }
 
-          await input.requestRateLimitService.enforce({
-            actorKey: userId,
-            policyKey: "review.session.start",
-            ...(requestId
-              ? {
-                  requestId,
-                }
-              : {}),
-          });
-
-          const cards: ReviewCardDraft[] = [];
-
-          for (const target of reviewTargets) {
-            cards.push(
-              await buildCardDraft({
-                exerciseType: target.exerciseType,
-                logger: input.logger,
-                modelProvider,
-                seed: target.seed,
-              }),
-            );
-          }
-
-          try {
-            const persistedSession = await repository.createSessionWithCards({
-              cards,
-              userId,
-            });
-
-            await recordReviewProductEventSafely({
-              event: {
-                actorTag: userId,
-                occurredAt: persistedSession.session.startedAt.toISOString(),
-                payload: {
-                  cardCount: persistedSession.session.cardCount,
-                  seedIds: Array.from(
-                    new Set(persistedSession.cards.map((card) => card.seedId)),
-                  ),
-                },
-                reviewSessionId: persistedSession.session.id,
-                schemaVersion: productEventSchemaVersion,
-                type: "review.session.started",
-                userId,
-              },
-              logger: input.logger,
-              productEventService: input.productEventService,
-            });
-
-            return toReviewSessionDetail(persistedSession);
-          } catch (error) {
-            if (isUniqueViolation(error)) {
-              const racedSession = await repository.getActiveSession({ userId });
-
-              if (racedSession) {
-                return toReviewSessionDetail(racedSession);
-              }
-            }
-
-            throw error;
-          }
+          return {
+            kind: "build" as const,
+            targets: reviewTargets,
+          };
         },
       });
+
+      if (sessionStartState.kind === "existing") {
+        return toReviewSessionDetail(sessionStartState.session);
+      }
+
+      await input.requestRateLimitService.enforce({
+        actorKey: userId,
+        policyKey: "review.session.start",
+        ...(requestId
+          ? {
+              requestId,
+            }
+          : {}),
+      });
+
+      const cards: ReviewCardDraft[] = [];
+
+      for (const target of sessionStartState.targets) {
+        cards.push(
+          await buildCardDraft({
+            exerciseType: target.exerciseType,
+            logger: input.logger,
+            modelProvider,
+            seed: target.seed,
+          }),
+        );
+      }
+
+      const persistedSession = await withPostgresAdvisoryLock({
+        key: userId,
+        namespace: "review.session.start",
+        pool: input.pool,
+        run: async (client) => {
+          const lockedRepository = createScopedRepository(
+            createDatabaseHandle(client),
+          );
+          const activeSession = await lockedRepository.getActiveSession({ userId });
+
+          if (activeSession) {
+            return activeSession;
+          }
+
+          return lockedRepository.createSessionWithCards({
+            cards,
+            userId,
+          });
+        },
+      }).catch(async (error) => {
+        if (isUniqueViolation(error)) {
+          const racedSession = await repository.getActiveSession({ userId });
+
+          if (racedSession) {
+            return racedSession;
+          }
+        }
+
+        throw error;
+      });
+
+      await recordReviewProductEventSafely({
+        event: {
+          actorTag: userId,
+          occurredAt: persistedSession.session.startedAt.toISOString(),
+          payload: {
+            cardCount: persistedSession.session.cardCount,
+            seedIds: Array.from(
+              new Set(persistedSession.cards.map((card) => card.seedId)),
+            ),
+          },
+          reviewSessionId: persistedSession.session.id,
+          schemaVersion: productEventSchemaVersion,
+          type: "review.session.started",
+          userId,
+        },
+        logger: input.logger,
+        productEventService: input.productEventService,
+      });
+
+      return toReviewSessionDetail(persistedSession);
     },
     async submitCardAnswer({ cardId, requestId, sessionId, submission, userId }) {
       const persistedSession = await repository.getSessionById({
@@ -503,8 +549,11 @@ export const createReviewService = (input: {
         key: card.seedId,
         namespace: "review.session.submit",
         pool: input.pool,
-        run: async () => {
-          const latestSession = await repository.getSessionById({
+        run: async (client) => {
+          const lockedRepository = createScopedRepository(
+            createDatabaseHandle(client),
+          );
+          const latestSession = await lockedRepository.getSessionById({
             sessionId,
             userId,
           });
@@ -540,7 +589,7 @@ export const createReviewService = (input: {
             );
           }
 
-          const currentState = await repository.getReviewStateForSeed({
+          const currentState = await lockedRepository.getReviewStateForSeed({
             seedId: latestCard.seedId,
             userId,
           });
@@ -563,7 +612,7 @@ export const createReviewService = (input: {
           let nextPersistedSession;
 
           try {
-            nextPersistedSession = await repository.persistCardSubmission({
+            nextPersistedSession = await lockedRepository.persistCardSubmission({
               cardId,
               dimension: latestCard.dimension,
               exerciseType: latestCard.exerciseType,

@@ -57,6 +57,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
         showManualRefresh={false}
@@ -99,6 +100,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={onRetry}
         showManualRefresh={false}
@@ -121,6 +123,7 @@ describe("SeedEnrichmentPanel", () => {
         enrichment={null}
         errorMessage="Unable to enrich this seed right now."
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={onRetry}
         showManualRefresh={false}
@@ -158,6 +161,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
         showManualRefresh={false}
@@ -190,6 +194,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={vi.fn()}
         onRetry={vi.fn()}
         showManualRefresh={false}
@@ -226,6 +231,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage={null}
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={onRefresh}
         onRetry={vi.fn()}
         showManualRefresh={true}
@@ -264,6 +270,7 @@ describe("SeedEnrichmentPanel", () => {
         }}
         errorMessage="Unable to refresh this seed right now."
         isEnriching={false}
+        isRefreshing={false}
         onRefresh={onRefresh}
         onRetry={vi.fn()}
         showManualRefresh={true}

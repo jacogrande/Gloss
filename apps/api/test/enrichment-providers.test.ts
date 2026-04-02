@@ -226,4 +226,49 @@ describe("enrichment providers", () => {
       "OpenAI Responses request failed with status 400. Details: invalid_request_error / invalid_json_schema / text.format.schema. Message: The schema is invalid.",
     );
   });
+
+  it("surfaces live dictionary timeouts as provider errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      Object.assign(new Error("The operation was aborted."), {
+        name: "AbortError",
+      }),
+    );
+    const providers = createEnrichmentProviders(liveEnv);
+
+    await expect(
+      providers.lexicalEvidenceProvider.getDictionaryEntry("pellucid"),
+    ).rejects.toThrow("Merriam-Webster dictionary timed out after 8000ms.");
+  });
+
+  it("surfaces live OpenAI timeouts as provider errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      Object.assign(new Error("The operation was aborted."), {
+        name: "AbortError",
+      }),
+    );
+    const providers = createEnrichmentProviders(liveEnv);
+
+    await expect(
+      providers.modelProvider.generate({
+        developerInstruction: "Return structured output only.",
+        seedWord: "pellucid",
+        snapshot: {
+          capturedSentencePreview: null,
+          contrastCandidates: [],
+          dictionaryGlosses: ["clear and easy to understand"],
+          exampleSentences: [],
+          lemma: "pellucid",
+          morphologyHints: [],
+          partOfSpeech: "adjective",
+          registerLabels: [],
+          relatedCandidates: [],
+          sourceSummary: {
+            kind: null,
+            title: null,
+          },
+        },
+        userInstruction: "Use the supplied lexical evidence only.",
+      }),
+    ).rejects.toThrow("OpenAI Responses timed out after 30000ms.");
+  });
 });

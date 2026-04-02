@@ -28,6 +28,7 @@ type SeedContextEditorProps = {
   isPending: boolean;
   statusMessage: string | null;
   onSubmit: (value: ReturnType<typeof toUpdateSeedInput>) => void;
+  sentenceLabel?: string;
   sentencePlaceholder: string;
   seed: Pick<SeedDetail, "id" | "primarySentence" | "source">;
   title: string;
@@ -62,6 +63,7 @@ export const SeedContextEditor = ({
   isPending,
   statusMessage,
   onSubmit,
+  sentenceLabel = "Sentence (optional)",
   sentencePlaceholder,
   seed,
   title,
@@ -139,7 +141,7 @@ export const SeedContextEditor = ({
 
       <form className="capture-form capture-form--recovery" onSubmit={handleSubmit}>
         <label className="capture-form__field">
-          <span>Sentence (optional)</span>
+          <span>{sentenceLabel}</span>
           <textarea
             name="sentence"
             onChange={(event) => {

@@ -188,6 +188,13 @@ button {
   gap: 48px;
 }
 
+.shell__connection-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .auth-card,
 .panel,
 .seed-card,
@@ -486,6 +493,11 @@ button {
   font-weight: 600;
   padding: 0;
   text-decoration: none;
+}
+
+.capture-form__secondary-link:disabled,
+.seed-enrichment__refresh-link:disabled {
+  opacity: 0.6;
 }
 
 .capture-form__secondary-link:hover {
@@ -870,6 +882,10 @@ button {
 
 .seed-enrichment__refresh-link:hover {
   color: var(--ink-950);
+}
+
+.panel--status {
+  width: min(100%, 460px);
 }
 
 .review {

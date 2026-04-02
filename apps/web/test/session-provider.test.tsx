@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 import {
+  cleanup,
   render,
   screen,
   waitFor,
@@ -64,6 +65,8 @@ const Probe = (): ReactElement => {
 
   return (
     <div>
+      <p>{session.connectionStatus}</p>
+      <p>{session.connectionMessage ?? "no-connection-message"}</p>
       <p>{session.status}</p>
       <p>{session.session?.user.email ?? "no-session"}</p>
     </div>
@@ -77,6 +80,7 @@ describe("SessionProvider", () => {
   });
 
   afterEach(() => {
+    cleanup();
     window.sessionStorage.clear();
   });
 
@@ -99,6 +103,12 @@ describe("SessionProvider", () => {
 
     expect(screen.getByText("authenticated")).toBeVisible();
     expect(screen.getByText("reader@example.com")).toBeVisible();
+    expect(screen.getByText("reconnecting")).toBeVisible();
+    expect(
+      screen.getByText(
+        "Gloss is reconnecting. Showing your last saved session for now.",
+      ),
+    ).toBeVisible();
   });
 
   it("clears the cached session on unauthorized responses", async () => {
@@ -122,5 +132,24 @@ describe("SessionProvider", () => {
 
     expect(screen.getByText("no-session")).toBeVisible();
     expect(window.sessionStorage.getItem(storedSessionKey)).toBeNull();
+  });
+
+  it("surfaces an unavailable state when bootstrap fails without a cached session", async () => {
+    fetchSessionSnapshotMock.mockRejectedValueOnce(new Error("ECONNREFUSED"));
+
+    render(
+      <SessionProvider>
+        <Probe />
+      </SessionProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("unavailable")).toBeVisible();
+    });
+
+    expect(screen.getAllByText("anonymous")[0]).toBeVisible();
+    expect(
+      screen.getByText("Gloss can’t reach the server right now. Try again in a moment."),
+    ).toBeVisible();
   });
 });

@@ -79,7 +79,6 @@ export const ReviewRoute = (): JSX.Element => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedChoiceId, setSelectedChoiceId] = useState<string | null>(null);
   const [textAnswer, setTextAnswer] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0);
   const cardStartedAt = useRef<number>(Date.now());
   const lastLoadedSessionId = useRef<string | null>(null);
 
@@ -87,15 +86,18 @@ export const ReviewRoute = (): JSX.Element => {
     data: queue,
     errorMessage,
     isLoading,
+    isRefreshing,
+    reload,
   } = useAsyncResource({
-    dependencies: [refreshKey],
+    dependencies: [],
     getErrorMessage: (error) =>
       error instanceof Error ? error.message : "Unable to load review right now.",
     load: (signal) => fetchReviewQueue(webEnv.VITE_API_BASE_URL, signal),
+    preserveDataOnError: "reload-only",
   });
 
   const refreshQueue = useEffectEvent((): void => {
-    setRefreshKey((current) => current + 1);
+    reload();
   });
 
   const handleUnauthorized = useEffectEvent(async (): Promise<void> => {
@@ -121,18 +123,18 @@ export const ReviewRoute = (): JSX.Element => {
       }
 
       try {
-        const nextSession = await fetchReviewSession(
-          webEnv.VITE_API_BASE_URL,
-          session.session.id,
-        );
+      const nextSession = await fetchReviewSession(
+        webEnv.VITE_API_BASE_URL,
+        session.session.id,
+      );
 
-      setFeedbackState(null);
-      setSession(nextSession);
-      setSessionError(null);
-      setSessionNotice(message);
-      setSelectedChoiceId(null);
-      cardStartedAt.current = Date.now();
-      lastLoadedSessionId.current = nextSession.session.id;
+        setFeedbackState(null);
+        setSession(nextSession);
+        setSessionError(null);
+        setSessionNotice(message);
+        setSelectedChoiceId(null);
+        cardStartedAt.current = Date.now();
+        lastLoadedSessionId.current = nextSession.session.id;
         refreshQueue();
       } catch (error) {
         if (
@@ -354,7 +356,7 @@ export const ReviewRoute = (): JSX.Element => {
   if (reviewState.kind === "loading") {
     return (
       <section className="panel">
-        <p className="panel__copy">Loading review...</p>
+        <p className="panel__copy">Loading your review queue...</p>
       </section>
     );
   }
@@ -612,6 +614,15 @@ export const ReviewRoute = (): JSX.Element => {
           </p>
 
           <div className="capture-form__actions">
+            <button
+              className="capture-form__submit"
+              onClick={() => {
+                reload();
+              }}
+              type="button"
+            >
+              Try again
+            </button>
             <Link className="capture-form__secondary-link" to="/library">
               Browse your words
             </Link>
@@ -647,12 +658,35 @@ export const ReviewRoute = (): JSX.Element => {
 
         <p className="panel__copy">{queueDisplayState.message}</p>
 
-        {errorMessage ? <p className="capture-form__error">{errorMessage}</p> : null}
+        {isRefreshing ? (
+          <p aria-live="polite" className="capture-form__hint">
+            Refreshing the queue...
+          </p>
+        ) : null}
+        {errorMessage ? (
+          <section className="panel panel--compact" role="alert">
+            <p className="panel__eyebrow">Couldn’t refresh</p>
+            <p className="panel__copy">
+              {errorMessage} Showing the last known queue for now.
+            </p>
+          </section>
+        ) : null}
         {sessionError ? <p className="capture-form__error">{sessionError}</p> : null}
         {sessionNotice ? <p className="capture-form__hint">{sessionNotice}</p> : null}
         {queueMessage ? <p className="capture-form__error">{queueMessage}</p> : null}
 
         <div className="capture-form__actions">
+          {errorMessage ? (
+            <button
+              className="capture-form__secondary-link"
+              onClick={() => {
+                reload();
+              }}
+              type="button"
+            >
+              Try again
+            </button>
+          ) : null}
           {queue?.activeSessionId && !session ? (
             <button
               className="capture-form__submit"
@@ -662,7 +696,7 @@ export const ReviewRoute = (): JSX.Element => {
               }}
               type="button"
             >
-              {isStarting ? "Loading..." : "Resume review"}
+              {isStarting ? "Resuming..." : "Resume review"}
             </button>
           ) : queueDisplayState.canStart && queueDisplayState.actionLabel ? (
             <button
@@ -674,6 +708,17 @@ export const ReviewRoute = (): JSX.Element => {
               type="button"
             >
               {isStarting ? "Starting..." : queueDisplayState.actionLabel}
+            </button>
+          ) : null}
+          {queue ? (
+            <button
+              className="capture-form__secondary-link"
+              onClick={() => {
+                reload();
+              }}
+              type="button"
+            >
+              Refresh
             </button>
           ) : null}
           {queueDisplayState.secondaryAction ? (

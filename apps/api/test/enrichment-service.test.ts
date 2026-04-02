@@ -165,7 +165,7 @@ const createProductEventService = (): ProductEventService => ({
 
 const createPool = (): {
   connect: () => Promise<{
-    query: (sql: string) => Promise<{
+    query: (sql: string | { text?: string }) => Promise<{
       rows: Array<{ acquired?: boolean }>;
     }>;
     release: () => void;
@@ -173,9 +173,12 @@ const createPool = (): {
 } => ({
   connect: () =>
     Promise.resolve({
-      query: (sql: string) =>
+      query: (queryInput: string | { text?: string }) =>
         Promise.resolve({
-          rows: sql.includes("pg_try_advisory_lock")
+          rows: (typeof queryInput === "string"
+            ? queryInput
+            : queryInput.text ?? ""
+          ).includes("pg_try_advisory_lock")
             ? [{ acquired: true }]
             : [],
         }),

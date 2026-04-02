@@ -5,6 +5,7 @@ import {
 } from "@testing-library/react";
 import type { JSX } from "react";
 import {
+  afterEach,
   describe,
   expect,
   it,
@@ -21,6 +22,8 @@ import { ProtectedLayout } from "../src/routes/protected-layout";
 
 const signOutCurrentSession = vi.fn<() => Promise<void>>();
 const sessionState = {
+  connectionMessage: null as string | null,
+  connectionStatus: "online" as "online" | "reconnecting" | "unavailable",
   refreshSession: vi.fn(),
   session: {
     user: {
@@ -50,6 +53,18 @@ vi.mock("../src/features/auth/auth-service", () => ({
 }));
 
 describe("ProtectedLayout", () => {
+  afterEach(() => {
+    sessionState.connectionMessage = null;
+    sessionState.connectionStatus = "online";
+    sessionState.session = {
+      user: {
+        email: "reader@example.com",
+        name: "Reader",
+      },
+    };
+    sessionState.status = "authenticated";
+  });
+
   const LoginProbe = (): JSX.Element => {
     const location = useLocation();
 
@@ -103,5 +118,33 @@ describe("ProtectedLayout", () => {
         "Login screen ?returnTo=%2Fseeds%2Fseed_1%3Ffrom%3Dlibrary",
       ),
     ).toBeVisible();
+  });
+
+  it("shows a reconnecting banner while using a cached session", () => {
+    sessionState.session = {
+      user: {
+        email: "reader@example.com",
+        name: "Reader",
+      },
+    };
+    sessionState.status = "authenticated";
+    sessionState.connectionStatus = "reconnecting";
+    sessionState.connectionMessage =
+      "Gloss is reconnecting. Showing your last saved session for now.";
+
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route element={<ProtectedLayout />}>
+            <Route element={<div>Library body</div>} path="/library" />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByText("Gloss is reconnecting. Showing your last saved session for now."),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Retry now" })).toBeVisible();
   });
 });

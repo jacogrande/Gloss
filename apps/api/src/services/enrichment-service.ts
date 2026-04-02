@@ -17,7 +17,10 @@ import type {
 import { productEventSchemaVersion } from "@gloss/shared/contracts";
 
 import type { Logger } from "../lib/logger";
-import type { GlossDatabase } from "../lib/db";
+import {
+  createDatabaseHandle,
+  type GlossDatabase,
+} from "../lib/db";
 import { withPostgresAdvisoryLock } from "../lib/postgres-lock";
 import {
   applyEnrichmentGuardrails,
@@ -226,9 +229,15 @@ export const createEnrichmentService = (input: {
   repository?: SeedRepository;
   seedEnrichmentRepository?: SeedEnrichmentRepository;
 }): EnrichmentService => {
-  const repository = input.repository ?? createSeedRepository(input.db);
+  const createScopedSeedRepository = (db: GlossDatabase): SeedRepository =>
+    input.repository ?? createSeedRepository(db);
+  const createScopedSeedEnrichmentRepository = (
+    db: GlossDatabase,
+  ): SeedEnrichmentRepository =>
+    input.seedEnrichmentRepository ?? createSeedEnrichmentRepository(db);
+  const repository = createScopedSeedRepository(input.db);
   const seedEnrichmentRepository =
-    input.seedEnrichmentRepository ?? createSeedEnrichmentRepository(input.db);
+    createScopedSeedEnrichmentRepository(input.db);
 
   const persistFailedEnrichment = async (inputValue: {
     enrichmentId: string;
@@ -321,13 +330,48 @@ export const createEnrichmentService = (input: {
   return {
     async requestSeedEnrichment({ force = false, requestId, seedId, userId }) {
       const startedAt = Date.now();
+      const detailRecord = await repository.getSeedDetail({
+        seedId,
+        userId,
+      });
+
+      if (!detailRecord) {
+        throw notFoundError("Seed not found.", requestId);
+      }
+
+      const currentEnrichment =
+        await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
+
+      if (!force && currentEnrichment?.status === "ready") {
+        return toSeedEnrichment(currentEnrichment);
+      }
+
+      if (!force && currentEnrichment && isActivePendingEnrichment(currentEnrichment)) {
+        return toSeedEnrichment(currentEnrichment);
+      }
+
+      await input.requestRateLimitService.enforce({
+        actorKey: userId,
+        policyKey: "seeds.enrich",
+        ...(requestId
+          ? {
+              requestId,
+            }
+          : {}),
+      });
+
       const acquisition = await withPostgresAdvisoryLock({
         key: seedId,
         namespace: "seed.enrichment.request",
         pool: input.pool,
-        run: async () => {
+        run: async (client) => {
+          const lockedSeedEnrichmentRepository =
+            createScopedSeedEnrichmentRepository(createDatabaseHandle(client));
           const currentEnrichment =
-            await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
+            await lockedSeedEnrichmentRepository.getCurrentForSeed({
+              seedId,
+              userId,
+            });
 
           if (!force && currentEnrichment?.status === "ready") {
             return {
@@ -343,26 +387,8 @@ export const createEnrichmentService = (input: {
             };
           }
 
-          const detailRecord = await repository.getSeedDetail({
-            seedId,
-            userId,
-          });
-
-          if (!detailRecord) {
-            throw notFoundError("Seed not found.", requestId);
-          }
-
-          await input.requestRateLimitService.enforce({
-            actorKey: userId,
-            policyKey: "seeds.enrich",
-            ...(requestId
-              ? {
-                  requestId,
-                }
-              : {}),
-          });
-
-          const pendingEnrichment = await seedEnrichmentRepository.acquirePending({
+          const pendingEnrichment =
+            await lockedSeedEnrichmentRepository.acquirePending({
             force,
             model: input.providers.modelProvider.model,
             promptTemplateVersion: seedEnrichmentPromptTemplateVersion,
@@ -375,7 +401,10 @@ export const createEnrichmentService = (input: {
 
           if (!pendingEnrichment) {
             const activeEnrichment =
-              await seedEnrichmentRepository.getCurrentForSeed({ seedId, userId });
+              await lockedSeedEnrichmentRepository.getCurrentForSeed({
+                seedId,
+                userId,
+              });
 
             if (activeEnrichment) {
               return {

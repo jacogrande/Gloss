@@ -2,7 +2,10 @@ import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ZodError } from "zod";
 
-import { isAppError } from "@gloss/shared/errors";
+import {
+  isAppError,
+  validationError,
+} from "@gloss/shared/errors";
 
 type ErrorBody = {
   error: {
@@ -51,6 +54,38 @@ export const jsonSuccess = <TData>(
     },
     status,
   );
+
+const getRequestId = (context: Context): string | undefined =>
+  typeof context.var.requestId === "string" ? context.var.requestId : undefined;
+
+export const parseJsonBody = async <TValue>(
+  context: Context,
+  options?: {
+    defaultValue: TValue;
+  },
+): Promise<TValue> => {
+  const rawBody = await context.req.text();
+
+  if (rawBody.trim().length === 0) {
+    if (options !== undefined) {
+      return options.defaultValue;
+    }
+
+    throw validationError(
+      "Request body must be valid JSON.",
+      getRequestId(context),
+    );
+  }
+
+  try {
+    return JSON.parse(rawBody) as TValue;
+  } catch {
+    throw validationError(
+      "Request body must be valid JSON.",
+      getRequestId(context),
+    );
+  }
+};
 
 export const toErrorResponse = (
   error: unknown,

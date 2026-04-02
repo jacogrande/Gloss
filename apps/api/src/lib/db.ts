@@ -1,5 +1,8 @@
 import { drizzle, type NodePgDatabase } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
+import {
+  Pool,
+  type PoolClient,
+} from "pg";
 
 import * as schema from "../db/schema";
 
@@ -10,6 +13,10 @@ export type DatabaseClient = {
   pool: Pool;
 };
 
+export const createDatabaseHandle = (
+  connection: Pool | PoolClient,
+): GlossDatabase => drizzle(connection, { schema });
+
 export const createDatabaseClient = (
   connectionString: string,
 ): DatabaseClient => {
@@ -19,7 +26,7 @@ export const createDatabaseClient = (
   });
 
   return {
-    db: drizzle(pool, { schema }),
+    db: createDatabaseHandle(pool),
     pool,
   };
 };

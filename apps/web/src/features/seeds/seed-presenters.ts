@@ -61,6 +61,7 @@ export type SeedCaptureNotice = {
 
 export type SeedRecoveryState = {
   message: string;
+  sentenceLabel: string;
   sentencePlaceholder: string;
   title: string;
 };
@@ -210,7 +211,8 @@ export const getSeedRecoveryState = (
   if (hasWeakEnrichmentFailure(input.seed.enrichment)) {
     return {
       message:
-        "Add the sentence where you found it, or a source note. Gloss will rebuild the definition after you save.",
+        "Paste the sentence where you found this word, or add source details. Gloss needs that context to try again.",
+      sentenceLabel: "Sentence from your reading",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
       title: "Give this word more context",
     };
@@ -219,7 +221,8 @@ export const getSeedRecoveryState = (
   if (!input.seed.primarySentence && !input.seed.source) {
     return {
       message:
-        "Add the sentence where you found it, or a source note. Gloss uses that context to build the definition and review cards.",
+        "Paste the sentence where you found this word, or add source details. Gloss uses that context to build the definition and review cards.",
+      sentenceLabel: "Sentence from your reading",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
       title: "Give this word more context",
     };
@@ -228,7 +231,8 @@ export const getSeedRecoveryState = (
   if (!input.seed.primarySentence) {
     return {
       message:
-        "Add the sentence where you found this word. Gloss can rebuild the definition once you save it.",
+        "Paste the sentence where you found this word. Gloss can rebuild the definition once you save it.",
+      sentenceLabel: "Sentence from your reading",
       sentencePlaceholder: "Paste the sentence where you saw this word.",
       title: "Add the sentence",
     };

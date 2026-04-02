@@ -23,6 +23,7 @@ type SeedDetailPanelProps = {
   contextUpdateMessage: string | null;
   enrichmentErrorMessage: string | null;
   isEnriching: boolean;
+  isRefreshingEnrichmentStatus: boolean;
   loadNotice: SeedCaptureNotice | null;
   showPendingRefreshFallback: boolean;
   isUpdatingContext: boolean;
@@ -39,6 +40,7 @@ export const SeedDetailPanel = ({
   contextUpdateMessage,
   enrichmentErrorMessage,
   isEnriching,
+  isRefreshingEnrichmentStatus,
   loadNotice,
   showPendingRefreshFallback,
   isUpdatingContext,
@@ -109,6 +111,7 @@ export const SeedDetailPanel = ({
           enrichment={seed.enrichment}
           errorMessage={enrichmentErrorMessage}
           isEnriching={isEnriching}
+          isRefreshing={isRefreshingEnrichmentStatus}
           onRefresh={onRefreshEnrichmentStatus}
           onRetry={onRetryEnrichment}
           showManualRefresh={showPendingRefreshFallback}
@@ -121,6 +124,7 @@ export const SeedDetailPanel = ({
           helperMessage={recoveryState.message}
           isPending={isUpdatingContext}
           onSubmit={onSaveContext}
+          sentenceLabel={recoveryState.sentenceLabel}
           sentencePlaceholder={recoveryState.sentencePlaceholder}
           seed={seed}
           statusMessage={contextUpdateMessage}

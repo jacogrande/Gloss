@@ -16,6 +16,10 @@ const toErrorMessage = (value: unknown): string => {
   if (value instanceof Error && value.message.length > 0) {
     const message = value.message.trim();
 
+    if (/failed to fetch|networkerror|load failed|unreachable|econnrefused/i.test(message)) {
+      return "Gloss can’t reach the server right now. Try again in a moment.";
+    }
+
     if (/user not found|invalid password|invalid email or password/i.test(message)) {
       return "Incorrect email or password.";
     }

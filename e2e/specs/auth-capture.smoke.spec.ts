@@ -3,6 +3,13 @@ import {
   test,
 } from "@playwright/test";
 
+import {
+  openReviewSession,
+  signUpThroughUi,
+  waitForSeedDetailState,
+} from "../support/gloss";
+import { promoteSeedToRecallReady } from "../support/review-state";
+
 const isLiveEnrichment = process.env.ENRICHMENT_PROVIDER_MODE === "live";
 
 test("@smoke unauthenticated library access redirects to login", async ({
@@ -200,4 +207,48 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
       })
       .toMatch(/advanced|completed/);
   }
+});
+
+test("@smoke typed recall cards render and accept text answers", async ({
+  page,
+}) => {
+  const email = `smoke-recall-${Date.now()}@gloss.local`;
+
+  await signUpThroughUi({
+    email,
+    name: "Smoke Recall",
+    page,
+  });
+
+  await page.goto("/capture");
+  await page.getByLabel("Word or phrase").fill("pellucid");
+  await page.getByRole("button", { name: "Add context" }).click();
+  await page
+    .getByLabel("Sentence (optional)")
+    .fill("Her explanation was pellucid even under pressure.");
+  await page.getByRole("button", { name: "Save word" }).click();
+
+  await expect(page).toHaveURL(/\/seeds\/.+/);
+  await expect(
+    await waitForSeedDetailState({
+      page,
+    }),
+  ).toBe("ready");
+
+  await promoteSeedToRecallReady({
+    email,
+    word: "pellucid",
+  });
+
+  await page.goto("/review");
+  await openReviewSession(page);
+  await expect(
+    page.getByRole("heading", { name: "Recall the word" }),
+  ).toBeVisible();
+  await page.getByRole("textbox", { name: "Your answer" }).fill("pellucid");
+  await page.getByRole("button", { name: "Submit" }).click();
+  await expect(page.getByText("Correct answer")).toBeVisible();
+  await expect(
+    page.getByText("You recalled the right word for this sentence."),
+  ).toBeVisible();
 });

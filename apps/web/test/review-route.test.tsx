@@ -632,4 +632,32 @@ describe("ReviewRoute", () => {
 
     expect(screen.getByRole("button", { name: "Resume review" })).toBeVisible();
   });
+
+  it("keeps the current queue visible when a manual refresh fails", async () => {
+    fetchReviewQueue
+      .mockResolvedValueOnce(createQueue())
+      .mockRejectedValueOnce(new Error("Queue refresh failed."));
+
+    render(
+      <MemoryRouter initialEntries={["/review"]}>
+        <Routes>
+          <Route element={<ReviewRoute />} path="/review" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Review" })).toBeVisible();
+    expect(screen.getByText("1 word due now")).toBeVisible();
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Queue refresh failed.");
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Showing the last known queue for now.",
+    );
+    expect(screen.getByText("1 word due now")).toBeVisible();
+  });
 });

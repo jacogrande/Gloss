@@ -100,7 +100,7 @@ export const createApp = ({
   });
 
   const corsOptions = {
-    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowMethods: ["GET", "PATCH", "POST", "OPTIONS"],
     credentials: true,
     exposeHeaders: ["x-request-id"],
     origin: env.WEB_ORIGIN,

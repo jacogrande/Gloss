@@ -55,6 +55,7 @@ export const SeedDetailRoute = (): JSX.Element => {
     null,
   );
   const [isEnriching, setIsEnriching] = useState(false);
+  const [isRefreshingEnrichmentStatus, setIsRefreshingEnrichmentStatus] = useState(false);
   const [pendingRefreshCycle, setPendingRefreshCycle] = useState(0);
   const [showPendingRefreshFallback, setShowPendingRefreshFallback] = useState(false);
   const [isUpdatingContext, setIsUpdatingContext] = useState(false);
@@ -100,6 +101,8 @@ export const SeedDetailRoute = (): JSX.Element => {
       return null;
     }
 
+    setIsRefreshingEnrichmentStatus(true);
+
     try {
       const loadedSeed = await fetchSeedDetail(webEnv.VITE_API_BASE_URL, seedId);
       let nextSeed = loadedSeed;
@@ -129,6 +132,8 @@ export const SeedDetailRoute = (): JSX.Element => {
       );
 
       return null;
+    } finally {
+      setIsRefreshingEnrichmentStatus(false);
     }
   });
 
@@ -148,6 +153,7 @@ export const SeedDetailRoute = (): JSX.Element => {
     setContextUpdateMessage(null);
     setEnrichmentErrorMessage(null);
     setIsEnriching(false);
+    setIsRefreshingEnrichmentStatus(false);
     setPendingRefreshCycle(0);
     setShowPendingRefreshFallback(false);
     autoRequestedSeedId.current =
@@ -249,7 +255,7 @@ export const SeedDetailRoute = (): JSX.Element => {
 
         setContextUpdateMessage(
           refreshedEnrichment?.status === "pending"
-            ? "Context saved. Enrichment is running."
+            ? "Context saved. Gloss is trying again now."
             : "Context saved.",
         );
       }
@@ -327,7 +333,7 @@ export const SeedDetailRoute = (): JSX.Element => {
   if (isLoading && !seed) {
     return (
       <section className="panel">
-        <p className="panel__copy">Loading...</p>
+        <p className="panel__copy">Loading this word...</p>
       </section>
     );
   }
@@ -359,6 +365,7 @@ export const SeedDetailRoute = (): JSX.Element => {
       contextUpdateMessage={contextUpdateMessage}
       enrichmentErrorMessage={enrichmentErrorMessage}
       isEnriching={isEnriching}
+      isRefreshingEnrichmentStatus={isRefreshingEnrichmentStatus}
       loadNotice={loadNotice}
       showPendingRefreshFallback={showPendingRefreshFallback}
       isUpdatingContext={isUpdatingContext}

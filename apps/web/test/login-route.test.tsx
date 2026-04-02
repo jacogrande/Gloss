@@ -37,6 +37,8 @@ const {
 } = vi.hoisted(() => ({
   refreshSession: vi.fn(),
   sessionState: {
+    connectionMessage: null as string | null,
+    connectionStatus: "online" as "online" | "reconnecting" | "unavailable",
     refreshSession: vi.fn(),
     session: null as SessionData | null,
     setSession: vi.fn(),
@@ -64,6 +66,8 @@ describe("LoginRoute", () => {
     sessionState.refreshSession = refreshSession;
     sessionState.session = null;
     sessionState.setSession = vi.fn();
+    sessionState.connectionMessage = null;
+    sessionState.connectionStatus = "online";
     sessionState.status = "anonymous";
   });
 
@@ -189,5 +193,23 @@ describe("LoginRoute", () => {
     await waitFor(() => {
       expect(screen.getByText("Review page")).toBeVisible();
     });
+  });
+
+  it("shows a retry panel when session bootstrap is unavailable", () => {
+    sessionState.connectionMessage = "Gloss can’t reach the server right now. Try again in a moment.";
+    sessionState.connectionStatus = "unavailable";
+
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route element={<LoginRoute />} path="/login" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(
+      screen.getByRole("heading", { name: "Gloss is unavailable" }),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeVisible();
   });
 });

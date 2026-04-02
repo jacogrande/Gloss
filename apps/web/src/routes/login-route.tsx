@@ -2,6 +2,7 @@ import { useState, useTransition, type JSX } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { AuthForm } from "../features/auth/AuthForm";
+import { SessionUnavailablePanel } from "../features/auth/SessionConnectionState";
 import {
   getAuthErrorMessage,
   signInWithPassword,
@@ -21,6 +22,7 @@ export const LoginRoute = (): JSX.Element => {
   const session = useSessionState();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isRetryingConnection, setIsRetryingConnection] = useState(false);
   const [isPending, startTransition] = useTransition();
   const resolvedPostAuthPath = resolvePostAuthPath({
     preferOnboarding: true,
@@ -28,11 +30,32 @@ export const LoginRoute = (): JSX.Element => {
   });
 
   if (session.status === "loading") {
-    return <main className="screen screen--centered">Checking session...</main>;
+    return <main className="screen screen--centered">Checking your session...</main>;
   }
 
   if (session.session) {
     return <Navigate replace to={resolvedPostAuthPath} />;
+  }
+
+  if (session.connectionStatus === "unavailable") {
+    return (
+      <SessionUnavailablePanel
+        isRetrying={isRetryingConnection}
+        message={
+          session.connectionMessage ??
+          "Gloss can’t reach the server right now. Try again in a moment."
+        }
+        onRetry={() => {
+          setIsRetryingConnection(true);
+          void session
+            .refreshSession()
+            .catch(() => null)
+            .finally(() => {
+              setIsRetryingConnection(false);
+            });
+        }}
+      />
+    );
   }
 
   return (
