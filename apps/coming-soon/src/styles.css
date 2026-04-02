@@ -168,7 +168,7 @@ select {
 
 .details {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -181,6 +181,7 @@ select {
 }
 
 .detail-card--primary {
+  grid-column: span 1;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(246, 247, 249, 0.82));
 }
