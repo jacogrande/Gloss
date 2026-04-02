@@ -9,6 +9,7 @@ import type {
   SeedDetail,
   SeedEnrichment,
   SeedEnrichmentGuardrailFlag,
+  SeedEnrichmentLexicalPreview,
   SeedEnrichmentPayload,
 } from "@gloss/shared/types";
 
@@ -278,6 +279,22 @@ export const hasMinimumEvidenceForEnrichment = (
   snapshot: LexicalEvidenceSnapshot,
 ): boolean => snapshot.dictionaryGlosses.length > 0;
 
+export const buildSeedEnrichmentLexicalPreview = (
+  snapshot: LexicalEvidenceSnapshot,
+): SeedEnrichmentLexicalPreview | null => {
+  const [definition] = snapshot.dictionaryGlosses;
+
+  if (!definition) {
+    return null;
+  }
+
+  return {
+    definition,
+    partOfSpeech: snapshot.partOfSpeech ?? null,
+    source: "merriam-webster",
+  };
+};
+
 export const toSeedEnrichment = (
   row: SeedEnrichmentRow,
 ): SeedEnrichment =>
@@ -288,6 +305,7 @@ export const toSeedEnrichment = (
     failedAt: row.failedAt?.toISOString() ?? null,
     guardrailFlags: row.guardrailFlags,
     id: row.id,
+    lexicalPreview: row.lexicalPreview ?? null,
     model: row.model ?? null,
     payload: row.payload ?? null,
     promptTemplateVersion: row.promptTemplateVersion,

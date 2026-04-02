@@ -42,6 +42,11 @@ const createSeed = (input?: {
     failedAt: null,
     guardrailFlags: [],
     id: "enrichment_1",
+    lexicalPreview: {
+      definition: "clear and easy to understand",
+      partOfSpeech: "adjective",
+      source: "merriam-webster",
+    },
     model: "fixture-seed-enrichment-v1",
     payload: {
       ...(input?.contrastiveWord

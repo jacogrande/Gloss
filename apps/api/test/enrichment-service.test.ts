@@ -45,6 +45,7 @@ const createPendingRow = (): SeedEnrichmentRow => ({
   failedAt: null,
   guardrailFlags: [],
   id: "enrichment_1",
+  lexicalPreview: null,
   model: "fixture-model",
   payload: null,
   promptTemplateVersion: "seed-enrichment.v1",
@@ -79,6 +80,11 @@ const createReadyRow = (): SeedEnrichmentRow => ({
   ...createPendingRow(),
   completedAt: new Date("2026-03-26T00:00:01.000Z"),
   guardrailFlags: [],
+  lexicalPreview: {
+    definition: "clear and easy to understand",
+    partOfSpeech: "adjective",
+    source: "merriam-webster",
+  },
   payload: createReadyPayload(),
   startedAt: null,
   status: "ready",
@@ -237,6 +243,7 @@ describe("enrichment service", () => {
         .mockResolvedValueOnce(currentReadyRow)
         .mockResolvedValueOnce(currentReadyRow),
       getLatestTraceForSeed: vi.fn(() => Promise.resolve(null)),
+      markPendingLexicalPreview: vi.fn(() => Promise.resolve(createPendingRow())),
       markFailed: vi.fn(),
       markReady: vi.fn(() => Promise.resolve(createReadyRow())),
     };
@@ -260,6 +267,16 @@ describe("enrichment service", () => {
 
     expect(enrichment.status).toBe("ready");
     expect(seedEnrichmentRepository.acquirePending).toHaveBeenCalledTimes(1);
+    expect(seedEnrichmentRepository.markPendingLexicalPreview).toHaveBeenCalledWith({
+      enrichmentId: pendingRow.id,
+      lexicalPreview: {
+        definition: "clear and easy to understand",
+        partOfSpeech: "adjective",
+        source: "merriam-webster",
+      },
+      seedId: "seed_1",
+      userId: "user_1",
+    });
     expect(providers.modelProvider.generate).toHaveBeenCalledTimes(1);
   });
 
@@ -277,6 +294,7 @@ describe("enrichment service", () => {
       ),
       getCurrentForSeed: vi.fn(() => Promise.resolve(null)),
       getLatestTraceForSeed: vi.fn(() => Promise.resolve(null)),
+      markPendingLexicalPreview: vi.fn(() => Promise.resolve(createPendingRow())),
       markFailed,
       markReady: vi.fn(() => Promise.resolve(createReadyRow())),
     };

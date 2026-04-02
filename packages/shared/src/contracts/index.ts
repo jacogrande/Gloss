@@ -101,6 +101,14 @@ export const seedEnrichmentMorphologySchema = z
   })
   .strict();
 
+export const seedEnrichmentLexicalPreviewSchema = z
+  .object({
+    definition: conciseNoteSchema,
+    partOfSpeech: z.string().trim().min(1).max(80).nullable(),
+    source: z.literal("merriam-webster"),
+  })
+  .strict();
+
 export const seedEnrichmentPayloadSchemaVersion = "seed-enrichment-payload.v1";
 
 export const seedEnrichmentPayloadSchema = z
@@ -185,6 +193,7 @@ export const seedEnrichmentSchema = z
     failedAt: apiTimestampSchema.nullable(),
     guardrailFlags: z.array(seedEnrichmentGuardrailFlagSchema),
     id: z.string().min(1),
+    lexicalPreview: seedEnrichmentLexicalPreviewSchema.nullable(),
     model: z.string().trim().min(1).nullable(),
     payload: seedEnrichmentPayloadSchema.nullable(),
     promptTemplateVersion: z.string().trim().min(1),

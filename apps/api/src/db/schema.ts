@@ -25,6 +25,7 @@ import type {
   ReviewSessionStatus,
   SeedContextKind,
   SeedEnrichmentGuardrailFlag,
+  SeedEnrichmentLexicalPreview,
   SeedEnrichmentPayload,
   SeedEnrichmentStatus,
   SeedStage,
@@ -141,6 +142,7 @@ export const seedEnrichmentsTable = pgTable(
       .$type<SeedEnrichmentGuardrailFlag[]>()
       .notNull(),
     id: text("id").primaryKey(),
+    lexicalPreview: jsonb("lexical_preview").$type<SeedEnrichmentLexicalPreview>(),
     model: text("model"),
     payload: jsonb("payload").$type<SeedEnrichmentPayload>(),
     promptTemplateVersion: text("prompt_template_version").notNull(),

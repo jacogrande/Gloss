@@ -11,6 +11,7 @@ import type {
   ApiErrorCode,
   LexicalEvidenceSnapshot,
   SeedEnrichmentGuardrailFlag,
+  SeedEnrichmentLexicalPreview,
   SeedEnrichmentPayload,
   SeedEnrichmentStatus,
 } from "@gloss/shared/types";
@@ -62,6 +63,12 @@ export type SeedEnrichmentRepository = {
     seedId: string;
     userId: string;
   }) => Promise<SeedEnrichmentTraceRow | null>;
+  markPendingLexicalPreview: (input: {
+    enrichmentId: string;
+    lexicalPreview: SeedEnrichmentLexicalPreview | null;
+    seedId: string;
+    userId: string;
+  }) => Promise<SeedEnrichmentRow>;
   markFailed: (input: {
     enrichmentId: string;
     errorCode: ApiErrorCode;
@@ -106,6 +113,7 @@ export const createSeedEnrichmentRepository = (
       .values({
         guardrailFlags: [],
         id: crypto.randomUUID(),
+        lexicalPreview: null,
         model: input.model,
         payload: null,
         promptTemplateVersion: input.promptTemplateVersion,
@@ -124,6 +132,7 @@ export const createSeedEnrichmentRepository = (
           errorCode: null,
           failedAt: null,
           guardrailFlags: [],
+          lexicalPreview: null,
           model: input.model,
           payload: null,
           promptTemplateVersion: input.promptTemplateVersion,
@@ -196,6 +205,29 @@ export const createSeedEnrichmentRepository = (
       .limit(1);
 
     return row ?? null;
+  },
+  async markPendingLexicalPreview(input) {
+    const timestamp = now();
+    const [updatedRow] = await db
+      .update(seedEnrichmentsTable)
+      .set({
+        lexicalPreview: input.lexicalPreview,
+        updatedAt: timestamp,
+      })
+      .where(
+        and(
+          eq(seedEnrichmentsTable.id, input.enrichmentId),
+          eq(seedEnrichmentsTable.seedId, input.seedId),
+          eq(seedEnrichmentsTable.userId, input.userId),
+          eq(seedEnrichmentsTable.status, "pending"),
+        ),
+      )
+      .returning();
+
+    return requireRow(
+      updatedRow,
+      "Seed enrichment lexical preview was not persisted.",
+    );
   },
   async markFailed(input) {
     const [updatedRow] = await db

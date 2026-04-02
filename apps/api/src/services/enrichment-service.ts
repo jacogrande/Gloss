@@ -24,6 +24,7 @@ import {
 import { withPostgresAdvisoryLock } from "../lib/postgres-lock";
 import {
   applyEnrichmentGuardrails,
+  buildSeedEnrichmentLexicalPreview,
   buildEnrichmentPrompts,
   buildLexicalEvidenceSnapshot,
   hasMinimumEvidenceForEnrichment,
@@ -499,6 +500,17 @@ export const createEnrichmentService = (input: {
           relationLatencyMs: relationCandidatesResult.latencyMs,
           relatedCandidateCount: lexicalEvidence.relatedCandidates.length,
         });
+
+        const lexicalPreview = buildSeedEnrichmentLexicalPreview(lexicalEvidence);
+
+        if (lexicalPreview) {
+          await seedEnrichmentRepository.markPendingLexicalPreview({
+            enrichmentId: pendingEnrichment.id,
+            lexicalPreview,
+            seedId,
+            userId,
+          });
+        }
 
         if (!hasMinimumEvidenceForEnrichment(lexicalEvidence)) {
           const failure = enrichmentEvidenceUnavailableError(
