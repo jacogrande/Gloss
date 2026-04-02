@@ -342,14 +342,13 @@ Sprint 1 is complete when all of the following are true:
 - Keep the schema minimal and resist adding future product tables until they are needed.
 - Use the roadmap as a guardrail when deciding whether work belongs in Sprint 1.
 
-## Open Questions
+## Resolved During Execution
 
-- Should the SPA be served as a separate Railway static service in Sprint 1, or should the API serve the built assets initially to reduce deployment complexity?
-- The local DB flow uses a native local Postgres helper that shells out to `initdb`, `pg_ctl`, `psql`, and `createdb`. The required binaries can come from `PATH` or `POSTGRES_BIN_DIR`.
-- Do we want Playwright in Sprint 1, or is a temporary auth smoke script sufficient until Sprint 2?
-
-These questions should be resolved during execution, but none of them should block the sprint from starting.
+- The SPA remained a separate Railway-hosted web service instead of being served from the API.
+- The native local Postgres helper remained the default local DB path, with required binaries coming from `PATH` or `POSTGRES_BIN_DIR`.
+- Playwright was introduced early and became part of the core harness instead of staying a temporary auth-only smoke layer.
 
 ## Status Log
 
 - 2026-03-26: created from the MVP roadmap, harness, architecture, reliability, and security docs.
+- 2026-04-01: archived as completed after Sprint 1 implementation, validation, and later hardening work landed in the repo.

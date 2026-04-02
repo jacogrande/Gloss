@@ -38,6 +38,15 @@ This plan aims to get to a credible private alpha without turning the roadmap in
 | 4 | Review | Users can complete meaningful review sessions with basic scheduling |
 | 5 | Hardening | Smoke tests, evals, staging, metrics, and private alpha readiness |
 
+## Current Status
+
+As of `2026-04-01`, the repo-local work for Sprints `1-7` has been implemented and validated through the harness. The main remaining gap is hosted operational verification on Railway preview and staging before a real private-alpha rollout.
+
+See:
+
+- [docs/plans/active/private-alpha-hosted-verification.md](/Users/jackson/Code/projects/gloss/docs/plans/active/private-alpha-hosted-verification.md)
+- [docs/PRIVATE_ALPHA.md](/Users/jackson/Code/projects/gloss/docs/PRIVATE_ALPHA.md)
+
 ## Sprint 1: Foundation
 
 ### Goal

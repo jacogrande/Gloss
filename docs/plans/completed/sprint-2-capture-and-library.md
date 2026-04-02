@@ -571,18 +571,13 @@ Manual QA should confirm:
 - keep the library summary payload intentionally compact
 - build one narrow, deterministic smoke path first, then expand later
 
-## Open Questions
+## Resolved During Execution
 
-- Should `sources` be reused across captures when metadata matches, or should Sprint 2 simply create lightweight source rows per capture and optimize later?
-- Should library filtering ship with only `stage`, or should `source` filtering be included in Sprint 2 if it materially improves the product demo?
-- Should successful capture navigate directly to seed detail or back to library with a success affordance?
-
-Default recommendation unless implementation friction says otherwise:
-
-- allow lightweight source reuse only if it is simple and deterministic
-- ship at least one real filter, preferably `stage`
-- navigate to seed detail immediately after create because it makes capture feel concrete
+- Source handling stayed lightweight and deterministic without over-optimizing reuse logic.
+- Library filtering shipped with the narrower stage-oriented MVP behavior instead of a broader source-filter surface.
+- Successful capture routed users directly to seed detail so the save action felt concrete immediately.
 
 ## Status Log
 
 - 2026-03-26: created
+- 2026-04-01: archived as completed after Sprint 2 shipped and its follow-on hardening work was absorbed into the main repo and harness.

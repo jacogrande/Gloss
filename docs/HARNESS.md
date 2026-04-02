@@ -184,7 +184,7 @@ These scripts are part of the harness and should be implemented as the repo is s
 Default flow for substantial work:
 
 1. Read `AGENTS.md` and the minimum linked docs.
-2. Create or update a plan in `docs/plans/active/` if the task is non-trivial.
+2. Create or update a plan in `docs/plans/active/` if the task is non-trivial and still in flight.
 3. Make the smallest change that resolves the task.
 4. Run the narrowest validation that can disprove the change quickly.
 5. If the task touches AI behavior, run the relevant evals.
@@ -290,3 +290,4 @@ Required rules:
 - `docs/QUALITY_SCORE.md`: living release rubric
 - `docs/evals/*`: datasets and grader definitions
 - `docs/plans/active/*`: execution plans for ongoing work
+- `docs/plans/completed/*`: archived execution records for completed work

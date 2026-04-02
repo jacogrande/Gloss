@@ -410,3 +410,4 @@ Sprint 6 is complete when:
 ## Status Log
 
 - 2026-03-31: created from the front-to-back review and parallel UX/functionality reviewer findings
+- 2026-04-01: completed in code and validation, then archived after the recovery work shipped and the remaining polish moved into Sprint 7.

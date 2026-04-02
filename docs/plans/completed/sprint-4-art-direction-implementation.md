@@ -167,3 +167,4 @@ Questions:
 - 2026-03-27: created for implementation of the new Gloss art direction on the main SPA
 - 2026-03-27: implemented the paper-and-ink design kit across auth, shell, library, capture, and seed detail; reviewed with Playwright on mobile and desktop checkpoints
 - 2026-03-27: pivoted away from the denser Stagehand-inspired treatment toward a quieter, content-first interface with a minimal shell and definition-led word pages
+- 2026-04-01: archived as completed after later UI sprints simplified and refined the design direction further.

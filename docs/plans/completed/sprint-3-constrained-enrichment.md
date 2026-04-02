@@ -707,18 +707,13 @@ Manual QA should confirm:
 - prefer omitted fields over low-confidence content
 - delay a dedicated Railway worker until there is concrete evidence the inline trigger flow is insufficient
 
-## Open Questions
+## Resolved During Execution
 
-- Should `POST /seeds/:seedId/enrich` execute inline and return the completed record, or should it return `pending` immediately and let the client poll even in Sprint 3?
-- Should a failed enrichment automatically become retryable on the next seed-detail visit, or should retries require an explicit user action?
-- Should the library surface a small enrichment-status indicator in Sprint 3, or should that remain detail-page-only until review is added?
-
-Default recommendation unless implementation pressure says otherwise:
-
-- execute enrichment inline in the dedicated enrichment request
-- require explicit user-visible retry after failure
-- keep enrichment visibility on the seed detail page only
+- Enrichment settled on an explicit pending-and-polling client experience instead of pretending every request would complete inline.
+- Failed enrichment requires an explicit user-visible retry path rather than silently retrying on every revisit.
+- Enrichment visibility stayed focused on seed detail during the initial rollout, with broader journey handling added later through review and polish work.
 
 ## Status Log
 
 - 2026-03-26: created
+- 2026-04-01: archived as completed after Sprint 3 shipped, live-provider hardening landed, and the remaining enrichment polish moved into later sprints.

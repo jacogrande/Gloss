@@ -585,3 +585,4 @@ Private-alpha release gate:
   - `bun run test:e2e`
   - `bun run eval`
 - 2026-03-30: captured final Playwright MCP screenshots for `/library`, `/seeds/:id`, and `/review` on the live local dev stack
+- 2026-04-01: archived as completed for repo-local scope. The only remaining operational follow-up, hosted Railway preview and staging verification, was extracted into [private-alpha-hosted-verification.md](/Users/jackson/Code/projects/gloss/docs/plans/active/private-alpha-hosted-verification.md).

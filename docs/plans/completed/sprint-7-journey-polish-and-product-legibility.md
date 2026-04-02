@@ -399,3 +399,4 @@ Sprint 7 is done when:
 ## Status Log
 
 - 2026-04-01: created from the full live screenshot review and three parallel UX review passes
+- 2026-04-01: completed in code, validated with live screenshots and browser fuzz coverage, and archived after the polish work landed.

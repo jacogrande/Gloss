@@ -1,14 +1,22 @@
 # Active Plans
 
-Use this folder for substantial work that should survive across sessions.
+Use this folder only for work that is genuinely still in flight.
 
-Create a plan when the task:
+Create or update a plan here when the task:
 
 - spans more than one subsystem
 - changes schemas or data flow
 - touches AI behavior
 - introduces a background job
 - is likely to take more than 30 minutes
+- still has unresolved implementation or operational work
+
+When a plan is complete:
+
+1. add a closeout note in its `Status Log`
+2. resolve or explicitly answer any open questions
+3. move it to `docs/plans/completed/`
+4. leave only the still-real follow-up work in `active/`
 
 ## Plan Template
 

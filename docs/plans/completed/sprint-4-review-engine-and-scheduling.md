@@ -44,7 +44,7 @@ Important product constraints from the source material:
 - AI should produce constrained, teachable cards rather than verbose knowledge dumps
 - the MVP should support 4-6 exercise types, but the first implementation can stay intentionally narrow
 
-There is already a separate design execution note in [sprint-4-art-direction-implementation.md](/Users/jackson/Code/projects/gloss/docs/plans/active/sprint-4-art-direction-implementation.md). That file is a UI polish track, not the roadmap Sprint 4. This plan is the actual roadmap Sprint 4 execution document.
+There is already a separate design execution note in [sprint-4-art-direction-implementation.md](/Users/jackson/Code/projects/gloss/docs/plans/completed/sprint-4-art-direction-implementation.md). That file is a UI polish track, not the roadmap Sprint 4. This plan is the actual roadmap Sprint 4 execution document.
 
 ## Product Outcome
 
@@ -680,12 +680,13 @@ Sprint 4 is not complete unless:
 - keep session size intentionally small
 - if inline generation becomes too slow, preserve the public contract and move generation behind a worker later
 
-## Open Questions
+## Resolved During Execution
 
-- Should the first session UI support explicit resume of an unfinished session, or should starting a new session implicitly replace stale active work?
-- Should `review_states` use explicit per-dimension columns or a typed JSONB subdocument if a fourth dimension is likely soon after Sprint 4?
-- Should the first review cards show correctness immediately after each answer, or only at session end for some exercise families?
+- The review flow supports explicit continuation of active work instead of silently replacing it.
+- `review_states` stayed on the explicit typed-column path rather than jumping early to a more generic JSONB shape.
+- Review cards show correctness and feedback immediately after each answer, which later sprints then polished further.
 
 ## Status Log
 
 - 2026-03-29: created as the roadmap Sprint 4 execution plan for the review engine and basic multi-skill scheduling.
+- 2026-04-01: archived as completed after the review engine shipped and subsequent hardening resolved the original open design choices in code.
