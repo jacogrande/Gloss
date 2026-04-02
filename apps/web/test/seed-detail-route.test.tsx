@@ -21,6 +21,7 @@ import {
 } from "react-router-dom";
 
 import type { SeedDetail } from "@gloss/shared/types";
+import type { SeedEnrichment } from "@gloss/shared/types";
 
 import type {
   fetchSeedDetail as fetchSeedDetailType,
@@ -107,6 +108,31 @@ const createSeedDetail = (
   ...overrides,
 });
 
+const createEnrichment = (
+  overrides: Partial<SeedEnrichment> & Pick<SeedEnrichment, "status">,
+): SeedEnrichment => ({
+  completedAt: null,
+  createdAt: "2026-03-26T00:00:00.000Z",
+  errorCode: null,
+  failedAt: null,
+  guardrailFlags: [],
+  id: "enrichment_1",
+  lexicalPreview: {
+    definition: "clear and easy to understand",
+    partOfSpeech: "adjective",
+    source: "merriam-webster",
+  },
+  model: "fixture-model",
+  payload: null,
+  promptTemplateVersion: "seed-enrichment.v1",
+  provider: "fixture",
+  requestedAt: "2026-03-26T00:00:00.000Z",
+  schemaVersion: "seed-enrichment-payload.v1",
+  startedAt: null,
+  updatedAt: "2026-03-26T00:00:00.000Z",
+  ...overrides,
+});
+
 const createDeferred = <TValue,>(): {
   promise: Promise<TValue>;
   reject: (reason?: unknown) => void;
@@ -176,28 +202,15 @@ describe("SeedDetailRoute", () => {
     expect(screen.getByText("Saved")).toBeVisible();
     expect(
       screen.getByText(
-        "Add a sentence or source details if you want a stronger definition and better review prompts.",
+        "Your word is saved. Merriam-Webster lands first. Add a sentence if you want Gloss to shape the meaning to your reading.",
       ),
     ).toBeVisible();
 
     deferredSeed.resolve(
-      createSeedDetail({
-        completedAt: null,
-        createdAt: "2026-03-26T00:00:00.000Z",
-        errorCode: null,
-        failedAt: null,
-        guardrailFlags: [],
-        id: "enrichment_1",
-        model: "fixture-model",
-        payload: null,
-        promptTemplateVersion: "seed-enrichment.v1",
-        provider: "fixture",
-        requestedAt: "2026-03-26T00:00:00.000Z",
-        schemaVersion: "seed-enrichment-payload.v1",
+      createSeedDetail(createEnrichment({
         startedAt: "2026-03-26T00:00:00.000Z",
         status: "pending",
-        updatedAt: "2026-03-26T00:00:00.000Z",
-      }),
+      })),
     );
     await flushPromises();
 
@@ -235,33 +248,15 @@ describe("SeedDetailRoute", () => {
     fetchSeedDetail
       .mockResolvedValueOnce(createSeedDetail(null))
       .mockResolvedValueOnce(
-        createSeedDetail({
-          completedAt: null,
-          createdAt: "2026-03-26T00:00:00.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_1",
-          model: "fixture-model",
-          payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T00:00:00.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
+        createSeedDetail(createEnrichment({
           startedAt: "2026-03-26T00:00:00.000Z",
           status: "pending",
           updatedAt: "2026-03-26T00:00:01.000Z",
-        }),
+        })),
       )
       .mockResolvedValueOnce(
-        createSeedDetail({
+        createSeedDetail(createEnrichment({
           completedAt: "2026-03-26T00:00:02.000Z",
-          createdAt: "2026-03-26T00:00:00.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_1",
-          model: "fixture-model",
           payload: {
             contrastiveWord: {
               note: "Opaque language hides the clarity that pellucid language keeps visible.",
@@ -279,32 +274,15 @@ describe("SeedDetailRoute", () => {
               word: "lucid",
             },
           },
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T00:00:00.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: null,
           status: "ready",
           updatedAt: "2026-03-26T00:00:02.000Z",
-        }),
+        })),
       );
-    requestSeedEnrichment.mockResolvedValue({
-      completedAt: null,
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
-      id: "enrichment_1",
-      model: "fixture-model",
-      payload: null,
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
-      requestedAt: "2026-03-26T00:00:00.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
+    requestSeedEnrichment.mockResolvedValue(createEnrichment({
       startedAt: "2026-03-26T00:00:00.000Z",
       status: "pending",
-      updatedAt: "2026-03-26T00:00:00.000Z",
-    });
+    }));
 
     render(
       <MemoryRouter initialEntries={["/seeds/seed_1"]}>
@@ -327,11 +305,11 @@ describe("SeedDetailRoute", () => {
     expect(fetchSeedDetail).toHaveBeenCalledTimes(3);
     expect(
       screen.getByText(
-        "The explanation was especially clear and easy to follow.",
+        "clear and easy to understand",
       ),
     ).toBeVisible();
     expect(screen.getByText("Context")).toBeVisible();
-    expect(screen.getByText("In context")).toBeVisible();
+    expect(screen.getByText("In your sentence")).toBeVisible();
     expect(screen.getByText("Compare")).toBeVisible();
     expect(screen.getByText("Similar")).toBeVisible();
     expect(screen.getByRole("link", { name: "Review queue" })).toHaveAttribute(
@@ -345,23 +323,16 @@ describe("SeedDetailRoute", () => {
   it("shows a save notice and lets thin-context seeds add recovery context", async () => {
     fetchSeedDetail.mockResolvedValueOnce(
       createSeedDetail(
-        {
-          completedAt: null,
-          createdAt: "2026-03-26T00:00:00.000Z",
+        createEnrichment({
           errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
           failedAt: "2026-03-26T00:00:02.000Z",
-          guardrailFlags: [],
           id: "enrichment_2",
-          model: "fixture-model",
+          lexicalPreview: null,
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T00:00:00.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: null,
           status: "failed",
           updatedAt: "2026-03-26T00:00:02.000Z",
-        },
+        }),
         {
           contexts: [],
           primarySentence: null,
@@ -371,23 +342,16 @@ describe("SeedDetailRoute", () => {
     );
     updateSeed.mockResolvedValue(
       createSeedDetail(
-        {
-          completedAt: null,
-          createdAt: "2026-03-26T00:00:00.000Z",
+        createEnrichment({
           errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
           failedAt: "2026-03-26T00:00:02.000Z",
-          guardrailFlags: [],
           id: "enrichment_2",
-          model: "fixture-model",
+          lexicalPreview: null,
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T00:00:00.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: null,
           status: "failed",
           updatedAt: "2026-03-26T00:00:02.000Z",
-        },
+        }),
         {
           contexts: [
             {
@@ -403,23 +367,13 @@ describe("SeedDetailRoute", () => {
         },
       ),
     );
-    requestSeedEnrichment.mockResolvedValue({
-      completedAt: null,
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
+    requestSeedEnrichment.mockResolvedValue(createEnrichment({
       id: "enrichment_2",
-      model: "fixture-model",
       payload: null,
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
-      requestedAt: "2026-03-26T00:00:00.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:03.000Z",
       status: "pending",
       updatedAt: "2026-03-26T00:00:03.000Z",
-    });
+    }));
 
     render(
       <MemoryRouter
@@ -428,23 +382,16 @@ describe("SeedDetailRoute", () => {
             pathname: "/seeds/seed_1",
             state: {
               initialSeed: createSeedDetail(
-                {
-                  completedAt: null,
-                  createdAt: "2026-03-26T00:00:00.000Z",
+                createEnrichment({
                   errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
                   failedAt: "2026-03-26T00:00:02.000Z",
-                  guardrailFlags: [],
                   id: "enrichment_2",
-                  model: "fixture-model",
+                  lexicalPreview: null,
                   payload: null,
-                  promptTemplateVersion: "seed-enrichment.v1",
-                  provider: "fixture",
-                  requestedAt: "2026-03-26T00:00:00.000Z",
-                  schemaVersion: "seed-enrichment-payload.v1",
                   startedAt: null,
                   status: "failed",
                   updatedAt: "2026-03-26T00:00:02.000Z",
-                },
+                }),
                 {
                   contexts: [],
                   primarySentence: null,
@@ -492,25 +439,16 @@ describe("SeedDetailRoute", () => {
 
   it("forces a fresh enrichment when a ready seed gains its first sentence", async () => {
     const readySourceOnlySeed = createSeedDetail(
-      {
+      createEnrichment({
         completedAt: "2026-03-26T00:00:02.000Z",
-        createdAt: "2026-03-26T00:00:00.000Z",
-        errorCode: null,
-        failedAt: null,
-        guardrailFlags: [],
         id: "enrichment_3",
-        model: "fixture-model",
         payload: {
           gloss: "Especially clear and easy to follow.",
         },
-        promptTemplateVersion: "seed-enrichment.v1",
-        provider: "fixture",
-        requestedAt: "2026-03-26T00:00:00.000Z",
-        schemaVersion: "seed-enrichment-payload.v1",
         startedAt: null,
         status: "ready",
         updatedAt: "2026-03-26T00:00:02.000Z",
-      },
+      }),
       {
         contexts: [],
         primarySentence: null,
@@ -538,23 +476,14 @@ describe("SeedDetailRoute", () => {
       ],
       primarySentence: "Her reply was pellucid even under pressure.",
     });
-    requestSeedEnrichment.mockResolvedValue({
-      completedAt: null,
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
+    requestSeedEnrichment.mockResolvedValue(createEnrichment({
       id: "enrichment_3",
-      model: "fixture-model",
       payload: null,
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
       requestedAt: "2026-03-26T00:00:03.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:03.000Z",
       status: "pending",
       updatedAt: "2026-03-26T00:00:03.000Z",
-    });
+    }));
 
     render(
       <MemoryRouter

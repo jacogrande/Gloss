@@ -94,18 +94,6 @@ export const SeedDetailPanel = ({
         </section>
       ) : null}
 
-      {seed.primarySentence || seed.source ? (
-        <section className="seed-detail__evidence">
-          <h2 className="seed-detail__evidence-title">Context</h2>
-          {seed.primarySentence ? (
-            <p className="seed-detail__sentence">{seed.primarySentence}</p>
-          ) : null}
-          {sourceEvidence ? (
-            <p className="seed-detail__source-evidence">{sourceEvidence}</p>
-          ) : null}
-        </section>
-      ) : null}
-
       <section className="seed-detail__definition-panel">
         <SeedEnrichmentPanel
           enrichment={seed.enrichment}
@@ -117,6 +105,18 @@ export const SeedDetailPanel = ({
           showManualRefresh={showPendingRefreshFallback}
         />
       </section>
+
+      {seed.primarySentence || seed.source ? (
+        <section className="seed-detail__evidence">
+          <h2 className="seed-detail__evidence-title">Context</h2>
+          {seed.primarySentence ? (
+            <p className="seed-detail__sentence">{seed.primarySentence}</p>
+          ) : null}
+          {sourceEvidence ? (
+            <p className="seed-detail__source-evidence">{sourceEvidence}</p>
+          ) : null}
+        </section>
+      ) : null}
 
       {recoveryState ? (
         <SeedContextEditor

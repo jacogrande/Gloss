@@ -4,6 +4,8 @@ import {
   it,
 } from "vitest";
 
+import type { SeedEnrichment } from "@gloss/shared/types";
+
 import {
   formatSourceEvidence,
   getSeedActionState,
@@ -14,6 +16,31 @@ import {
   shouldShowContextualGloss,
   toDictionaryDefinition,
 } from "../src/lib/contextual-gloss";
+
+const createEnrichment = (
+  overrides: Partial<SeedEnrichment> & Pick<SeedEnrichment, "status">,
+): SeedEnrichment => ({
+  completedAt: null,
+  createdAt: "2026-03-26T00:00:00.000Z",
+  errorCode: null,
+  failedAt: null,
+  guardrailFlags: [],
+  id: "enrichment_1",
+  lexicalPreview: {
+    definition: "clear and easy to understand",
+    partOfSpeech: "adjective",
+    source: "merriam-webster",
+  },
+  model: "fixture-model",
+  payload: null,
+  promptTemplateVersion: "seed-enrichment.v1",
+  provider: "fixture",
+  requestedAt: "2026-03-26T00:00:00.000Z",
+  schemaVersion: "seed-enrichment-payload.v1",
+  startedAt: null,
+  updatedAt: "2026-03-26T00:00:02.000Z",
+  ...overrides,
+});
 
 describe("seed presenters", () => {
   it("strips common contextual lead-ins from dictionary definitions", () => {
@@ -60,25 +87,14 @@ describe("seed presenters", () => {
     expect(
       getSeedActionState({
         seed: {
-          enrichment: {
+          enrichment: createEnrichment({
             completedAt: "2026-03-26T00:00:02.000Z",
-            createdAt: "2026-03-26T00:00:00.000Z",
-            errorCode: null,
-            failedAt: null,
-            guardrailFlags: [],
-            id: "enrichment_1",
-            model: "fixture-model",
             payload: {
               gloss: "Especially clear and easy to follow.",
             },
-            promptTemplateVersion: "seed-enrichment.v1",
-            provider: "fixture",
-            requestedAt: "2026-03-26T00:00:00.000Z",
-            schemaVersion: "seed-enrichment-payload.v1",
             startedAt: null,
             status: "ready",
-            updatedAt: "2026-03-26T00:00:02.000Z",
-          },
+          }),
         },
       }),
     ).toEqual({
@@ -96,23 +112,15 @@ describe("seed presenters", () => {
   it("softens the weak-evidence recovery copy without promising a successful rebuild", () => {
     const recoveryState = getSeedRecoveryState({
       seed: {
-        enrichment: {
-          completedAt: null,
-          createdAt: "2026-03-26T00:00:00.000Z",
+        enrichment: createEnrichment({
           errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
           failedAt: "2026-03-26T00:00:02.000Z",
-          guardrailFlags: [],
           id: "enrichment_weak",
-          model: "fixture-model",
+          lexicalPreview: null,
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T00:00:00.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: null,
           status: "failed",
-          updatedAt: "2026-03-26T00:00:02.000Z",
-        },
+        }),
         primarySentence: null,
         source: null,
       },

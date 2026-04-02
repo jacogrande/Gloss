@@ -33,6 +33,11 @@ import {
 import { webEnv } from "../lib/env";
 import { useAsyncResource } from "../lib/use-async-resource";
 
+const wait = (durationMs: number): Promise<void> =>
+  new Promise((resolve) => {
+    window.setTimeout(resolve, durationMs);
+  });
+
 export const SeedDetailRoute = (): JSX.Element => {
   const navigate = useNavigate();
   const { seedId } = useParams<{ seedId: string }>();
@@ -96,7 +101,10 @@ export const SeedDetailRoute = (): JSX.Element => {
     );
   });
 
-  const refreshSeedDetail = useEffectEvent(async (): Promise<SeedDetail | null> => {
+  const refreshSeedDetail = useEffectEvent(
+    async (options?: {
+      silent?: boolean;
+    }): Promise<SeedDetail | null> => {
     if (!seedId) {
       return null;
     }
@@ -125,17 +133,20 @@ export const SeedDetailRoute = (): JSX.Element => {
         return null;
       }
 
-      setEnrichmentErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Unable to refresh this seed right now.",
-      );
+      if (!options?.silent) {
+        setEnrichmentErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to refresh this seed right now.",
+        );
+      }
 
       return null;
     } finally {
       setIsRefreshingEnrichmentStatus(false);
     }
-  });
+    },
+  );
 
   useEffect(() => {
     if (!loadedSeed) {
@@ -188,6 +199,37 @@ export const SeedDetailRoute = (): JSX.Element => {
     setEnrichmentErrorMessage(null);
     setPendingRefreshCycle(0);
     setShowPendingRefreshFallback(false);
+    let stopPreviewPolling = false;
+    const previewPollTask =
+      seed?.enrichment?.lexicalPreview || !seedId
+        ? null
+        : (async (): Promise<void> => {
+            for (const delayMs of [
+              600,
+              900,
+              1_200,
+              1_600,
+            ]) {
+              await wait(delayMs);
+
+              if (stopPreviewPolling) {
+                return;
+              }
+
+              const nextSeed = await refreshSeedDetail({
+                silent: true,
+              });
+
+              if (
+                !nextSeed ||
+                nextSeed.enrichment?.lexicalPreview ||
+                nextSeed.enrichment?.status === "ready" ||
+                nextSeed.enrichment?.status === "failed"
+              ) {
+                return;
+              }
+            }
+          })();
 
     try {
       const enrichment = await requestSeedEnrichment(
@@ -204,6 +246,10 @@ export const SeedDetailRoute = (): JSX.Element => {
             }
           : currentSeed,
       );
+
+      stopPreviewPolling =
+        enrichment.status !== "pending" || Boolean(enrichment.lexicalPreview);
+
       return enrichment;
     } catch (error) {
       if (isUnauthorizedAuthError(error)) {
@@ -219,6 +265,8 @@ export const SeedDetailRoute = (): JSX.Element => {
       setShowSavedNotice(false);
       return null;
     } finally {
+      stopPreviewPolling = true;
+      void previewPollTask;
       setIsEnriching(false);
     }
   };

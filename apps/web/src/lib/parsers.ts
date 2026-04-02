@@ -21,6 +21,7 @@ import type {
   SeedDetail,
   SeedEnrichment,
   SeedEnrichmentGuardrailFlag,
+  SeedEnrichmentLexicalPreview,
   SeedEnrichmentMorphology,
   SeedEnrichmentPayload,
   SeedEnrichmentRelation,
@@ -257,6 +258,23 @@ const parseSeedEnrichmentMorphology = (
   };
 };
 
+const parseSeedEnrichmentLexicalPreview = (
+  value: unknown,
+): SeedEnrichmentLexicalPreview => {
+  const record = readRecord(value);
+  const source = readString(record.source);
+
+  if (source !== "merriam-webster") {
+    throw new Error("Expected Merriam-Webster lexical preview source.");
+  }
+
+  return {
+    definition: readString(record.definition),
+    partOfSpeech: readNullableString(record.partOfSpeech),
+    source,
+  };
+};
+
 const parseSeedEnrichmentPayload = (
   value: unknown,
 ): SeedEnrichmentPayload => {
@@ -294,6 +312,10 @@ const parseSeedEnrichment = (value: unknown): SeedEnrichment => {
       readEnum(item, seedEnrichmentGuardrailValueSet),
     ),
     id: readString(record.id),
+    lexicalPreview:
+      record.lexicalPreview === null
+        ? null
+        : parseSeedEnrichmentLexicalPreview(record.lexicalPreview),
     model: readNullableString(record.model),
     payload:
       record.payload === null ? null : parseSeedEnrichmentPayload(record.payload),

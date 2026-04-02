@@ -80,11 +80,6 @@ export const waitForSeedDetailState = async (input: {
 
   await expect
     .poll(async () => {
-      if (await gloss.isVisible().catch(() => false)) {
-        outcome = "ready";
-        return outcome;
-      }
-
       if (
         await input.page
           .getByRole("heading", { name: recoveryHeadingPattern })
@@ -101,6 +96,16 @@ export const waitForSeedDetailState = async (input: {
         )
       ) {
         outcome = "failed";
+        return outcome;
+      }
+
+      if (
+        (await enrichmentPanel.getAttribute("class").catch(() => null))?.includes(
+          "seed-enrichment--ready",
+        ) &&
+        (await gloss.isVisible().catch(() => false))
+      ) {
+        outcome = "ready";
         return outcome;
       }
 
@@ -362,12 +367,11 @@ export const completeReviewSession = async (input: {
 export const openReviewSession = async (page: Page): Promise<void> => {
   await page.goto("/review");
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
+  const startButton = page.getByRole("button", { name: "Start review" });
+  const resumeButton = page.getByRole("button", { name: "Resume review" });
 
   if (
-    await page
-      .getByRole("button", { name: "Start review" })
-      .isVisible()
-      .catch(() => false)
+    await startButton.isVisible().catch(() => false)
   ) {
     await Promise.all([
       page.waitForResponse((response) => {
@@ -378,11 +382,32 @@ export const openReviewSession = async (page: Page): Promise<void> => {
           new URL(response.url()).pathname === "/review/sessions"
         );
       }),
-      page.getByRole("button", { name: "Start review" }).click(),
+      startButton.click(),
     ]);
+  } else if (await resumeButton.isVisible().catch(() => false)) {
+    await resumeButton.click();
   }
 
-  await expect(page.locator(".review-card__question")).toBeVisible({
-    timeout: 10_000,
-  });
+  await expect
+    .poll(async () => {
+      if (
+        await page.locator(".review-card__question").isVisible().catch(() => false)
+      ) {
+        return "question";
+      }
+
+      if (
+        await page
+          .getByRole("heading", { name: "Session finished" })
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return "finished";
+      }
+
+      return "pending";
+    }, {
+      timeout: 10_000,
+    })
+    .toBe("question");
 };

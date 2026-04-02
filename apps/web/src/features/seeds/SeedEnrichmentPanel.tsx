@@ -8,6 +8,7 @@ import {
 } from "../../lib/contextual-gloss";
 import {
   getSeedEnrichmentFallbackView,
+  getSeedEnrichmentLoadingSteps,
 } from "./seed-presenters";
 
 type SeedEnrichmentPanelProps = {
@@ -20,6 +21,56 @@ type SeedEnrichmentPanelProps = {
   showManualRefresh: boolean;
 };
 
+const SeedEnrichmentLoadingWizard = (input: {
+  isRefreshing: boolean;
+  lexicalPreview: SeedEnrichment["lexicalPreview"];
+  onRefresh: () => void;
+  showManualRefresh: boolean;
+}): JSX.Element => {
+  const steps = getSeedEnrichmentLoadingSteps({
+    isRefreshing: input.isRefreshing,
+    lexicalPreview: input.lexicalPreview ?? null,
+  });
+
+  return (
+    <section
+      aria-live="polite"
+      className="seed-enrichment__wizard"
+    >
+      <p className="seed-enrichment__wizard-intro">
+        {input.lexicalPreview
+          ? "The dictionary meaning is here. Gloss is turning it toward the exact line you saved."
+          : "Gloss is looking the word up first, then shaping the meaning to your sentence."}
+      </p>
+      <ol className="seed-enrichment__wizard-steps">
+        {steps.map((step, index) => (
+          <li
+            className="seed-enrichment__wizard-step"
+            data-status={step.status}
+            key={`${step.title}-${index}`}
+          >
+            <span aria-hidden="true" className="seed-enrichment__wizard-marker" />
+            <div className="seed-enrichment__wizard-copy">
+              <p className="seed-enrichment__wizard-title">{step.title}</p>
+              <p className="seed-enrichment__wizard-body">{step.body}</p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {input.showManualRefresh ? (
+        <button
+          className="seed-enrichment__refresh-link"
+          disabled={input.isRefreshing}
+          onClick={input.onRefresh}
+          type="button"
+        >
+          {input.isRefreshing ? "Checking..." : "Check again"}
+        </button>
+      ) : null}
+    </section>
+  );
+};
+
 export const SeedEnrichmentPanel = ({
   enrichment,
   errorMessage,
@@ -29,6 +80,64 @@ export const SeedEnrichmentPanel = ({
   onRetry,
   showManualRefresh,
 }: SeedEnrichmentPanelProps): JSX.Element => {
+  const lexicalPreview = enrichment?.lexicalPreview ?? null;
+  const payload = enrichment?.status === "ready" ? enrichment.payload : null;
+  const primaryDefinition =
+    lexicalPreview?.definition ?? (payload ? toDictionaryDefinition(payload.gloss) : null);
+  const primaryDefinitionPartOfSpeech = lexicalPreview?.partOfSpeech ?? null;
+  const showContextualGloss =
+    payload && primaryDefinition
+      ? shouldShowContextualGloss(primaryDefinition, payload.gloss)
+      : false;
+  const shouldShowPendingWizard =
+    isEnriching ||
+    enrichment?.status === "pending" ||
+    (!enrichment && !errorMessage);
+
+  if (shouldShowPendingWizard) {
+    const fallbackView = getSeedEnrichmentFallbackView({
+      enrichment,
+      errorMessage,
+      isEnriching,
+      showManualRefresh,
+    });
+
+    return (
+      <section className="seed-enrichment seed-enrichment--pending">
+        <p className="seed-enrichment__kicker">Definition</p>
+        {primaryDefinition ? (
+          <div className="seed-enrichment__dictionary-entry">
+            <p className="seed-enrichment__source-line">
+              Merriam-Webster
+              {primaryDefinitionPartOfSpeech
+                ? ` · ${primaryDefinitionPartOfSpeech}`
+                : ""}
+            </p>
+            <div className="seed-enrichment__sense-row">
+              <span className="seed-enrichment__sense-index">1</span>
+              <p className="seed-enrichment__gloss">{primaryDefinition}</p>
+            </div>
+          </div>
+        ) : (
+          <div
+            aria-hidden="true"
+            className="seed-enrichment__definition-skeleton"
+          />
+        )}
+        <SeedEnrichmentLoadingWizard
+          isRefreshing={isRefreshing}
+          lexicalPreview={lexicalPreview}
+          onRefresh={onRefresh}
+          showManualRefresh={showManualRefresh}
+        />
+        {fallbackView?.variant === "pending" &&
+        (!primaryDefinition || Boolean(errorMessage)) ? (
+          <p className="seed-enrichment__state-copy">{fallbackView.message}</p>
+        ) : null}
+      </section>
+    );
+  }
+
   const fallbackView = getSeedEnrichmentFallbackView({
     enrichment,
     errorMessage,
@@ -40,6 +149,20 @@ export const SeedEnrichmentPanel = ({
     return (
       <section className={`seed-enrichment seed-enrichment--${fallbackView.variant}`}>
         <p className="seed-enrichment__kicker">{fallbackView.title}</p>
+        {primaryDefinition ? (
+          <div className="seed-enrichment__dictionary-entry">
+            <p className="seed-enrichment__source-line">
+              Merriam-Webster
+              {primaryDefinitionPartOfSpeech
+                ? ` · ${primaryDefinitionPartOfSpeech}`
+                : ""}
+            </p>
+            <div className="seed-enrichment__sense-row">
+              <span className="seed-enrichment__sense-index">1</span>
+              <p className="seed-enrichment__gloss">{primaryDefinition}</p>
+            </div>
+          </div>
+        ) : null}
         <p className="seed-enrichment__state-copy">
           {fallbackView.variant === "pending" && isRefreshing
             ? "Checking for the latest definition..."
@@ -72,8 +195,6 @@ export const SeedEnrichmentPanel = ({
     );
   }
 
-  const payload = enrichment?.status === "ready" ? enrichment.payload : null;
-
   if (!payload) {
     return (
       <section className="seed-enrichment seed-enrichment--failed">
@@ -82,19 +203,27 @@ export const SeedEnrichmentPanel = ({
       </section>
     );
   }
-  const dictionaryDefinition = toDictionaryDefinition(payload.gloss);
-  const showContextualGloss = shouldShowContextualGloss(
-    dictionaryDefinition,
-    payload.gloss,
-  );
 
   return (
     <section className="seed-enrichment seed-enrichment--ready">
       <p className="seed-enrichment__kicker">Definition</p>
-      <p className="seed-enrichment__gloss">{dictionaryDefinition}</p>
+      {primaryDefinition ? (
+        <div className="seed-enrichment__dictionary-entry">
+          <p className="seed-enrichment__source-line">
+            Merriam-Webster
+            {primaryDefinitionPartOfSpeech
+              ? ` · ${primaryDefinitionPartOfSpeech}`
+              : ""}
+          </p>
+          <div className="seed-enrichment__sense-row">
+            <span className="seed-enrichment__sense-index">1</span>
+            <p className="seed-enrichment__gloss">{primaryDefinition}</p>
+          </div>
+        </div>
+      ) : null}
       {showContextualGloss ? (
         <article className="seed-enrichment__item seed-enrichment__contextual">
-          <h2 className="seed-detail__section-title">In context</h2>
+          <h2 className="seed-detail__section-title">In your sentence</h2>
           <p>{payload.gloss}</p>
         </article>
       ) : null}

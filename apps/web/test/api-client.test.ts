@@ -245,6 +245,11 @@ describe("fetchSessionSnapshot", () => {
             failedAt: null,
             guardrailFlags: [],
             id: "enrichment_123",
+            lexicalPreview: {
+              definition: "clear and easy to understand",
+              partOfSpeech: "adjective",
+              source: "merriam-webster",
+            },
             model: "fixture-seed-enrichment-v1",
             payload: {
               gloss: "It means notably clear and easy to understand.",
@@ -296,6 +301,11 @@ describe("fetchSessionSnapshot", () => {
             failedAt: null,
             guardrailFlags: [],
             id: "enrichment_123",
+            lexicalPreview: {
+              definition: "clear and easy to understand",
+              partOfSpeech: "adjective",
+              source: "merriam-webster",
+            },
             model: "fixture-seed-enrichment-v1",
             payload: null,
             promptTemplateVersion: "seed-enrichment.v1",

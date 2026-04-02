@@ -2,6 +2,7 @@ import type {
   SeedContext,
   SeedDetail,
   SeedEnrichment,
+  SeedEnrichmentLexicalPreview,
   SeedStage,
   SourceKind,
 } from "@gloss/shared/types";
@@ -90,6 +91,12 @@ export type SeedEnrichmentFallbackView = {
   message: string;
   title: string;
   variant: "failed" | "pending";
+};
+
+export type SeedEnrichmentLoadingStep = {
+  body: string;
+  status: "active" | "complete" | "pending";
+  title: string;
 };
 
 const hasWeakEnrichmentFailure = (
@@ -191,14 +198,15 @@ export const getSeedCaptureNotice = (input: {
 
   if (!input.seed.primarySentence && !input.seed.source) {
     return {
-      message: "Add a sentence or source details if you want a stronger definition and better review prompts.",
+      message:
+        "Your word is saved. Merriam-Webster lands first. Add a sentence if you want Gloss to shape the meaning to your reading.",
       title: "Saved",
     };
   }
 
   return {
     message:
-      "Your word is saved. Gloss is building the definition now. If the word is ready after that, it will enter review automatically.",
+      "Your word is saved. Merriam-Webster lands first, then Gloss shapes the meaning to your sentence and sends it to review.",
     title: "Saved",
   };
 };
@@ -250,6 +258,51 @@ export const getSeedLoadNotice = (
         title: "Couldn’t refresh",
       }
     : null;
+
+export const getSeedEnrichmentLoadingSteps = (input: {
+  isRefreshing: boolean;
+  lexicalPreview: SeedEnrichmentLexicalPreview | null;
+}): SeedEnrichmentLoadingStep[] => {
+  if (!input.lexicalPreview) {
+    return [
+      {
+        body: "Opening Merriam-Webster and locating the right headword.",
+        status: "active",
+        title: "Finding the word",
+      },
+      {
+        body: "The first grounded definition will appear here as soon as it lands.",
+        status: "pending",
+        title: "Lifting the clean definition",
+      },
+      {
+        body: "After that, Gloss reshapes the meaning to match your sentence.",
+        status: "pending",
+        title: "Reading your context",
+      },
+    ];
+  }
+
+  return [
+    {
+      body: "This word is anchored to a Merriam-Webster entry.",
+      status: "complete",
+      title: "Word found",
+    },
+    {
+      body: "The first dictionary sense is ready.",
+      status: "complete",
+      title: "Definition lifted",
+    },
+    {
+      body: input.isRefreshing
+        ? "Checking again for the contextual pass."
+        : "Gloss is shaping that definition to the exact sentence you saved.",
+      status: "active",
+      title: "Reading your context",
+    },
+  ];
+};
 
 export const getSeedContextSourceToggleLabel = (input: {
   hasSourceValues: boolean;

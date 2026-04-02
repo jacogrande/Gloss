@@ -12,24 +12,45 @@ import {
   vi,
 } from "vitest";
 
+import type { SeedEnrichment } from "@gloss/shared/types";
+
 import { SeedEnrichmentPanel } from "../src/features/seeds/SeedEnrichmentPanel";
 
 afterEach(() => {
   cleanup();
 });
 
+const createEnrichment = (
+  overrides: Partial<SeedEnrichment> & Pick<SeedEnrichment, "status">,
+): SeedEnrichment => ({
+  completedAt: null,
+  createdAt: "2026-03-26T12:34:56.000Z",
+  errorCode: null,
+  failedAt: null,
+  guardrailFlags: [],
+  id: "enrichment_123",
+  lexicalPreview: {
+    definition: "clear and easy to understand",
+    partOfSpeech: "adjective",
+    source: "merriam-webster",
+  },
+  model: "fixture-seed-enrichment-v1",
+  payload: null,
+  promptTemplateVersion: "seed-enrichment.v1",
+  provider: "fixture",
+  requestedAt: "2026-03-26T12:34:57.000Z",
+  schemaVersion: "seed-enrichment-payload.v1",
+  startedAt: null,
+  updatedAt: "2026-03-26T12:35:10.000Z",
+  ...overrides,
+});
+
 describe("SeedEnrichmentPanel", () => {
   it("renders the accepted enrichment payload", () => {
     render(
       <SeedEnrichmentPanel
-        enrichment={{
+        enrichment={createEnrichment({
           completedAt: "2026-03-26T12:35:10.000Z",
-          createdAt: "2026-03-26T12:34:56.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_123",
-          model: "fixture-seed-enrichment-v1",
           payload: {
             contrastiveWord: {
               note: "Opaque language hides the meaning that pellucid language makes plain.",
@@ -47,14 +68,8 @@ describe("SeedEnrichmentPanel", () => {
               word: "lucid",
             },
           },
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
-          startedAt: null,
           status: "ready",
-          updatedAt: "2026-03-26T12:35:10.000Z",
-        }}
+        })}
         errorMessage={null}
         isEnriching={false}
         isRefreshing={false}
@@ -65,10 +80,10 @@ describe("SeedEnrichmentPanel", () => {
     );
 
     expect(
-      screen.getByText("The explanation was strikingly clear and easy to follow."),
+      screen.getByText("clear and easy to understand"),
     ).toBeVisible();
     expect(screen.getByText("Definition")).toBeVisible();
-    expect(screen.getByText("In context")).toBeVisible();
+    expect(screen.getByText("In your sentence")).toBeVisible();
     expect(
       screen.getByText(
         "In this sentence, it means the explanation was strikingly clear and easy to follow.",
@@ -81,23 +96,12 @@ describe("SeedEnrichmentPanel", () => {
 
     render(
       <SeedEnrichmentPanel
-        enrichment={{
-          completedAt: null,
-          createdAt: "2026-03-26T12:34:56.000Z",
+        enrichment={createEnrichment({
           errorCode: "ENRICHMENT_PROVIDER_ERROR",
           failedAt: "2026-03-26T12:35:10.000Z",
-          guardrailFlags: [],
-          id: "enrichment_124",
-          model: "fixture-seed-enrichment-v1",
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
-          startedAt: null,
           status: "failed",
-          updatedAt: "2026-03-26T12:35:10.000Z",
-        }}
+        })}
         errorMessage={null}
         isEnriching={false}
         isRefreshing={false}
@@ -142,23 +146,13 @@ describe("SeedEnrichmentPanel", () => {
   it("keeps weak-evidence failures visibly passive", () => {
     render(
       <SeedEnrichmentPanel
-        enrichment={{
-          completedAt: null,
-          createdAt: "2026-03-26T12:34:56.000Z",
+        enrichment={createEnrichment({
           errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
           failedAt: "2026-03-26T12:35:10.000Z",
-          guardrailFlags: [],
-          id: "enrichment_126",
-          model: "fixture-seed-enrichment-v1",
+          lexicalPreview: null,
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
-          startedAt: null,
           status: "failed",
-          updatedAt: "2026-03-26T12:35:10.000Z",
-        }}
+        })}
         errorMessage={null}
         isEnriching={false}
         isRefreshing={false}
@@ -175,23 +169,13 @@ describe("SeedEnrichmentPanel", () => {
   it("keeps pending enrichment automatic by default", () => {
     render(
       <SeedEnrichmentPanel
-        enrichment={{
-          completedAt: null,
-          createdAt: "2026-03-26T12:34:56.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_125",
-          model: "fixture-seed-enrichment-v1",
+        enrichment={createEnrichment({
+          lexicalPreview: null,
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: "2026-03-26T12:34:58.000Z",
           status: "pending",
           updatedAt: "2026-03-26T12:34:58.000Z",
-        }}
+        })}
         errorMessage={null}
         isEnriching={false}
         isRefreshing={false}
@@ -202,7 +186,7 @@ describe("SeedEnrichmentPanel", () => {
     );
 
     expect(
-      screen.getByText(/It will appear here automatically\./i),
+      screen.getByText(/Opening Merriam-Webster and locating the right headword\./i),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Refresh now" })).toBeNull();
   });
@@ -212,23 +196,12 @@ describe("SeedEnrichmentPanel", () => {
 
     render(
       <SeedEnrichmentPanel
-        enrichment={{
-          completedAt: null,
-          createdAt: "2026-03-26T12:34:56.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_125",
-          model: "fixture-seed-enrichment-v1",
+        enrichment={createEnrichment({
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: "2026-03-26T12:34:58.000Z",
           status: "pending",
           updatedAt: "2026-03-26T12:34:58.000Z",
-        }}
+        })}
         errorMessage={null}
         isEnriching={false}
         isRefreshing={false}
@@ -241,7 +214,7 @@ describe("SeedEnrichmentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
 
     expect(
-      screen.getByText(/Still loading\? Check again\./i),
+      screen.getByText(/The dictionary meaning is here\./i),
     ).toBeVisible();
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });
@@ -251,23 +224,12 @@ describe("SeedEnrichmentPanel", () => {
 
     render(
       <SeedEnrichmentPanel
-        enrichment={{
-          completedAt: null,
-          createdAt: "2026-03-26T12:34:56.000Z",
-          errorCode: null,
-          failedAt: null,
-          guardrailFlags: [],
-          id: "enrichment_125",
-          model: "fixture-seed-enrichment-v1",
+        enrichment={createEnrichment({
           payload: null,
-          promptTemplateVersion: "seed-enrichment.v1",
-          provider: "fixture",
-          requestedAt: "2026-03-26T12:34:57.000Z",
-          schemaVersion: "seed-enrichment-payload.v1",
           startedAt: "2026-03-26T12:34:58.000Z",
           status: "pending",
           updatedAt: "2026-03-26T12:34:58.000Z",
-        }}
+        })}
         errorMessage="Unable to refresh this seed right now."
         isEnriching={false}
         isRefreshing={false}

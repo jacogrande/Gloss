@@ -5,6 +5,7 @@ import {
 } from "vitest";
 
 import type { SeedDetail } from "@gloss/shared/types";
+import type { SeedEnrichment } from "@gloss/shared/types";
 
 import { mergeSeedDetailState } from "../src/features/seeds/seed-detail-state";
 
@@ -22,85 +23,72 @@ const createSeed = (
   word: "pellucid",
 });
 
+const createEnrichment = (
+  overrides: Partial<SeedEnrichment> & Pick<SeedEnrichment, "status">,
+): SeedEnrichment => ({
+  completedAt: null,
+  createdAt: "2026-03-26T00:00:00.000Z",
+  errorCode: null,
+  failedAt: null,
+  guardrailFlags: [],
+  id: "enrichment_1",
+  lexicalPreview: {
+    definition: "clear and easy to understand",
+    partOfSpeech: "adjective",
+    source: "merriam-webster",
+  },
+  model: "fixture-model",
+  payload: null,
+  promptTemplateVersion: "seed-enrichment.v1",
+  provider: "fixture",
+  requestedAt: "2026-03-26T00:00:00.000Z",
+  schemaVersion: "seed-enrichment-payload.v1",
+  startedAt: null,
+  updatedAt: "2026-03-26T00:00:00.000Z",
+  ...overrides,
+});
+
 describe("mergeSeedDetailState", () => {
   it("keeps a newer local ready enrichment over an older pending fetch", () => {
-    const current = createSeed({
+    const current = createSeed(createEnrichment({
       completedAt: "2026-03-26T00:00:06.000Z",
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
-      id: "enrichment_1",
-      model: "fixture-model",
       payload: {
         gloss: "Especially clear and easy to follow.",
       },
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
       requestedAt: "2026-03-26T00:00:05.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:05.000Z",
       status: "ready",
       updatedAt: "2026-03-26T00:00:06.000Z",
-    });
-    const incoming = createSeed({
-      completedAt: null,
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
-      id: "enrichment_1",
-      model: "fixture-model",
+    }));
+    const incoming = createSeed(createEnrichment({
       payload: null,
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
       requestedAt: "2026-03-26T00:00:03.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:03.000Z",
       status: "pending",
       updatedAt: "2026-03-26T00:00:03.000Z",
-    });
+    }));
 
     expect(mergeSeedDetailState(current, incoming).enrichment?.status).toBe("ready");
   });
 
   it("accepts a newer incoming enrichment over an older local pending state", () => {
-    const current = createSeed({
-      completedAt: null,
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
-      id: "enrichment_1",
-      model: "fixture-model",
+    const current = createSeed(createEnrichment({
       payload: null,
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
       requestedAt: "2026-03-26T00:00:03.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:03.000Z",
       status: "pending",
       updatedAt: "2026-03-26T00:00:03.000Z",
-    });
-    const incoming = createSeed({
+    }));
+    const incoming = createSeed(createEnrichment({
       completedAt: "2026-03-26T00:00:08.000Z",
-      createdAt: "2026-03-26T00:00:00.000Z",
-      errorCode: null,
-      failedAt: null,
-      guardrailFlags: [],
-      id: "enrichment_1",
-      model: "fixture-model",
       payload: {
         gloss: "Especially clear and easy to follow.",
       },
-      promptTemplateVersion: "seed-enrichment.v1",
-      provider: "fixture",
       requestedAt: "2026-03-26T00:00:07.000Z",
-      schemaVersion: "seed-enrichment-payload.v1",
       startedAt: "2026-03-26T00:00:07.000Z",
       status: "ready",
       updatedAt: "2026-03-26T00:00:08.000Z",
-    });
+    }));
 
     expect(mergeSeedDetailState(current, incoming).enrichment?.status).toBe("ready");
   });

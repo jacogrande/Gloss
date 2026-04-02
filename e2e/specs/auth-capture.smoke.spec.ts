@@ -96,10 +96,9 @@ test("@smoke demo user can sign in, capture a seed, and read it back", async ({
     }
 
     await expect(gloss).not.toHaveText("");
-    await expect(page.getByRole("heading", { name: "Compare" })).toBeVisible();
-    await expect
-      .poll(async () => page.locator(".seed-detail__compare-list div").count())
-      .toBeGreaterThan(1);
+    await expect(enrichmentPanel.locator(".seed-enrichment__source-line")).toContainText(
+      "Merriam-Webster",
+    );
   } else {
     await expect(gloss).not.toHaveText("");
     await expect(page.getByText("Similar")).toBeVisible();
