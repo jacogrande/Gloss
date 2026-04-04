@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 
 import type { SeedDetail } from "@gloss/shared/types";
 
+import { InkDoodle } from "../ui/InkDoodle";
 import { SeedContextEditor } from "./SeedContextEditor";
 import { SeedEnrichmentPanel } from "./SeedEnrichmentPanel";
 import {
@@ -67,6 +68,10 @@ export const SeedDetailPanel = ({
       </div>
 
       <header className="seed-detail__hero">
+        <div className="section-heading">
+          <InkDoodle className="section-heading__mark" variant="underline" />
+          <p className="panel__eyebrow">Word</p>
+        </div>
         <div className="seed-detail__title-row">
           <h1>{seed.word}</h1>
           {stageBadge ? (
@@ -78,7 +83,7 @@ export const SeedDetailPanel = ({
       </header>
 
       {seed.primarySentence || seed.source ? (
-        <section className="surface surface--inset seed-detail__evidence">
+        <section className="seed-detail__evidence">
           <h2 className="seed-detail__evidence-title">From your reading</h2>
           {seed.primarySentence ? (
             <p className="seed-detail__sentence">{seed.primarySentence}</p>
@@ -90,7 +95,7 @@ export const SeedDetailPanel = ({
       ) : null}
 
       {captureNotice ? (
-        <section className="surface surface--notice panel panel--compact seed-detail__notice">
+        <section className="panel panel--compact seed-detail__notice">
           <p className="panel__eyebrow">{captureNotice.title}</p>
           <p className="panel__copy">{captureNotice.message}</p>
         </section>
@@ -98,7 +103,7 @@ export const SeedDetailPanel = ({
 
       {loadNotice ? (
         <section
-          className="surface surface--notice panel panel--compact seed-detail__notice"
+          className="panel panel--compact seed-detail__notice"
           role="alert"
         >
           <p className="panel__eyebrow">{loadNotice.title}</p>
@@ -136,7 +141,7 @@ export const SeedDetailPanel = ({
       ) : null}
 
       {compareItems.length > 0 ? (
-        <section className="surface surface--inset seed-detail__compare-panel">
+        <section className="seed-detail__compare-panel">
           <h2 className="seed-detail__panel-title">Compare</h2>
           <dl className="seed-detail__compare-list">
             {compareItems.map((item) => (

@@ -136,7 +136,7 @@ export const SeedContextEditor = ({
   };
 
   return (
-    <section className="surface surface--inset panel panel--compact seed-detail__recovery">
+    <section className="panel panel--compact seed-detail__recovery">
       <div className="panel__header">
         <h2>{title}</h2>
       </div>

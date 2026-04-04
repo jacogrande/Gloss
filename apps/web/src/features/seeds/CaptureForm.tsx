@@ -13,6 +13,7 @@ import {
   getCaptureHelperCopy,
   getCaptureOutcomeCopy,
 } from "../../lib/product-loop-copy";
+import { InkDoodle } from "../ui/InkDoodle";
 import {
   toCreateSeedInput,
   type CaptureFormValues,
@@ -78,6 +79,10 @@ export const CaptureForm = ({
   return (
     <section className="page page--form surface surface--primary panel panel--capture">
       <div className="panel__header">
+        <div className="section-heading">
+          <InkDoodle className="section-heading__mark" variant="bookmark" />
+          <p className="panel__eyebrow">Capture</p>
+        </div>
         <h2>Save a word</h2>
         <p className="panel__copy">{getCaptureHelperCopy()}</p>
       </div>

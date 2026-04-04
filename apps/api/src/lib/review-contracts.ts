@@ -765,7 +765,7 @@ export const buildDeterministicClozeRecallCardDraft = (
       sentenceTemplates[0],
   );
   const promptPayload = {
-    question: `Type the saved word that best completes the blank. ${toSentenceCase(stripContextualLead(payload.gloss))}`,
+    question: "Type the saved word that best completes the blank.",
     sentence,
     type: "cloze_recall" as const,
   };

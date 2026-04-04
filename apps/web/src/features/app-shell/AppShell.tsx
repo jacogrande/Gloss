@@ -1,6 +1,8 @@
 import type { JSX, PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 
+import { InkDoodle } from "../ui/InkDoodle";
+
 type AppShellProps = PropsWithChildren<{
   onSignOut: () => void;
   userEmail: string;
@@ -10,16 +12,20 @@ type AppShellProps = PropsWithChildren<{
 export const AppShell = ({
   children,
   onSignOut,
-  userEmail,
-  userName,
+  userEmail: _userEmail,
+  userName: _userName,
 }: AppShellProps): JSX.Element => {
-  const accountLabel = userName.trim().length > 0 ? userName : userEmail;
-
   return (
     <div className="shell">
       <header className="shell__header">
         <div className="shell__brand">
-          <p className="shell__brand-name">Gloss</p>
+          <div className="shell__brand-lockup">
+            <div className="shell__brand-row">
+              <InkDoodle className="shell__brand-mark" variant="spark" />
+              <p className="shell__brand-name">Gloss</p>
+            </div>
+            <InkDoodle className="shell__brand-underline" variant="underline" />
+          </div>
         </div>
 
         <div className="shell__rail">
@@ -57,11 +63,6 @@ export const AppShell = ({
           </nav>
 
           <div className="shell__account">
-            <div className="shell__account-copy">
-              <p className="shell__account-name" title={userEmail}>
-                {accountLabel}
-              </p>
-            </div>
             <button
               className="button button--ghost shell__signout"
               onClick={onSignOut}

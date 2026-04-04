@@ -1,5 +1,7 @@
 import type { JSX } from "react";
 
+import { InkDoodle } from "../ui/InkDoodle";
+
 type SessionUnavailablePanelProps = {
   isRetrying: boolean;
   message: string;
@@ -14,7 +16,10 @@ export const SessionUnavailablePanel = ({
   <main className="screen screen--centered">
     <section className="page page--notice surface surface--notice panel panel--status">
       <div className="panel__header">
-        <p className="panel__eyebrow">Connection</p>
+        <div className="section-heading">
+          <InkDoodle className="section-heading__mark" variant="loop" />
+          <p className="panel__eyebrow">Connection</p>
+        </div>
         <h2>Gloss is unavailable</h2>
         <p className="panel__copy">{message}</p>
       </div>
@@ -46,7 +51,7 @@ export const SessionConnectionBanner = ({
 }: SessionConnectionBannerProps): JSX.Element => (
   <section
     aria-live="polite"
-    className="surface surface--notice panel panel--compact shell__connection-banner"
+    className="panel panel--compact shell__connection-banner"
   >
     <div className="shell__connection-copy">
       <p className="panel__eyebrow">Connection</p>

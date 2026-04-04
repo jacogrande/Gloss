@@ -20,6 +20,7 @@ import {
 
 const createSeed = (input?: {
   contrastiveWord?: string;
+  gloss?: string;
   primarySentence?: string;
   registerNote?: string;
   word?: string;
@@ -57,7 +58,7 @@ const createSeed = (input?: {
             },
           }
         : {}),
-      gloss: "Especially clear and easy to follow.",
+      gloss: input?.gloss ?? "Especially clear and easy to follow.",
       ...(input?.registerNote
         ? {
             registerNote: input.registerNote,
@@ -176,6 +177,19 @@ describe("review contracts", () => {
     expect(draft.promptPayload.sentence).not.toBe(
       "Her explanation was ____ even under pressure.",
     );
+  });
+
+  it("does not leak the answer even when the gloss contains the word", () => {
+    const draft = buildDeterministicClozeRecallCardDraft(
+      createSeed({
+        gloss: "Pellucid means especially clear and easy to follow.",
+      }),
+    );
+
+    expect(draft.promptPayload.question).toBe(
+      "Type the saved word that best completes the blank.",
+    );
+    expect(draft.promptPayload.question.toLowerCase()).not.toContain("pellucid");
   });
 
   it("rejects cloze prompts that leak the answer", () => {

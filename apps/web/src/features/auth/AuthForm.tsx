@@ -1,6 +1,7 @@
 import { useState, type JSX } from "react";
 
 import { getAuthHelperCopy } from "../../lib/product-loop-copy";
+import { InkDoodle } from "../ui/InkDoodle";
 
 type AuthMode = "sign-in" | "sign-up";
 
@@ -31,7 +32,10 @@ export const AuthForm = ({
   return (
     <section className="page page--form surface surface--primary auth-card" data-mode={mode}>
       <header className="auth-card__header">
-        <p className="auth-card__eyebrow">Gloss</p>
+        <div className="section-heading">
+          <InkDoodle className="section-heading__mark" variant="spark" />
+          <p className="auth-card__eyebrow">Gloss</p>
+        </div>
         <h1>{mode === "sign-in" ? "Sign in" : "Create your account"}</h1>
         <p className="auth-card__copy">{helperCopy}</p>
       </header>

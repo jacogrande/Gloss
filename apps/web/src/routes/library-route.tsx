@@ -25,6 +25,7 @@ import { SeedCard } from "../features/seeds/SeedCard";
 import { fetchSeedList } from "../lib/api-client";
 import { webEnv } from "../lib/env";
 import { useAsyncResource } from "../lib/use-async-resource";
+import { InkDoodle } from "../features/ui/InkDoodle";
 
 type StageFilter = SeedStage | "all";
 
@@ -130,9 +131,13 @@ export const LibraryRoute = (): JSX.Element => {
 
   return (
     <section className="page page--list library">
-      <div className="surface surface--primary panel panel--compact">
+      <div className="panel panel--compact library__header-block">
         <div className="library__header">
           <div>
+            <div className="section-heading">
+              <InkDoodle className="section-heading__mark" variant="underline" />
+              <p className="panel__eyebrow">Library</p>
+            </div>
             <h2>Your words</h2>
           </div>
 
@@ -172,19 +177,22 @@ export const LibraryRoute = (): JSX.Element => {
       </div>
 
       {isLoading && items.length === 0 ? (
-        <section className="surface surface--primary panel">
+        <section className="panel library__status">
           <p className="panel__copy">Loading your library...</p>
         </section>
       ) : null}
 
       {isRefreshing && items.length > 0 ? (
-        <section className="surface surface--notice panel panel--compact" aria-live="polite">
+        <section
+          aria-live="polite"
+          className="panel panel--compact library__status-note"
+        >
           <p className="panel__copy">Refreshing your library...</p>
         </section>
       ) : null}
 
       {errorMessage && items.length === 0 ? (
-        <section className="surface surface--primary panel">
+        <section className="panel library__status">
           <p className="capture-form__error" role="alert">
             {errorMessage}
           </p>
@@ -203,7 +211,7 @@ export const LibraryRoute = (): JSX.Element => {
       ) : null}
 
       {errorMessage && items.length > 0 ? (
-        <section className="surface surface--notice panel panel--compact" role="alert">
+        <section className="panel panel--compact library__status-note" role="alert">
           <p className="panel__eyebrow">Couldn’t refresh</p>
           <p className="panel__copy">
             {errorMessage} Showing the last loaded library for now.
@@ -223,7 +231,11 @@ export const LibraryRoute = (): JSX.Element => {
       ) : null}
 
       {items.length === 0 && !errorMessage && !isLoading ? (
-        <section className="surface surface--primary panel">
+        <section className="surface surface--primary panel library__empty-state">
+          <div className="section-heading">
+            <InkDoodle className="section-heading__mark" variant="loop" />
+            <p className="panel__eyebrow">First steps</p>
+          </div>
           <h3>{emptyState.title}</h3>
           <p className="panel__copy">{emptyState.message}</p>
           <div className="action-row panel__actions">
