@@ -93,6 +93,36 @@ describe("SeedEnrichmentPanel", () => {
     ).toBeVisible();
   });
 
+  it("does not show the contextual gloss section without a saved sentence", () => {
+    render(
+      <SeedEnrichmentPanel
+        enrichment={createEnrichment({
+          completedAt: "2026-03-26T12:35:10.000Z",
+          lexicalPreview: {
+            definition: "given to talking excessively",
+            partOfSpeech: "adjective",
+            source: "merriam-webster",
+          },
+          payload: {
+            gloss: "tending to talk a lot; talkative or wordy.",
+          },
+          status: "ready",
+        })}
+        errorMessage={null}
+        isEnriching={false}
+        isRefreshing={false}
+        onRefresh={vi.fn()}
+        onRetry={vi.fn()}
+        primarySentence={null}
+        showManualRefresh={false}
+        word="garrulous"
+      />,
+    );
+
+    expect(screen.queryByText("In your sentence")).toBeNull();
+    expect(screen.getByText("given to talking excessively")).toBeVisible();
+  });
+
   it("surfaces the failed state and retry affordance for retriable failures", () => {
     const onRetry = vi.fn();
 
@@ -174,6 +204,33 @@ describe("SeedEnrichmentPanel", () => {
     expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
+  it("keeps weak-evidence copy truthful when a sentence is already saved", () => {
+    render(
+      <SeedEnrichmentPanel
+        enrichment={createEnrichment({
+          errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+          failedAt: "2026-03-26T12:35:10.000Z",
+          payload: null,
+          status: "failed",
+        })}
+        errorMessage={null}
+        isEnriching={false}
+        isRefreshing={false}
+        onRefresh={vi.fn()}
+        onRetry={vi.fn()}
+        primarySentence="The sentence makes it sound measured and restrained."
+        showManualRefresh={false}
+        word="dravonel"
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        "Gloss found the dictionary sense, but it still needs one more clue before it can safely adapt the meaning to your reading.",
+      ),
+    ).toBeVisible();
+  });
+
   it("keeps pending enrichment automatic by default", () => {
     render(
       <SeedEnrichmentPanel
@@ -196,10 +253,17 @@ describe("SeedEnrichmentPanel", () => {
     );
 
     expect(
-      screen.getByText(/Gloss is grounding pellucid in Merriam-Webster first/i),
+      screen.getByText("Finding the first grounded sense"),
     ).toBeVisible();
     expect(
-      screen.getByText(/You do not need to wait here\./i),
+      screen.getByText(
+        /Merriam-Webster lands first\. Gloss is finding the cleanest grounded sense for this word\./i,
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        /The first definition appears here as soon as it lands\./i,
+      ),
     ).toBeVisible();
     expect(screen.queryByRole("button", { name: "Refresh now" })).toBeNull();
   });
@@ -229,7 +293,7 @@ describe("SeedEnrichmentPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Check again" }));
 
     expect(
-      screen.getByText(/The dictionary meaning is here\./i),
+      screen.getByText(/Shaping the reading-specific pass/i),
     ).toBeVisible();
     expect(onRefresh).toHaveBeenCalledTimes(1);
   });

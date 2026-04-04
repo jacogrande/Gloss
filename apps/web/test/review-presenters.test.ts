@@ -89,6 +89,11 @@ describe("review presenters", () => {
         value: "2 cards · About 1 minute",
       },
     ]);
+    expect(display.path).toEqual([
+      "Meaning first",
+      "Then compare or usage where it helps",
+      "About 1 minute",
+    ]);
   });
 
   it("builds learner-facing feedback from a submitted card", () => {

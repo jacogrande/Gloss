@@ -135,6 +135,38 @@ describe("seed presenters", () => {
     );
   });
 
+  it("asks for one more clue when weak evidence remains after a sentence is saved", () => {
+    const recoveryState = getSeedRecoveryState({
+      seed: {
+        enrichment: createEnrichment({
+          errorCode: "ENRICHMENT_EVIDENCE_UNAVAILABLE",
+          failedAt: "2026-03-26T00:00:02.000Z",
+          id: "enrichment_weak_sentence",
+          lexicalPreview: {
+            definition: "measured or restrained in tone",
+            partOfSpeech: "adjective",
+            source: "merriam-webster",
+          },
+          payload: null,
+          startedAt: null,
+          status: "failed",
+        }),
+        primarySentence: "The sentence makes it sound measured and restrained.",
+        source: null,
+      },
+    });
+
+    expect(recoveryState?.title).toBe("Give Gloss one more clue");
+    expect(recoveryState?.actionLabel).toBe("Save details and try again");
+    expect(recoveryState?.sentenceLabel).toBe("Sentence from your reading");
+    expect(recoveryState?.sentencePlaceholder).toBe(
+      "Tighten the sentence where you saw this word.",
+    );
+    expect(recoveryState?.message).toBe(
+      "Gloss has the sentence, but it still needs one more clue to pin down the meaning safely. Add source details or tighten the sentence, then try again.",
+    );
+  });
+
   it("derives a calm load notice when the authoritative seed fetch fails", () => {
     expect(getSeedLoadNotice("Unable to load this seed.")).toEqual({
       message:

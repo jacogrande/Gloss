@@ -102,7 +102,9 @@ export type SeedEnrichmentLoadingStep = {
 
 type SeedEnrichmentLoadingNarrative = {
   intro: string;
+  phaseLabel: string;
   reassurance: string;
+  title: string;
 };
 
 const hasWeakEnrichmentFailure = (
@@ -115,6 +117,7 @@ export const getSeedEnrichmentFallbackView = (input: {
   enrichment: SeedEnrichment | null | undefined;
   errorMessage: string | null;
   isEnriching: boolean;
+  primarySentence: string | null;
   showManualRefresh: boolean;
 }): SeedEnrichmentFallbackView | null => {
   if (input.errorMessage && !input.isEnriching && !input.enrichment) {
@@ -153,12 +156,15 @@ export const getSeedEnrichmentFallbackView = (input: {
   }
 
   if (input.enrichment.status === "failed") {
+    const hasSentence = Boolean(input.primarySentence?.trim());
     const message =
       input.errorMessage ??
       (() => {
         switch (input.enrichment?.errorCode) {
           case "ENRICHMENT_EVIDENCE_UNAVAILABLE":
-            return "Gloss found the word, but it still needs the sentence where you saw it before it can safely adapt the meaning.";
+            return hasSentence
+              ? "Gloss found the dictionary sense, but it still needs one more clue before it can safely adapt the meaning to your reading."
+              : "Gloss found the word, but it still needs the sentence where you saw it before it can safely adapt the meaning.";
           case "ENRICHMENT_SCHEMA_INVALID":
             return "The response was invalid.";
           case "ENRICHMENT_PROVIDER_ERROR":
@@ -223,6 +229,18 @@ export const getSeedRecoveryState = (
   },
 ): SeedRecoveryState | null => {
   if (hasWeakEnrichmentFailure(input.seed.enrichment)) {
+    if (input.seed.primarySentence?.trim()) {
+      return {
+        actionLabel: "Save details and try again",
+        message: input.seed.source
+          ? "Gloss has the sentence and source details, but it still needs a slightly clearer clue. Tighten the sentence or refine the source details, then try again."
+          : "Gloss has the sentence, but it still needs one more clue to pin down the meaning safely. Add source details or tighten the sentence, then try again.",
+        sentenceLabel: "Sentence from your reading",
+        sentencePlaceholder: "Tighten the sentence where you saw this word.",
+        title: "Give Gloss one more clue",
+      };
+    }
+
     return {
       actionLabel: "Save context and try again",
       message:
@@ -289,23 +307,28 @@ export const getSeedEnrichmentLoadingNarrative = (input: {
   word: string;
 }): SeedEnrichmentLoadingNarrative => {
   const sentenceExcerpt = toSentenceExcerpt(input.primarySentence);
+  const hasSentence = Boolean(sentenceExcerpt);
 
   if (!input.lexicalPreview) {
     return {
-      intro: sentenceExcerpt
-        ? `Gloss is grounding ${input.word} in Merriam-Webster first, then turning it back toward “${sentenceExcerpt}”.`
-        : `Gloss is grounding ${input.word} in Merriam-Webster first, then shaping it for your reading.`,
-      reassurance: "You do not need to wait here. Gloss will keep building this word in the background.",
+      intro: "Merriam-Webster lands first. Gloss is finding the cleanest grounded sense for this word.",
+      phaseLabel: "Step 1 of 3",
+      reassurance: "You can leave this page. The first definition appears here as soon as it lands.",
+      title: "Finding the first grounded sense",
     };
   }
 
   return {
-    intro: sentenceExcerpt
-      ? `The dictionary meaning is here. Gloss is now tuning it to “${sentenceExcerpt}”.`
-      : `The dictionary meaning is here. Gloss is now tuning it to your reading.`,
+    intro: hasSentence
+      ? `The dictionary meaning is here. Gloss is now checking how “${sentenceExcerpt}” changes the edge of the word.`
+      : "The dictionary meaning is here. Gloss is now preparing the final compare and review cues.",
+    phaseLabel: input.isRefreshing ? "Checking again" : "Step 2 of 3",
     reassurance: input.isRefreshing
-      ? "Still checking for the reading-specific pass."
-      : "You can return to the library while Gloss finishes this word.",
+      ? "Still checking for the final pass."
+      : "You can return to the library while Gloss finishes the final pass.",
+    title: hasSentence
+      ? "Shaping the reading-specific pass"
+      : "Preparing the final learning pass",
   };
 };
 
@@ -315,34 +338,35 @@ export const getSeedEnrichmentLoadingSteps = (input: {
   primarySentence: string | null;
 }): SeedEnrichmentLoadingStep[] => {
   const sentenceExcerpt = toSentenceExcerpt(input.primarySentence);
+  const hasSentence = Boolean(sentenceExcerpt);
 
   if (!input.lexicalPreview) {
     return [
       {
-        body: "Finding the right Merriam-Webster entry for this word.",
+        body: "Finding the Merriam-Webster entry.",
         status: "active",
-        title: "Finding the word",
+        title: "Matching the word",
       },
       {
-        body: "The first grounded definition will appear here as soon as it lands.",
+        body: "The first grounded definition lands here.",
         status: "pending",
-        title: "Lifting the first clean sense",
+        title: "Lifting the first sense",
       },
       {
-        body: sentenceExcerpt
-          ? `After that, Gloss reshapes the meaning to match “${sentenceExcerpt}”.`
-          : "After that, Gloss reshapes the meaning to match your reading.",
+        body: hasSentence
+          ? "After that, Gloss turns it toward your reading."
+          : "After that, Gloss prepares compare and review cues.",
         status: "pending",
-        title: "Turning it toward your reading",
+        title: hasSentence ? "Checking your sentence" : "Preparing the final pass",
       },
     ];
   }
 
   return [
     {
-      body: "This word is anchored to a Merriam-Webster entry.",
+      body: "This word is anchored to Merriam-Webster.",
       status: "complete",
-      title: "Word found",
+      title: "Word matched",
     },
     {
       body: "The first dictionary sense is ready.",
@@ -351,12 +375,12 @@ export const getSeedEnrichmentLoadingSteps = (input: {
     },
     {
       body: input.isRefreshing
-        ? "Checking again for the reading-specific pass."
-        : sentenceExcerpt
-          ? `Gloss is shaping that definition to match “${sentenceExcerpt}”.`
-          : "Gloss is shaping that definition to match your reading.",
+        ? "Checking again for the final pass."
+        : hasSentence
+          ? `Gloss is shaping that meaning around “${sentenceExcerpt}”.`
+          : "Gloss is preparing compare and review cues for this word.",
       status: "active",
-      title: "Turning it toward your reading",
+      title: hasSentence ? "Turning it toward your reading" : "Preparing the final pass",
     },
   ];
 };

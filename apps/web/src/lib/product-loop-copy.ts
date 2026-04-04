@@ -9,10 +9,10 @@ export const getAuthHelperCopy = (
     : `Start with a word from real reading. ${productLoopLine}`;
 
 export const getCaptureHelperCopy = (): string =>
-  "Save the word first. Add the sentence where you found it for the strongest definition.";
+  "Save the word first. Add the sentence where you found it for the sharpest definition.";
 
 export const getCaptureOutcomeCopy = (): string =>
-  "Save now. Merriam-Webster lands first. Gloss then tunes the meaning to your reading and prepares review.";
+  "Merriam-Webster lands first. Gloss then shapes the final pass and review cues.";
 
 export const getCaptureContextToggleLabel = (input: {
   hasContext: boolean;
@@ -26,7 +26,7 @@ export const getCaptureContextToggleLabel = (input: {
 };
 
 export const getCaptureContextHelperCopy = (): string =>
-  "Best results come from the sentence where you found the word. Source details help when the sentence is thin.";
+  "The sentence does most of the work. Source details help when the sentence is thin.";
 
 export const getEmptyLibraryMessage = (): string =>
   `Save your first word from real reading. ${productLoopLine}`;

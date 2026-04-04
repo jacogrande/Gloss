@@ -34,6 +34,7 @@ export type ReviewQueueDisplayState = {
     value: string;
   }>;
   message: string;
+  path: string[];
   secondaryAction: ReviewActionLink | null;
   summary: string;
 };
@@ -220,6 +221,11 @@ export const getReviewQueueDisplayState = (
       ],
       message:
         "Your session is still open. Pick up where you left off.",
+      path: [
+        "Resume the card in progress",
+        "Finish the short session",
+        "Return to your library",
+      ],
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -262,7 +268,14 @@ export const getReviewQueueDisplayState = (
         },
       ],
       message:
-        "Start a short session from the words due now. Gloss will move from meaning to comparison or usage only where each word is ready for it.",
+        "Start a short session from the words due now. Gloss begins with the clearest meaning check, then only goes deeper where each word is ready for it.",
+      path: [
+        "Meaning first",
+        (queue?.dueByDimension.distinction ?? 0) > 0 || (queue?.dueByDimension.usage ?? 0) > 0
+          ? "Then compare or usage where it helps"
+          : "Then stop once the word is clear",
+        formatReviewSessionEstimate(approximateCardCount),
+      ],
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -278,6 +291,7 @@ export const getReviewQueueDisplayState = (
       facts: [],
       message:
         "Nothing is due yet. Browse your library now, then come back once a word is ready.",
+      path: [],
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -298,6 +312,7 @@ export const getReviewQueueDisplayState = (
       ],
       message:
         "Your saved words are still being prepared for review. Browse the library now, or come back once the first word is ready.",
+      path: [],
       secondaryAction: {
         href: "/library",
         label: "Browse your words",
@@ -312,6 +327,7 @@ export const getReviewQueueDisplayState = (
     facts: [],
     message:
       "You do not have anything to review yet. Save a word first, then come back once it is ready.",
+    path: [],
     secondaryAction: {
       href: "/capture",
       label: "Save your first word",

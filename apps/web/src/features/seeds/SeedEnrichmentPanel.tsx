@@ -1,4 +1,7 @@
-import type { JSX } from "react";
+import type {
+  CSSProperties,
+  JSX,
+} from "react";
 
 import type { SeedEnrichment } from "@gloss/shared/types";
 
@@ -43,13 +46,36 @@ const SeedEnrichmentLoadingWizard = (input: {
     primarySentence: input.primarySentence,
     word: input.word,
   });
+  const completedSteps = steps.filter((step) => step.status === "complete").length;
+  const activeStepIndex = Math.max(
+    steps.findIndex((step) => step.status === "active"),
+    0,
+  );
+  const progressRatio =
+    steps.length === 0
+      ? 0
+      : (completedSteps + (steps[activeStepIndex]?.status === "active" ? 0.6 : 0)) /
+        steps.length;
 
   return (
-    <section
-      aria-live="polite"
-      className="seed-enrichment__wizard"
-    >
-      <p className="seed-enrichment__wizard-intro">{narrative.intro}</p>
+    <section aria-live="polite" className="seed-enrichment__wizard">
+      <header className="seed-enrichment__wizard-header">
+        <div className="seed-enrichment__wizard-copy">
+          <p className="seed-enrichment__kicker">{narrative.phaseLabel}</p>
+          <h2 className="seed-enrichment__wizard-heading">{narrative.title}</h2>
+          <p className="seed-enrichment__wizard-intro">{narrative.intro}</p>
+        </div>
+        <div
+          aria-hidden="true"
+          className="seed-enrichment__wizard-progress"
+          style={{
+            "--seed-enrichment-progress": `${Math.min(
+              Math.max(progressRatio, 0.08),
+              1,
+            )}`,
+          } as CSSProperties}
+        />
+      </header>
       <ol className="seed-enrichment__wizard-steps">
         {steps.map((step, index) => (
           <li
@@ -60,7 +86,9 @@ const SeedEnrichmentLoadingWizard = (input: {
             <span aria-hidden="true" className="seed-enrichment__wizard-marker" />
             <div className="seed-enrichment__wizard-copy">
               <p className="seed-enrichment__wizard-title">{step.title}</p>
-              <p className="seed-enrichment__wizard-body">{step.body}</p>
+              {step.status === "active" ? (
+                <p className="seed-enrichment__wizard-body">{step.body}</p>
+              ) : null}
             </div>
           </li>
         ))}
@@ -97,7 +125,7 @@ export const SeedEnrichmentPanel = ({
     lexicalPreview?.definition ?? (payload ? toDictionaryDefinition(payload.gloss) : null);
   const primaryDefinitionPartOfSpeech = lexicalPreview?.partOfSpeech ?? null;
   const showContextualGloss =
-    payload && primaryDefinition
+    payload && primaryDefinition && Boolean(primarySentence?.trim())
       ? shouldShowContextualGloss(primaryDefinition, payload.gloss)
       : false;
   const shouldShowPendingWizard =
@@ -110,6 +138,7 @@ export const SeedEnrichmentPanel = ({
       enrichment,
       errorMessage,
       isEnriching,
+      primarySentence,
       showManualRefresh,
     });
 
@@ -130,10 +159,11 @@ export const SeedEnrichmentPanel = ({
             </div>
           </div>
         ) : (
-          <div
-            aria-hidden="true"
-            className="seed-enrichment__definition-skeleton"
-          />
+          <div aria-hidden="true" className="seed-enrichment__definition-skeleton">
+            <span className="seed-enrichment__definition-skeleton-line seed-enrichment__definition-skeleton-line--meta" />
+            <span className="seed-enrichment__definition-skeleton-line seed-enrichment__definition-skeleton-line--sense" />
+            <span className="seed-enrichment__definition-skeleton-line seed-enrichment__definition-skeleton-line--detail" />
+          </div>
         )}
         <SeedEnrichmentLoadingWizard
           isRefreshing={isRefreshing}
@@ -143,8 +173,7 @@ export const SeedEnrichmentPanel = ({
           showManualRefresh={showManualRefresh}
           word={word}
         />
-        {fallbackView?.variant === "pending" &&
-        (!primaryDefinition || Boolean(errorMessage)) ? (
+        {fallbackView?.variant === "pending" && Boolean(errorMessage) ? (
           <p className="seed-enrichment__state-copy">{fallbackView.message}</p>
         ) : null}
       </section>
@@ -155,6 +184,7 @@ export const SeedEnrichmentPanel = ({
     enrichment,
     errorMessage,
     isEnriching,
+    primarySentence,
     showManualRefresh,
   });
 

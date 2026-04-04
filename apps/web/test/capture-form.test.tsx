@@ -70,7 +70,7 @@ describe("CaptureForm", () => {
 
     expect(
       screen.getByText(
-        /Save the word first\. Add the sentence where you found it for the strongest definition\./i,
+        /Save the word first\. Add the sentence where you found it for the sharpest definition\./i,
       ),
     ).toBeVisible();
     expect(
@@ -94,7 +94,7 @@ describe("CaptureForm", () => {
 
     expect(screen.getByLabelText("Sentence from your reading (recommended)")).toBeVisible();
     expect(
-      screen.getByText(/Best results come from the sentence where you found the word\./i),
+      screen.getByText(/The sentence does most of the work\./i),
     ).toBeVisible();
   });
 

@@ -39,6 +39,7 @@ import {
 import { webEnv } from "../lib/env";
 import { ApiClientError } from "../lib/http";
 import { useAsyncResource } from "../lib/use-async-resource";
+import { InkDoodle } from "../features/ui/InkDoodle";
 
 type SubmitSuccess = {
   result: ReviewSubmissionResult;
@@ -355,7 +356,7 @@ export const ReviewRoute = (): JSX.Element => {
 
   if (reviewState.kind === "loading") {
     return (
-      <section className="page page--review surface surface--primary panel">
+      <section className="page page--review panel review__queue-panel">
         <p className="panel__copy">Loading your next review...</p>
       </section>
     );
@@ -364,9 +365,13 @@ export const ReviewRoute = (): JSX.Element => {
   if (reviewState.kind === "card") {
     return (
       <section className="page page--review review">
-        <div className="surface surface--primary panel panel--compact review__queue-panel">
+        <div className="panel panel--compact review__queue-panel">
           <div className="review__queue-header">
             <div>
+              <div className="section-heading">
+                <InkDoodle className="section-heading__mark" variant="underline" />
+                <p className="panel__eyebrow">Review</p>
+              </div>
               <h2>Review</h2>
               <p className="panel__copy">
                 {formatReviewProgressLabel({
@@ -486,9 +491,13 @@ export const ReviewRoute = (): JSX.Element => {
 
     return (
       <section className="page page--review review">
-        <div className="surface surface--primary panel panel--compact review__queue-panel">
+        <div className="panel panel--compact review__queue-panel">
           <div className="review__queue-header">
             <div>
+              <div className="section-heading">
+                <InkDoodle className="section-heading__mark" variant="underline" />
+                <p className="panel__eyebrow">Review</p>
+              </div>
               <h2>Review</h2>
               <p className="panel__copy">
                 {formatReviewProgressLabel({
@@ -571,9 +580,12 @@ export const ReviewRoute = (): JSX.Element => {
 
     return (
       <section className="page page--review review">
-        <section className="surface surface--primary panel">
+        <section className="surface surface--primary panel review__completion">
           <div className="panel__header">
-            <p className="panel__eyebrow">Review complete</p>
+            <div className="section-heading">
+              <InkDoodle className="section-heading__mark" variant="spark" />
+              <p className="panel__eyebrow">Review complete</p>
+            </div>
             <h2>{completionState.title}</h2>
             <p className="panel__copy">{completionState.summary}</p>
           </div>
@@ -603,10 +615,13 @@ export const ReviewRoute = (): JSX.Element => {
   if (errorMessage && !queue) {
     return (
       <section className="page page--review review">
-        <section className="surface surface--primary panel review__queue-panel">
+        <section className="panel review__queue-panel">
           <div className="review__queue-header">
             <div>
-              <p className="panel__eyebrow">Queue</p>
+              <div className="section-heading">
+                <InkDoodle className="section-heading__mark" variant="underline" />
+                <p className="panel__eyebrow">Queue</p>
+              </div>
               <h2>Review</h2>
             </div>
           </div>
@@ -638,10 +653,13 @@ export const ReviewRoute = (): JSX.Element => {
 
   return (
     <section className="page page--review review">
-      <section className="surface surface--primary panel review__queue-panel">
+      <section className="panel review__queue-panel">
         <div className="review__queue-header">
           <div>
-            <p className="panel__eyebrow">Queue</p>
+            <div className="section-heading">
+              <InkDoodle className="section-heading__mark" variant="underline" />
+              <p className="panel__eyebrow">Queue</p>
+            </div>
             <h2>Review</h2>
           </div>
           <p className="review__queue-summary">{queueDisplayState.summary}</p>
@@ -659,6 +677,13 @@ export const ReviewRoute = (): JSX.Element => {
         ) : null}
 
         <p className="panel__copy">{queueDisplayState.message}</p>
+        {queueDisplayState.path.length > 0 ? (
+          <ol className="review__queue-path">
+            {queueDisplayState.path.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ol>
+        ) : null}
 
         {isRefreshing ? (
           <p aria-live="polite" className="capture-form__hint">
@@ -666,7 +691,7 @@ export const ReviewRoute = (): JSX.Element => {
           </p>
         ) : null}
         {errorMessage ? (
-          <section className="surface surface--notice panel panel--compact" role="alert">
+          <section className="panel panel--compact review__queue-note" role="alert">
             <p className="panel__eyebrow">Couldn’t refresh</p>
             <p className="panel__copy">
               {errorMessage} Showing the last known queue for now.

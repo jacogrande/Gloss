@@ -15,7 +15,7 @@ describe("product loop presenters", () => {
     expect(getAuthHelperCopy("sign-up")).toContain(sharedLine);
     expect(getEmptyLibraryMessage()).toContain(sharedLine);
     expect(getCaptureHelperCopy()).toContain(
-      "Add the sentence where you found it for the strongest definition.",
+      "Add the sentence where you found it for the sharpest definition.",
     );
   });
 
