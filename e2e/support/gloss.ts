@@ -72,7 +72,8 @@ export const waitForSeedDetailState = async (input: {
   expectRecovery?: boolean;
   page: Page;
 }): Promise<"failed" | "ready"> => {
-  const recoveryHeadingPattern = /Help Gloss finish this word|Give this word more context|Add the sentence/;
+  const recoveryHeadingPattern =
+    /Help Gloss finish this word|Give Gloss one more clue|Give this word more context|Add the sentence/;
   const timeoutMs = process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 60_000 : 15_000;
   const enrichmentPanel = input.page.locator(".seed-enrichment");
   const gloss = enrichmentPanel.locator(".seed-enrichment__gloss");
@@ -371,10 +372,43 @@ export const openReviewSession = async (page: Page): Promise<void> => {
   await expect(page.getByRole("heading", { name: "Review" })).toBeVisible();
   const startButton = page.getByRole("button", { name: "Start a short session" });
   const resumeButton = page.getByRole("button", { name: "Resume review" });
+  const refreshButton = page.getByRole("button", { name: "Refresh" });
+  const timeoutMs = process.env.ENRICHMENT_PROVIDER_MODE === "live" ? 60_000 : 10_000;
 
-  if (
-    await startButton.isVisible().catch(() => false)
-  ) {
+  const waitForRunnableState = async (): Promise<"finished" | "resume" | "start"> => {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      if (await startButton.isVisible().catch(() => false)) {
+        return "start";
+      }
+
+      if (await resumeButton.isVisible().catch(() => false)) {
+        return "resume";
+      }
+
+      if (
+        await page
+          .getByRole("heading", { name: "Nice work" })
+          .isVisible()
+          .catch(() => false)
+      ) {
+        return "finished";
+      }
+
+      if (await refreshButton.isVisible().catch(() => false)) {
+        await refreshButton.click();
+      }
+
+      await page.waitForTimeout(1_000);
+    }
+
+    throw new Error("Review queue did not become runnable before timing out.");
+  };
+
+  const queueState = await waitForRunnableState();
+
+  if (queueState === "start") {
     await Promise.all([
       page.waitForResponse((response) => {
         const request = response.request();
@@ -386,8 +420,10 @@ export const openReviewSession = async (page: Page): Promise<void> => {
       }),
       startButton.click(),
     ]);
-  } else if (await resumeButton.isVisible().catch(() => false)) {
+  } else if (queueState === "resume") {
     await resumeButton.click();
+  } else {
+    return;
   }
 
   await expect
@@ -409,7 +445,7 @@ export const openReviewSession = async (page: Page): Promise<void> => {
 
       return "pending";
     }, {
-      timeout: 10_000,
+      timeout: timeoutMs,
     })
     .toBe("question");
 };

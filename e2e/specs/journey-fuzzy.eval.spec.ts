@@ -241,7 +241,9 @@ const runJourney = async (input: {
 
           if (
             await input.page
-              .getByRole("heading", { name: "Help Gloss finish this word" })
+              .getByRole("heading", {
+                name: /Help Gloss finish this word|Give Gloss one more clue/u,
+              })
               .isVisible()
               .catch(() => false)
           ) {
